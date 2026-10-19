@@ -1,0 +1,44 @@
+# Secrets and env local
+.env
+.env.*
+!.env.example
+
+# data local (data lake, volumes)
+.data/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+
+# Node
+node_modules/
+services/frontend/dist/
+services/frontend/coverage/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl.bak
+
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+services/frontend/tsconfig.tsbuildinfo
+backend.hcl
+.deploy.lock
