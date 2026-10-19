@@ -25,6 +25,8 @@ node_modules/
 services/frontend/dist/
 services/frontend/coverage/
 
+# Angular
+.angular/
 # Terraform
 .terraform/
 *.tfstate
