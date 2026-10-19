@@ -6,5 +6,6 @@ export const routes: Routes = [
   { path: 'sites/:id', loadComponent: () => import('./features/site/site').then(m => m.Site) },
   { path: 'previsions', loadComponent: () => import('./features/previsions/previsions').then(m => m.Previsions) },
   { path: 'alertes', loadComponent: () => import('./features/alertes/alertes').then(m => m.Alertes) },
+  { path: 'login', loadComponent: () => import('./features/login/login').then(m => m.Login) },
   { path: '**', redirectTo: 'parc' },
 ];

@@ -1,8 +1,8 @@
 # Vérifie à la PR le format Conventional Commits (règles dans commitlint.config.mjs) :
 # - chaque commit de la PR (déjà vérifiés en local par le hook .githooks/commit-msg) ;
-# - le nom de la branche (feature/… ou fix/…) ;
-# - le titre de la PR, qui devient le commit sur main en squash merge
-#   et que semantic-release analyse pour calculer la version.
+# - le nom de la branche (feature/… ou fix/…).
+# Les PR sont fusionnées en rebase : ces commits arrivent tels quels sur main
+# et c'est eux que semantic-release analyse ; le titre de la PR n'est pas utilisé.
 # synchronize (nouveaux commits sur une PR ouverte) est nécessaire : un check
 # obligatoire est lié au dernier commit de la PR, sans lui la PR resterait bloquée.
 name: Commits
@@ -10,15 +10,13 @@ name: Commits
 on:
   pull_request:
     branches: [main]
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, synchronize, reopened]
 
 # aucun droit par défaut, chaque job déclare uniquement ce dont il a besoin
 permissions: {}
 
 jobs:
   commits:
-    # rien à revérifier quand seul le titre ou la description de la PR change
-    if: github.event.action != 'edited'
     runs-on: ubuntu-24.04
     permissions:
       contents: read        # checkout du dépôt
@@ -56,24 +54,3 @@ jobs:
           fi
           echo "Branche « $BRANCH » valide."
 
-  pr-title:
-    runs-on: ubuntu-24.04
-    permissions:
-      pull-requests: read   # lecture du titre de la PR
-    steps:
-      - uses: amannn/action-semantic-pull-request@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          types: |
-            feat
-            fix
-            perf
-            refactor
-            docs
-            test
-            build
-            ci
-            chore
-            revert
-          requireScope: false
