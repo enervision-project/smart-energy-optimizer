@@ -1,0 +1,81 @@
+# ==============================================================================
+# Informations du Projet
+# ==============================================================================
+site_name: Smart Energy Optimizer
+site_url: https://github.com/enervision-project/smart-energy-optimizer
+site_description: Documentation de Smart Energy Optimizer
+copyright: Copyright &copy; 2026 EnerVision
+# ==============================================================================
+# Configuration du Dépôt
+# ==============================================================================
+repo_name: Smart Energy Optimizer
+repo_url: https://github.com/enervision-project/smart-energy-optimizer
+# ==============================================================================
+# Configuration du Thème (Material)
+# ==============================================================================
+theme:
+  name: material
+  language: fr
+  logo: assets/logo-short.png
+  favicon: assets/logo.ico
+  features:
+    - navigation.tabs
+    - navigation.footer
+    - navigation.instant
+  palette:
+    # Mode clair
+    - scheme: default
+      primary: custom
+      toggle:
+        icon: material/weather-night
+        name: Passer au mode sombre
+    # Mode sombre
+    - scheme: slate
+      primary: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Passer au mode clair
+# ==============================================================================
+# Plugins
+# ==============================================================================
+plugins:
+  - search
+  - monorepo
+  - awesome-pages
+
+extra_css:
+  - stylesheets/extra.css
+extra_javascript:
+  - javascripts/external-links.js
+
+markdown_extensions:
+  - tables
+  - attr_list
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+            # ==============================================================================
+            # Configurations Supplémentaires
+          # ==============================================================================
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/enervision-project
+# ==============================================================================
+# Navigation
+# ==============================================================================
+nav:
+  - Accueil: index.md
+  - ...
+  - ETL Worker: '!include ./services/etl-worker/mkdocs.yml'
