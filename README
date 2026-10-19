@@ -1,2 +1,15 @@
 # EnerVision - Smart Energy Optimizer
-main
+
+## Structure
+
+```
+services/etl-worker/   ETL Python planifié par cron
+compose.yaml           stack Docker Compose du projet
+```
+
+## Démarrage
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
