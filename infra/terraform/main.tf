@@ -1,0 +1,200 @@
+# Une EC2 qui exécute compose.yaml + compose.prod.yaml ; images dans ECR ; déploiement via SSM.
+# Pas de SSH : accès shell avec `aws ssm start-session --target <instance_id>`.
+
+data "aws_caller_identity" "current" {}
+
+locals {
+  name = "enervision"
+  # services avec une image à construire : un dépôt ECR chacun
+  services = jsondecode(file("${path.module}/../../.github/services.json")).services
+  images   = [for k, s in local.services : k if contains(keys(s), "build")]
+}
+
+# --- Réseau : VPC par défaut, sous-réseau public
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnet" "app" {
+  vpc_id            = data.aws_vpc.default.id
+  availability_zone = "${var.region}a"
+  default_for_az    = true
+}
+
+resource "aws_security_group" "app" {
+  name        = "${local.name}-app"
+  description = "EnerVision : HTTP entrant uniquement"
+  vpc_id      = data.aws_vpc.default.id
+}
+
+resource "aws_vpc_security_group_ingress_rule" "web" {
+  # 80 : challenge Let's Encrypt + redirection HTTPS ; 443/udp : HTTP/3
+  for_each          = { http = ["tcp", 80], https = ["tcp", 443], http3 = ["udp", 443] }
+  security_group_id = aws_security_group.app.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = each.value[0]
+  from_port         = each.value[1]
+  to_port           = each.value[1]
+}
+
+moved {
+  from = aws_vpc_security_group_ingress_rule.http
+  to   = aws_vpc_security_group_ingress_rule.web["http"]
+}
+
+resource "aws_vpc_security_group_egress_rule" "all" {
+  security_group_id = aws_security_group.app.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+}
+
+# --- Instance
+data "aws_ssm_parameter" "al2023" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+}
+
+# volume séparé pour survivre à un remplacement de l'instance (données TimescaleDB)
+resource "aws_ebs_volume" "data" {
+  availability_zone = data.aws_subnet.app.availability_zone
+  size              = var.data_volume_size
+  type              = "gp3"
+  encrypted         = true
+  tags              = { Name = "${local.name}-data" }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_instance" "app" {
+  ami                    = data.aws_ssm_parameter.al2023.value
+  instance_type          = var.instance_type
+  subnet_id              = data.aws_subnet.app.id
+  vpc_security_group_ids = [aws_security_group.app.id]
+  iam_instance_profile   = aws_iam_instance_profile.app.name
+  user_data = templatefile("${path.module}/user_data.sh.tftpl", {
+    data_volume_id = aws_ebs_volume.data.id
+  })
+
+  metadata_options {
+    http_tokens                 = "required" # IMDSv2
+    http_put_response_hop_limit = 1          # IMDS inaccessible depuis les conteneurs
+  }
+
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+    encrypted   = true
+  }
+
+  tags = { Name = "${local.name}-app" } # utilisé par le workflow pour trouver l'instance
+
+  lifecycle {
+    # une nouvelle AMI ou un nouveau user_data ne doit pas remplacer l'instance en silence
+    ignore_changes = [ami, user_data]
+  }
+}
+
+resource "aws_volume_attachment" "data" {
+  device_name = "/dev/sdf"
+  volume_id   = aws_ebs_volume.data.id
+  instance_id = aws_instance.app.id
+}
+
+resource "aws_eip" "app" {
+  instance = aws_instance.app.id
+  domain   = "vpc"
+  tags     = { Name = "${local.name}-app" }
+}
+
+# --- DNS
+data "aws_route53_zone" "main" {
+  name = var.domain
+}
+
+resource "aws_route53_record" "app" {
+  for_each = toset([var.domain, "www.${var.domain}"])
+  zone_id  = data.aws_route53_zone.main.zone_id
+  name     = each.key
+  type     = "A"
+  ttl      = 300
+  records  = [aws_eip.app.public_ip]
+}
+
+# --- Images
+resource "aws_ecr_repository" "service" {
+  for_each             = toset(local.images)
+  name                 = "${local.name}/${each.key}"
+  image_tag_mutability = "MUTABLE" # tag latest
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "service" {
+  for_each   = aws_ecr_repository.service
+  repository = each.value.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "garde les 20 dernières images"
+      selection    = { tagStatus = "any", countType = "imageCountMoreThan", countNumber = 20 }
+      action       = { type = "expire" }
+    }]
+  })
+}
+
+# --- Fichiers de release (compose, scripts) copiés sur l'instance à chaque déploiement
+resource "aws_s3_bucket" "deploy" {
+  bucket = "${local.name}-deploy-${data.aws_caller_identity.current.account_id}"
+}
+
+resource "aws_s3_bucket_public_access_block" "deploy" {
+  bucket                  = aws_s3_bucket.deploy.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "deploy" {
+  bucket = aws_s3_bucket.deploy.id
+
+  rule {
+    id     = "releases"
+    status = "Enabled"
+    filter {
+      prefix = "releases/"
+    }
+    expiration {
+      days = 30
+    }
+  }
+}
+
+# --- .env de production : /enervision/prod/env/<NOM>, relu à chaque déploiement
+resource "random_password" "db" {
+  length  = 32
+  special = false # pas de $ ni de caractères à échapper dans .env / l'URL
+}
+
+locals {
+  db_user = "enervision"
+  db_name = "enervision"
+  env = merge(var.app_env, {
+    POSTGRES_USER       = local.db_user
+    POSTGRES_PASSWORD   = random_password.db.result
+    POSTGRES_DB         = local.db_name
+    DATABASE_URL        = "postgresql://${local.db_user}:${random_password.db.result}@db:5432/${local.db_name}"
+    ENERGY_API_BASE_URL = var.energy_api_base_url
+    DOMAIN              = var.domain
+  })
+}
+
+resource "aws_ssm_parameter" "env" {
+  for_each = toset(nonsensitive(keys(local.env)))
+  name     = "/${local.name}/prod/env/${each.key}"
+  type     = "SecureString"
+  value    = local.env[each.key]
+}
