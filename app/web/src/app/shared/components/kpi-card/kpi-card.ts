@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, input } from '@angular/core';
 
 @Component({
   imports: [],
@@ -6,4 +6,8 @@ import { Component } from '@angular/core';
   styleUrl: './kpi-card.scss',
   templateUrl: './kpi-card.html',
 })
-export class KpiCard {}
+export class KpiCard {
+  readonly label = input.required<string>();
+  readonly value = input.required<string>();
+  readonly detail = input<string>();
+}
