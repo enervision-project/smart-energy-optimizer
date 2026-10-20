@@ -1,0 +1,6 @@
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# Fuseau du conteneur : Europe/Paris (heure d'été/hiver).
+* * * * * root /usr/local/bin/etl-cron-job sync-readings >> /proc/1/fd/1 2>> /proc/1/fd/2
+0 16 * * * root /usr/local/bin/etl-cron-job sync-sites >> /proc/1/fd/1 2>> /proc/1/fd/2

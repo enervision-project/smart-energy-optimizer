@@ -15,7 +15,7 @@ from psycopg import sql
 from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 
-from etl_worker.load import load_sites
+from etl_worker.load import load_sites, read_site_ids
 
 
 SITE = {
@@ -182,3 +182,11 @@ class LoadSitesPostgresTests(unittest.TestCase):
             load_sites([changed, new, invalid], self.database_url)
 
         self.assertEqual(self.stored_sites(), before)
+
+    def test_reads_site_ids_from_database_in_stable_order(self):
+        load_sites([SITE | {"site_id": "SITE002"}, SITE], self.database_url)
+
+        self.assertEqual(read_site_ids(self.database_url), ["SITE001", "SITE002"])
+
+    def test_read_site_ids_returns_empty_list_for_empty_table(self):
+        self.assertEqual(read_site_ids(self.database_url), [])
