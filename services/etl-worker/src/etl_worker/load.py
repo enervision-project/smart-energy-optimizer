@@ -58,3 +58,62 @@ def load_sites(
         with connection.cursor() as cursor:
             cursor.executemany(_UPSERT_SITE, rows)
             return cursor.rowcount
+
+
+_INSERT_READING = """
+    INSERT INTO readings_raws (
+        site_id, ts, site_type, consumption_kw, consumption_kwh, voltage_v, current_a,
+        power_factor, temperature_celsius, humidity_percent, null_reasons,
+        data_quality
+    )
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (site_id, ts) DO NOTHING
+"""
+
+
+def load_readings(
+    readings: Sequence[Mapping[str, Any]],
+    database_url: str | None = None,
+    *,
+    connect_timeout: int = 10,
+) -> int:
+    """Insère les consommations et retourne le nombre de nouvelles mesures.
+
+    timestamp est stocké dans la colonne ts. Les valeurs nulles et les raisons
+    fournies par l'API, y compris site_type, sont conservées dans leurs colonnes.
+    Une clé (site_id, ts) existante est
+    ignorée, sans modification de ses valeurs ni de loaded_at.
+    Les sites doivent déjà exister en base. Tout le lot est annulé en cas
+    d'erreur. Une liste vide retourne 0 sans ouvrir de connexion.
+    """
+    if not readings:
+        return 0
+
+    connection_url = (
+        database_url if database_url is not None else os.environ.get("DATABASE_URL", "")
+    ).strip()
+    if not connection_url:
+        raise ValueError("Renseigner DATABASE_URL ou passer une URL à load_readings.")
+
+    rows = [
+        (
+            reading["site_id"],
+            reading["timestamp"],
+            reading["site_type"],
+            reading.get("consumption_kw"),
+            reading.get("consumption_kwh"),
+            reading.get("voltage_v"),
+            reading.get("current_a"),
+            reading.get("power_factor"),
+            reading.get("temperature_celsius"),
+            reading.get("humidity_percent"),
+            reading.get("null_reasons", []),
+            reading["data_quality"],
+        )
+        for reading in readings
+    ]
+
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection:
+        with connection.cursor() as cursor:
+            cursor.executemany(_INSERT_READING, rows)
+            return cursor.rowcount
