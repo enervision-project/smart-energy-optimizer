@@ -29,6 +29,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      # secret obligatoire : compose refuse de démarrer si JWT_SECRET est absent du .env
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET doit être défini dans .env}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-1h}
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:

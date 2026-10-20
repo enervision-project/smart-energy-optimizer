@@ -10,11 +10,11 @@
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
-	<!-- Module d'assemblage : seul module exécutable du monolithe -->
+	<!-- Assembly module: the monolith's only executable module -->
 	<artifactId>application</artifactId>
 
 	<dependencies>
-		<!-- Modules métier -->
+		<!-- Business modules -->
 		<dependency>
 			<groupId>com.enervision</groupId>
 			<artifactId>configuration</artifactId>
@@ -30,6 +30,16 @@
 		<dependency>
 			<groupId>com.enervision</groupId>
 			<artifactId>telemetry</artifactId>
+		</dependency>
+
+		<!-- Global API security (SecurityConfig) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 		</dependency>
 
 		<!-- Runtime -->
@@ -70,7 +80,7 @@
 
 	<build>
 		<plugins>
-			<!-- Produit le jar exécutable (fat jar) -->
+			<!-- Produces the executable jar (fat jar) -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

@@ -5,7 +5,7 @@
 
 	<modelVersion>4.0.0</modelVersion>
 
-	<!-- Parent Spring Boot : gère déjà les versions des starters, de Lombok, PostgreSQL, etc. -->
+	<!-- Spring Boot parent: already manages the versions of the starters, Lombok, PostgreSQL, etc. -->
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
@@ -13,7 +13,7 @@
 		<relativePath/>
 	</parent>
 
-	<!-- Projet parent -->
+	<!-- Parent project -->
 	<groupId>com.enervision</groupId>
 	<artifactId>core-api</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
@@ -22,7 +22,7 @@
 	<name>core-api</name>
 	<description>Enervision Core API - Modular Monolith</description>
 
-	<!-- Modules Maven -->
+	<!-- Maven modules -->
 	<modules>
 		<module>configuration</module>
 		<module>user</module>
@@ -31,19 +31,19 @@
 		<module>application</module>
 	</modules>
 
-	<!-- Propriétés -->
+	<!-- Properties -->
 	<properties>
 		<java.version>21</java.version>
 		<springdoc.version>3.1.0</springdoc.version>
 	</properties>
 
-	<!-- Gestion centralisée des dépendances.
-	     Ne PAS redéclarer ici les starters Spring Boot sans version :
-	     cela écrase la gestion du parent et provoque "version is missing". -->
+	<!-- Centralized dependency management.
+	     Do NOT redeclare Spring Boot starters here without a version:
+	     it overrides the parent's management and causes "version is missing". -->
 	<dependencyManagement>
 		<dependencies>
 
-			<!-- Modules internes -->
+			<!-- Internal modules -->
 			<dependency>
 				<groupId>com.enervision</groupId>
 				<artifactId>configuration</artifactId>
@@ -65,7 +65,7 @@
 				<version>${project.version}</version>
 			</dependency>
 
-			<!-- Springdoc OpenAPI (non géré par Spring Boot) -->
+			<!-- Springdoc OpenAPI (not managed by Spring Boot) -->
 			<dependency>
 				<groupId>org.springdoc</groupId>
 				<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
@@ -75,12 +75,12 @@
 		</dependencies>
 	</dependencyManagement>
 
-	<!-- Configuration commune de compilation -->
+	<!-- Shared build configuration -->
 	<build>
 		<pluginManagement>
 			<plugins>
 
-				<!-- Compilation Java et annotation processing Lombok (hérité par tous les modules) -->
+				<!-- Java compilation and Lombok annotation processing (inherited by all modules) -->
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
