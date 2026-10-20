@@ -14,7 +14,7 @@ exec 9>.deploy.lock
 flock 9
 
 # .env reconstruit depuis SSM Parameter Store (/enervision/prod/env/<NOM>)
-aws ssm get-parameters-by-path --path /enervision/prod/env/ --with-decryption \
+aws ssm get-parameters-by-path --path /enervision/prod/env --with-decryption \
   --query 'Parameters[].[Name,Value]' --output text |
   while IFS=$'\t' read -r name value; do echo "${name##*/}=$value"; done >.env.tmp
 chmod 600 .env.tmp
