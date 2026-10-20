@@ -14,13 +14,7 @@ _UPSERT_HOUR = """
     SELECT
         sites.site_id,
         %(start)s::timestamptz,
-        CASE
-            WHEN count(raw.ts) = 60
-                AND count(raw.consumption_kw) = 60
-                AND bool_and(raw.ts = date_trunc('minute', raw.ts))
-            THEN round(sum(raw.consumption_kw::numeric) / 60.0, 2)
-            ELSE NULL
-        END,
+        round(avg(raw.consumption_kw::numeric), 2),
         round(avg(raw.voltage_v::numeric), 2),
         round(avg(raw.current_a::numeric), 2),
         round(avg(raw.power_factor::numeric), 2),
@@ -54,9 +48,11 @@ def aggregate_hour(
     en UTC. La fenêtre inclut son début et exclut sa fin. Une référence explicite
     doit comporter un fuseau horaire.
 
-    Chaque mesure de puissance est supposée représentative d'une minute :
-    l'énergie estimée vaut sum(consumption_kw) / 60, uniquement si les 60 minutes
-    sont présentes, alignées et non nulles. consumption_kwh brut n'est pas utilisé.
+    La puissance moyenne des valeurs non nulles est supposée représentative
+    de l'heure entière : énergie estimée = avg(consumption_kw) × 1 heure.
+    Une heure incomplète est donc estimée depuis les seules valeurs disponibles.
+    L'énergie reste NULL seulement si aucune puissance n'est disponible.
+    consumption_kwh brut n'est pas utilisé.
     Les autres indicateurs sont moyennés indépendamment, en ignorant leurs NULL.
     Les calculs décimaux gardent leur précision jusqu'à l'arrondi final à 2 décimales.
     Un site sans mesure reçoit une ligne dont tous les indicateurs sont NULL.
