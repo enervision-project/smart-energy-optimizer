@@ -3,10 +3,14 @@ variable "region" {
   default = "eu-west-3"
 }
 
-variable "github_repository" {
-  description = "Dépôt autorisé à déployer (OIDC), depuis la branche main uniquement."
+variable "github_oidc_sub_prefix" {
+  description = <<-EOT
+    Préfixe du claim sub des jetons OIDC du dépôt autorisé à déployer (depuis main uniquement).
+    Le dépôt utilise le format immuable (noms suivis des identifiants) :
+    gh api repos/enervision-project/smart-energy-optimizer/actions/oidc/customization/sub
+  EOT
   type        = string
-  default     = "enervision-project/smart-energy-optimizer"
+  default     = "repo:enervision-project@318340507/smart-energy-optimizer@1425361683"
 }
 
 variable "domain" {
