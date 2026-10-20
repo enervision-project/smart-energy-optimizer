@@ -1,0 +1,170 @@
+# Déploiement CI/CD
+
+L'application est servie sur **<https://ener-vision.click>** par une seule EC2
+(`enervision-app`, t3.small, eu-west-3) qui exécute `compose.yaml` + `compose.prod.yaml`.
+Les images sont construites par GitHub Actions, poussées dans ECR, puis redéployées via
+SSM Run Command (pas de SSH). Seuls les services modifiés sont reconstruits et redéployés.
+
+```mermaid
+flowchart TD
+    PUSH("Push sur main")
+    CHANGES("changes : services modifiés")
+    BUILD("build : une image par service")
+    DEPLOY("deploy : SSM Run Command")
+    ECR("ECR")
+    PARAMS("SSM Parameter Store")
+    USER_ACTOR("👤 Utilisateur")
+
+subgraph EC2["EC2 enervision-app"]
+direction TB
+PROXY("proxy Caddy HTTPS")
+WEB("web")
+ETL("etl-worker")
+DB("db TimescaleDB")
+PROXY --> WEB
+ETL --> DB
+end
+
+PUSH --> CHANGES
+CHANGES --> BUILD
+BUILD --> ECR
+BUILD --> DEPLOY
+DEPLOY --> EC2
+ECR --> EC2
+PARAMS --> EC2
+USER_ACTOR --> PROXY
+
+classDef ci fill:#fff,stroke:#1971c2,stroke-width:2px
+classDef aws fill:#fff,stroke:#f08c00,stroke-width:2px
+classDef plain fill:#fff,stroke:#333,stroke-width:1px
+class PUSH,CHANGES,BUILD,DEPLOY ci
+class ECR,PARAMS aws
+class PROXY,WEB,ETL,DB,USER_ACTOR plain
+style EC2 fill:#d0d4da,stroke:#333
+```
+
+| Événement | Ce qui se passe |
+|---|---|
+| PR vers `main` | Construit les images des services modifiés, sans les publier |
+| Push sur `main` | Construit, publie dans ECR, redéploie les services modifiés |
+| Lancement manuel | Déploie les services choisis : `gh workflow run Services -f services=web,db` |
+
+## Composants
+
+| Élément | Emplacement |
+|---|---|
+| Liste des services | `.github/services.json` |
+| Sélection des services modifiés | `scripts/ci/changed-services.py` |
+| Workflow | `.github/workflows/services.yml` |
+| Surcharge production de compose | `compose.prod.yaml` |
+| Reverse proxy HTTPS | `infra/proxy/Caddyfile` |
+| Script exécuté sur l'EC2 | `infra/deploy/deploy.sh` |
+| Infrastructure | `infra/terraform/` (state dans le bucket S3 `enervision-tfstate-s3`) |
+
+Ressources AWS créées par Terraform :
+
+- **EC2** Amazon Linux 2023 avec Docker + Compose, IP élastique, ports 80 et 443 ouverts ;
+- **DNS** : `ener-vision.click` et `www.ener-vision.click` (zone Route 53 existante) vers l'IP élastique ;
+- **volume EBS séparé** monté sur `/var/lib/docker` : les données TimescaleDB survivent à un
+  remplacement de l'instance (`prevent_destroy`) ;
+- **un dépôt ECR par service** ayant un `build` dans `services.json` (20 dernières images gardées) ;
+- **bucket S3** `enervision-deploy-<compte>` : fichiers compose et `infra/` de chaque release ;
+- **paramètres SSM** `/enervision/prod/env/<NOM>` : le `.env` de production, relu à chaque
+  déploiement (mot de passe de la base généré par Terraform) ;
+- **rôle IAM GitHub (OIDC)** : aucune clé AWS dans GitHub, déploiement depuis `main` uniquement.
+
+!!! info "RDS non utilisé"
+    TimescaleDB n'est pas disponible sur RDS / Aurora : la base tourne dans un conteneur
+    sur l'EC2, avec ses données sur le volume EBS dédié.
+
+## HTTPS et nom de domaine
+
+Le service `proxy` (Caddy, uniquement en production) est le seul exposé sur Internet :
+
+- il obtient et renouvelle automatiquement les certificats Let's Encrypt de `ener-vision.click`
+  et `www.ener-vision.click` (stockés dans le volume `caddydata`) ;
+- il redirige HTTP vers HTTPS et `www` vers le domaine principal ;
+- il transmet les requêtes au service `web`, qui n'est plus publié sur l'hôte.
+
+Pour exposer un nouveau service (ex. `core-api` sous `/api`), ajouter une route dans
+`infra/proxy/Caddyfile` :
+
+```
+handle_path /api/* {
+	reverse_proxy core-api:8080
+}
+```
+
+## Première installation
+
+Prérequis : outils installés (`scripts/aws/install-tools.sh`) et session SSO active
+(voir [Init AWS user](init-aws.md)).
+
+```bash
+cd infra/terraform
+cp backend.hcl.example backend.hcl
+cp terraform.tfvars.example terraform.tfvars   # renseigner energy_api_base_url
+terraform init -backend-config=backend.hcl
+terraform plan
+terraform apply
+terraform output -raw github_variables | bash   # variables du dépôt pour le workflow
+```
+
+Le premier push sur `main` qui contient le workflow déploie alors tous les services
+(aucun commit déployé auparavant). Ensuite :
+
+- URL de l'application : `terraform output url` ;
+- shell sur l'instance : `aws ssm start-session --target $(terraform output -raw instance_id)`.
+
+!!! warning "`gh workflow run`"
+    Le lancement manuel n'est possible qu'une fois `services.yml` présent sur `main`.
+
+## Déploiement par service
+
+Chaque service de `.github/services.json` déclare :
+
+- `paths` : préfixes de fichiers qui le déclenchent ;
+- `build` (optionnel) : contexte et Dockerfile de son image. Sans `build` (`proxy`, `db` :
+  images publiques), le service est seulement redémarré avec sa nouvelle configuration.
+
+```json
+"web": {
+  "paths": ["app/web/"],
+  "build": { "context": "app/web", "dockerfile": "app/web/Dockerfile" }
+}
+```
+
+Un fichier listé dans `global` (compose, scripts de déploiement, workflow…) redéploie tous
+les services.
+
+Les changements sont comparés au **dernier commit déployé avec succès** (paramètre SSM
+`/enervision/prod/deployed-sha`), et non au commit précédent : un déploiement en échec ou
+annulé est rattrapé au push suivant. Supprimer ce paramètre force un redéploiement complet.
+
+Sur l'EC2, `deploy.sh` met à jour le tag des seuls services concernés dans
+`/opt/enervision/deploy.env`, puis lance `docker compose pull` et `up -d` sur ces services :
+les autres conteneurs ne sont pas touchés.
+
+## Ajouter un service
+
+1. Le déclarer dans `compose.yaml`, puis dans `compose.prod.yaml` :
+
+    ```yaml
+    mon-service:
+      build: !reset null
+      image: ${ECR_REGISTRY}/enervision/mon-service:${MON_SERVICE_TAG:-latest}
+      restart: unless-stopped
+    ```
+
+2. L'ajouter dans `.github/services.json` (`paths` et `build`).
+3. `terraform apply` : crée son dépôt ECR et le droit de push associé.
+4. Ses variables d'environnement : dans `app_env` (`variables.tf`) ou un paramètre SSM
+   `/enervision/prod/env/<NOM>` (type `SecureString` pour un secret).
+5. S'il doit être accessible depuis Internet : une route dans `infra/proxy/Caddyfile`.
+
+## Limites actuelles
+
+- `infra/db/init.sql` n'est exécuté qu'au premier démarrage de la base (volume vide).
+- La CI construit les images mais ne lance pas encore de tests.
+- Coût estimé : environ 25 $/mois (EC2 ~17 $, 40 Go d'EBS ~4 $, IP publique ~4 $,
+  zone Route 53 0,50 $).
