@@ -4,6 +4,19 @@
 
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
+-- Valeur par défaut persistante pour les nouvelles connexions à cette base.
+DO $$
+BEGIN
+    EXECUTE format(
+        'ALTER DATABASE %I SET timezone TO %L',
+        current_database(), 'Europe/Paris'
+    );
+END;
+$$;
+
+-- Applique également le fuseau à la session qui exécute ce fichier.
+SET TIME ZONE 'Europe/Paris';
+
 -- Sites suivis (GET /api/v1/sites)
 CREATE TABLE IF NOT EXISTS sites (
     site_id      TEXT PRIMARY KEY,
@@ -34,6 +47,21 @@ CREATE TABLE IF NOT EXISTS readings_raws (
     loaded_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     -- la clé primaire d'une hypertable doit contenir la colonne de temps ;
     -- elle sert aussi à dédupliquer les mesures (ON CONFLICT (site_id, ts) DO NOTHING)
+    PRIMARY KEY (site_id, ts)
+);
+
+-- Agrégats horaires : même instant UTC, affiché dans le fuseau de la connexion.
+-- Seuls les résultats horaires sont arrondis à deux décimales.
+CREATE TABLE IF NOT EXISTS readings_hours (
+    site_id             TEXT NOT NULL REFERENCES sites (site_id),
+    ts                  TIMESTAMPTZ NOT NULL,
+    consumption_kwh     NUMERIC(14, 2),
+    voltage_v           NUMERIC(14, 2),
+    current_a           NUMERIC(14, 2),
+    power_factor        NUMERIC(14, 2),
+    temperature_celsius NUMERIC(14, 2),
+    humidity_percent    NUMERIC(14, 2),
+    -- Une ligne par site et par heure, recalculable avec ON CONFLICT DO UPDATE.
     PRIMARY KEY (site_id, ts)
 );
 

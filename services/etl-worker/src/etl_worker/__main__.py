@@ -1,10 +1,12 @@
-"""Point d'entrée : synchronisation des sites et collecte ponctuelle des consommations."""
+"""Commandes ponctuelles de collecte et de calcul horaire."""
 
 import argparse
+from datetime import datetime
 import json
 
 from etl_worker.extract import extract_readings, extract_sites
 from etl_worker.load import load_readings, load_sites, read_site_ids
+from etl_worker.transform import aggregate_hour
 
 
 def main() -> None:
@@ -13,11 +15,21 @@ def main() -> None:
         "command",
         nargs="?",
         default="sync-sites",
-        choices=("init-sites", "sync-sites", "extract-readings", "sync-readings"),
+        choices=("init-sites", "sync-sites", "extract-readings", "sync-readings", "sync-hours"),
+    )
+    parser.add_argument(
+        "--end-time",
+        type=datetime.fromisoformat,
+        help="Référence ISO 8601 avec fuseau pour rejouer sync-hours (ex. 2026-10-20T14:00:00+02:00).",
     )
     args = parser.parse_args()
+    if args.end_time is not None and args.command != "sync-hours":
+        parser.error("--end-time est réservé à sync-hours.")
 
-    if args.command in ("init-sites", "sync-sites"):
+    if args.command == "sync-hours":
+        updated = aggregate_hour(end_time=args.end_time)
+        print(f"Lignes horaires calculées dans readings_hours : {updated}.")
+    elif args.command in ("init-sites", "sync-sites"):
         if args.command == "init-sites" and read_site_ids():
             print("Sites déjà présents en base ; prochaine synchronisation à 16 h.")
             return

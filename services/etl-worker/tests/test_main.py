@@ -3,7 +3,7 @@
 import io
 import json
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from etl_worker.__main__ import main
@@ -16,6 +16,7 @@ class WorkerCommandTests(unittest.TestCase):
         self.load_sites = self.patch("load_sites")
         self.extract_readings = self.patch("extract_readings")
         self.load_readings = self.patch("load_readings")
+        self.aggregate_hour = self.patch("aggregate_hour")
 
     def patch(self, name):
         patcher = patch(f"etl_worker.__main__.{name}")
@@ -105,3 +106,35 @@ class WorkerCommandTests(unittest.TestCase):
 
         self.extract_readings.assert_not_called()
         self.load_readings.assert_not_called()
+
+    def test_hourly_command_uses_only_database_aggregation(self):
+        self.aggregate_hour.return_value = 7
+
+        output = self.run_command("sync-hours")
+
+        self.aggregate_hour.assert_called_once_with(end_time=None)
+        self.read_ids.assert_not_called()
+        self.extract_sites.assert_not_called()
+        self.extract_readings.assert_not_called()
+        self.load_readings.assert_not_called()
+        self.assertIn("readings_hours : 7", output)
+
+    def test_hourly_command_accepts_an_explicit_reference_for_replay(self):
+        self.aggregate_hour.return_value = 1
+        reference = "2026-10-20T14:00:00+02:00"
+        with patch("sys.argv", ["etl-worker", "sync-hours", "--end-time", reference]):
+            with redirect_stdout(io.StringIO()):
+                main()
+
+        self.assertEqual(
+            self.aggregate_hour.call_args.kwargs["end_time"].isoformat(), reference
+        )
+
+    def test_end_time_cannot_silently_apply_to_a_raw_command(self):
+        with patch("sys.argv", [
+            "etl-worker", "sync-readings", "--end-time", "2026-10-20T14:00:00+02:00"
+        ]), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
+            main()
+
+        self.assertEqual(caught.exception.code, 2)
+        self.extract_readings.assert_not_called()
