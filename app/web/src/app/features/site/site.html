@@ -1,1 +1,56 @@
-<p>site works!</p>
+<header class="page-header">
+  <h1>Sites</h1>
+  <label class="picker">
+    <span>Site</span>
+    <select (change)="selectSite($event)">
+      <option value="" disabled [selected]="!id()">Choisir un site…</option>
+      @for (s of siteOptions(); track s.site_id) {
+        <option [value]="s.site_id" [selected]="s.site_id === id()">{{ s.name }}</option>
+      }
+    </select>
+  </label>
+</header>
+
+@if (!id()) {
+  <p class="hint">Sélectionnez un site dans la liste pour afficher ses mesures.</p>
+} @else if (site.error()) {
+  <p class="error" role="alert">Site introuvable ou API indisponible.</p>
+} @else {
+  @if (profile(); as s) {
+    <p class="meta">{{ siteTypeLabel() }} · seuil {{ s.peak_consumption }} kWh/h</p>
+  }
+
+  <div class="grid">
+    <section class="card chart" aria-labelledby="chart-title">
+      <h2 id="chart-title">Consommation horaire — 48 dernières heures</h2>
+      @if (telemetry.error()) {
+        <p class="error" role="alert">Mesures indisponibles.</p>
+      } @else {
+        <div class="canvas-wrapper">
+          <canvas
+            baseChart
+            type="line"
+            [data]="chartData()"
+            [options]="chartOptions"
+            aria-label="Courbe de consommation horaire sur 48 heures"
+          ></canvas>
+        </div>
+        <p class="hint">Les trous dans la courbe correspondent à des périodes sans mesure.</p>
+      }
+    </section>
+
+    <aside class="card summary" aria-labelledby="summary-title">
+      <h2 id="summary-title">Synthèse 48 h</h2>
+      <dl>
+        <dt>Énergie</dt>
+        <dd data-testid="energy">{{ summary().energy }}</dd>
+        <dt>Pic</dt>
+        <dd data-testid="peak">{{ summary().peak }}</dd>
+        <dt>Disponibilité des données</dt>
+        <dd data-testid="availability">{{ summary().availability }}</dd>
+        <dt>Points imputés</dt>
+        <dd data-testid="imputed">{{ summary().imputed }}</dd>
+      </dl>
+    </aside>
+  </div>
+}
