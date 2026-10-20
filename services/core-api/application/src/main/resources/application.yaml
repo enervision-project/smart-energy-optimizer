@@ -1,3 +1,16 @@
 spring:
   application:
     name: core-api
+
+  # Base TimescaleDB (service « db » du compose.yaml racine).
+  # Valeurs par défaut = dev local, app lancée sur l'hôte (port exposé 15432).
+  # En conteneur, surchargées par les variables SPRING_DATASOURCE_* du compose.yaml.
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:15432/enervision}
+    username: ${SPRING_DATASOURCE_USERNAME:enervision}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
+
+  # Le schéma est géré par infra/db/init.sql : Hibernate vérifie seulement les entités.
+  jpa:
+    hibernate:
+      ddl-auto: validate

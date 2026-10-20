@@ -33,6 +33,7 @@ flowchart TD
 ```
 core-api/                  pom parent (packaging pom)
 ├── pom.xml
+├── Dockerfile             image de l'API (contexte = racine du dépôt)
 ├── application/           jar exécutable (spring-boot-maven-plugin)
 ├── user/                  jar simple
 ├── diagnostic/            jar simple
@@ -51,7 +52,39 @@ core-api/                  pom parent (packaging pom)
 - **Configuration** : un seul `application.yaml`, dans `application/src/main/resources`. Les modules métier ne doivent pas en avoir (un seul serait chargé sur le classpath).
 - **Dépendances entre modules** : un module métier ne dépend pas d'`application`. Si un module doit en utiliser un autre, déclarer la dépendance dans son `pom.xml` et éviter les cycles.
 
+## Base de données
+
+core-api utilise la base TimescaleDB (PostgreSQL 16) du service `db`, défini dans le [`compose.yaml` racine](../../compose.yaml).
+
+- **Schéma** : géré par [`infra/db/init.sql`](../../infra/db/init.sql), exécuté uniquement au premier démarrage du conteneur (volume vide). Hibernate est en `ddl-auto: validate` : il ne crée ni ne modifie aucune table, il vérifie seulement que les entités JPA correspondent au schéma. Toute évolution du schéma passe donc par `init.sql`, puis par une recréation du volume (`docker compose down -v`).
+- **Connexion** : configurée dans `application/src/main/resources/application.yaml` via les variables `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` et `SPRING_DATASOURCE_PASSWORD`. Sans ces variables, les valeurs par défaut pointent vers la base exposée sur l'hôte (`localhost:15432`, identifiants du `.env.example`).
+
 ## Build et exécution
+
+Prérequis : Java 21, Docker avec les plugins Compose v2 et Buildx (le Dockerfile utilise un cache BuildKit). Les commandes `docker compose` se lancent depuis la racine du dépôt, après `cp .env.example .env`.
+
+### Dev local (app lancée depuis l'IDE ou Maven)
+
+```bash
+# Depuis la racine du dépôt : démarrer uniquement la base
+docker compose up -d db
+
+# Depuis services/core-api : lancer l'application
+./mvnw -pl application -am spring-boot:run
+```
+
+### Stack complète en conteneurs
+
+```bash
+# Depuis la racine du dépôt
+docker compose up --build
+```
+
+L'API est alors disponible sur http://localhost:8080. Le service `core-api` attend que `db` soit healthy, puis s'y connecte via le réseau Compose (hôte `db`), avec les identifiants `POSTGRES_*` du `.env`.
+
+L'image est construite par [`Dockerfile`](Dockerfile), avec la racine du dépôt comme contexte (même convention que `etl-worker`) : une étape Maven produit le jar, puis une image JRE 21 seule l'exécute.
+
+### Maven
 
 ```bash
 # Compiler tous les modules
@@ -60,10 +93,14 @@ core-api/                  pom parent (packaging pom)
 # Construire le jar exécutable (sans les tests)
 ./mvnw clean package -DskipTests
 
-# Lancer l'application
+# Lancer le jar
 java -jar application/target/application-0.0.1-SNAPSHOT.jar
-# ou
-./mvnw -pl application -am spring-boot:run
+```
+
+## Tests
+
+```bash
+./mvnw clean verify
 ```
 
 > **Note** : aucune base de données n'est encore configurée. Le démarrage et le test `ApplicationTests.contextLoads` échouent tant que `spring.datasource.*` n'est pas renseigné (PostgreSQL via `compose.yaml` ou Testcontainers).
