@@ -46,4 +46,4 @@ backend.hcl
 .deploy.lock
 
 # doc
-site/
+/site/
