@@ -17,9 +17,10 @@ CREATE TABLE IF NOT EXISTS sites (
 
 -- Mesures énergétiques (GET /api/v1/sites/{site_id}/current, /api/v1/readings)
 -- Les mesures peuvent être nulles (capteur en panne) : seules les colonnes clés sont NOT NULL.
-CREATE TABLE IF NOT EXISTS readings (
+CREATE TABLE IF NOT EXISTS readings_raws (
     site_id             TEXT NOT NULL REFERENCES sites (site_id),
     ts                  TIMESTAMPTZ NOT NULL,
+    site_type           TEXT,
     consumption_kw      DOUBLE PRECISION,
     consumption_kwh     DOUBLE PRECISION,
     voltage_v           DOUBLE PRECISION,
@@ -37,4 +38,4 @@ CREATE TABLE IF NOT EXISTS readings (
 );
 
 -- Hypertable TimescaleDB : découpage automatique en chunks de 7 jours (crée l'index sur ts)
-SELECT create_hypertable('readings', by_range('ts', INTERVAL '7 days'), if_not_exists => TRUE);
+SELECT create_hypertable('readings_raws', by_range('ts', INTERVAL '7 days'), if_not_exists => TRUE);
