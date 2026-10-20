@@ -26,15 +26,12 @@
       @if (measures.error()) {
         <p class="error" role="alert">Mesures indisponibles.</p>
       } @else {
-        <div class="canvas-wrapper">
-          <canvas
-            baseChart
-            type="line"
-            [data]="chartData()"
-            [options]="chartOptions"
-            aria-label="Courbe de consommation horaire sur 48 heures"
-          ></canvas>
-        </div>
+        <app-consumption-chart
+          [labels]="chartLabels()"
+          [values]="chartValues()"
+          [capacity]="profile()?.capacityKw ?? null"
+          description="Courbe de consommation horaire sur 48 heures"
+        />
         <p class="hint">
           Les trous correspondent aux heures sans mesure de consommation (qualité degraded ou
           critical).

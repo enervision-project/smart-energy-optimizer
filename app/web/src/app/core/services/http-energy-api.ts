@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
+import { ParcSummary } from '../models/parc-summary';
 import { Reading } from '../models/reading';
 import { Site } from '../models/site';
 import { EnergyApi } from './energy-api';
@@ -52,5 +53,15 @@ export class HttpEnergyApi extends EnergyApi {
     return this.http.get<AlertSummary>(`${BASE_URL}/alerts/summary`, {
       params: siteId ? { siteId } : {},
     });
+  }
+
+  getParcReadings(from: Date, to: Date): Observable<Reading[]> {
+    return this.http.get<Reading[]>(`${BASE_URL}/readings`, {
+      params: { start_time: from.toISOString(), end_time: to.toISOString() },
+    });
+  }
+
+  getParcSummary(): Observable<ParcSummary> {
+    return this.http.get<ParcSummary>(`${BASE_URL}/stats/summary`);
   }
 }

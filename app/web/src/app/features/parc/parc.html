@@ -1,1 +1,87 @@
-<p>parc works!</p>
+<header class="page-header">
+  <h1>Vue d'ensemble du parc</h1>
+</header>
+
+@if (summaryResource.error()) {
+  <p class="error" role="alert">Synthèse du parc indisponible.</p>
+} @else {
+  <section class="kpis" aria-label="Indicateurs du parc">
+    @for (kpi of kpis(); track kpi.label) {
+      <app-kpi-card [label]="kpi.label" [value]="kpi.value" [detail]="kpi.detail" />
+    }
+  </section>
+
+  @if (missing().length) {
+    <p class="warning" role="status">
+      <strong>Données incomplètes</strong> — {{ missing().join(', ') }}
+      {{ missing().length > 1 ? 'sont exclus' : 'est exclu' }} du total : aucune mesure récente.
+    </p>
+  }
+
+  <section class="card" aria-labelledby="chart-title">
+    <h2 id="chart-title">Consommation du parc — 24 dernières heures</h2>
+    @if (readingsResource.error()) {
+      <p class="error" role="alert">Mesures indisponibles.</p>
+    } @else {
+      <app-consumption-chart
+        [labels]="chartLabels()"
+        [values]="series().totals"
+        [capacity]="capacity()"
+        [flagged]="series().incomplete"
+        description="Courbe de consommation horaire du parc sur 24 heures"
+      />
+      <p class="hint">
+        Points orange : au moins un site n'a pas remonté de mesure, le total est sous-estimé.
+      </p>
+    }
+  </section>
+
+  <section class="card" aria-labelledby="sites-title">
+    <h2 id="sites-title">Sites ({{ rows().length }}) — triés par charge</h2>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Site</th>
+            <th scope="col">Conso. actuelle</th>
+            <th scope="col">Charge</th>
+            <th scope="col">Qualité</th>
+            <th scope="col">Tendance 24 h</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.site_id) {
+            <tr>
+              <th scope="row">
+                <a [routerLink]="['/sites', row.site_id]">{{ row.site_name }}</a>
+                <span class="site-id">{{ row.site_id }}</span>
+              </th>
+              <td>{{ row.consumption }}</td>
+              <td>
+                @if (row.load_percent !== null) {
+                  <span class="load">
+                    <span class="bar" aria-hidden="true"
+                      ><span [style.width.%]="row.barWidth"></span
+                    ></span>
+                    {{ formatPercent(row.load_percent) }}
+                  </span>
+                } @else {
+                  n/d
+                }
+              </td>
+              <td>
+                <span [class]="'badge badge-' + row.data_quality">{{ row.data_quality }}</span>
+              </td>
+              <td>
+                <app-sparkline
+                  [values]="row.trend"
+                  [description]="'Tendance sur 24 heures de ' + row.site_name"
+                />
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}

@@ -1,9 +1,8 @@
 import { Component, computed, inject, input } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import { ChartData, ChartOptions } from 'chart.js';
-import { BaseChartDirective } from 'ng2-charts';
 import { EnergyApi } from '../../core/services/energy-api';
+import { ConsumptionChart } from '../../shared/components/consumption-chart/consumption-chart';
 import { summarize } from './reading-summary';
 
 const HOUR_MS = 3_600_000;
@@ -26,7 +25,7 @@ const dateTime = new Intl.DateTimeFormat('fr-FR', {
 });
 
 @Component({
-  imports: [BaseChartDirective],
+  imports: [ConsumptionChart],
   selector: 'app-site',
   styleUrl: './site.scss',
   templateUrl: './site.html',
@@ -91,50 +90,8 @@ export class Site {
     };
   });
 
-  /**
-   * Deux séries : consommation horaire (kW) et capacité du site (`capacityKw`).
-   * Les heures sans mesure (`null`) restent des trous (`spanGaps: false`).
-   */
-  protected readonly chartData = computed<ChartData<'line', (number | null)[], string>>(() => {
-    const readings = this.readings();
-    const capacity = this.profile()?.capacityKw ?? null;
-
-    return {
-      labels: readings.map((r) => dateTime.format(new Date(r.ts))),
-      datasets: [
-        {
-          label: 'Consommation',
-          data: readings.map((r) => r.consumption_kw),
-          borderColor: '#1f7a63',
-          backgroundColor: '#1f7a63',
-          borderWidth: 2,
-          pointRadius: 0,
-          spanGaps: false,
-        },
-        {
-          label: 'Capacité',
-          data: readings.map(() => capacity),
-          borderColor: '#b23a48',
-          backgroundColor: '#b23a48',
-          borderDash: [2, 4],
-          borderWidth: 1.5,
-          pointRadius: 0,
-        },
-      ],
-    };
-  });
-
-  protected readonly chartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: false,
-    interaction: { mode: 'index', intersect: false },
-    scales: {
-      x: { ticks: { maxTicksLimit: 9, maxRotation: 0 } },
-      y: { beginAtZero: true, title: { display: true, text: 'kW' } },
-    },
-    plugins: {
-      legend: { position: 'bottom' },
-    },
-  };
+  protected readonly chartLabels = computed(() =>
+    this.readings().map((r) => dateTime.format(new Date(r.ts))),
+  );
+  protected readonly chartValues = computed(() => this.readings().map((r) => r.consumption_kw));
 }

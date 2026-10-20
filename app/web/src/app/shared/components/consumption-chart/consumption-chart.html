@@ -1,1 +1,9 @@
-<p>consumption-chart works!</p>
+<div class="canvas-wrapper">
+  <canvas
+    baseChart
+    type="line"
+    [data]="data()"
+    [options]="options"
+    [attr.aria-label]="description()"
+  ></canvas>
+</div>

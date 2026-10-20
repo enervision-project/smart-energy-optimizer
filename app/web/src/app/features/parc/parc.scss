@@ -1,0 +1,130 @@
+:host {
+  display: grid;
+  gap: 20px;
+  color: #1f2a37;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid #dde2da;
+  border-radius: 10px;
+}
+
+.warning {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px dashed #d08c2b;
+  border-radius: 8px;
+  background: #fdf4e7;
+}
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: #5b6573;
+}
+
+.error {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fbeaec;
+  color: #b23a48;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #e9ece6;
+  text-align: left;
+  white-space: nowrap;
+}
+
+thead th {
+  font-weight: 600;
+  color: #5b6573;
+}
+
+tbody th {
+  font-weight: normal;
+
+  a {
+    display: block;
+    font-weight: 600;
+    color: #1f7a63;
+  }
+}
+
+.site-id {
+  font-size: 0.8rem;
+  color: #5b6573;
+}
+
+.load {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar {
+  display: inline-block;
+  width: 120px;
+  height: 8px;
+  border-radius: 4px;
+  background: #e9ece6;
+  overflow: hidden;
+
+  span {
+    display: block;
+    height: 100%;
+    background: #1f7a63;
+  }
+}
+
+.badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.8rem;
+}
+
+.badge-good {
+  color: #1f7a63;
+}
+.badge-partial {
+  color: #8a6d1f;
+}
+.badge-degraded {
+  color: #b4621a;
+}
+.badge-critical {
+  color: #fff;
+  background: #b23a48;
+  border-color: #b23a48;
+}

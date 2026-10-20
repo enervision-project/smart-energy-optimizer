@@ -9,6 +9,7 @@ import {
   AlertType,
   Page,
 } from '../models/alert';
+import { ParcSiteSummary, ParcSummary } from '../models/parc-summary';
 import { DataQuality, Reading } from '../models/reading';
 import { Site } from '../models/site';
 import { EnergyApi } from './energy-api';
@@ -42,10 +43,17 @@ const PROFILES: Record<
   hospital: { base: 0.55, peak: 0.75, hours: [8, 20], weekdaysOnly: false },
 };
 
-/** Site en perte réseau sur les 3 dernières heures : toutes les mesures à null, qualité `critical`. */
+/**
+ * Incidents simulés, en heures avant l'heure courante (1 = l'heure qui vient de s'écouler),
+ * pour que la vue site (48 h) et la vue parc (24 h) affichent les mêmes valeurs.
+ * - SITE003 : perte réseau sur les 3 dernières heures, toutes les mesures à null (`critical`) ;
+ * - SITE002 : panne des capteurs de consommation (`degraded`) puis de température (`partial`).
+ */
 const NETWORK_LOSS_SITE_ID = 'SITE003';
-/** Site avec une panne des capteurs de consommation (`degraded`) puis de température (`partial`). */
+const NETWORK_LOSS_HOURS = 3;
 const SENSOR_FAILURE_SITE_ID = 'SITE002';
+const DEGRADED_HOURS_AGO = [40, 39, 38];
+const PARTIAL_HOURS_AGO = [18, 17, 16, 15];
 
 /** Seuils fixes par site observés sur GET /api/v1/alerts de l'API Mock. */
 const ALERT_THRESHOLDS: Record<string, number> = {
@@ -94,15 +102,9 @@ export class MockEnergyApi extends EnergyApi {
 
   getReadings(siteId: string, from: Date, to: Date): Observable<Reading[]> {
     const found = SITES.find((s) => s.siteId === siteId);
-    if (!found) {
-      return throwError(() => new Error(`Site inconnu : ${siteId}`));
-    }
-    const lossStart = Math.floor(Date.now() / HOUR_MS) * HOUR_MS - 3 * HOUR_MS;
-    const readings: Reading[] = [];
-    for (let t = from.getTime(), i = 0; t < to.getTime(); t += HOUR_MS, i++) {
-      readings.push(reading(found, new Date(t), i, t >= lossStart));
-    }
-    return of(readings);
+    return found
+      ? of(series(found, from, to))
+      : throwError(() => new Error(`Site inconnu : ${siteId}`));
   }
 
   getAlerts(filters: AlertFilters, page: number, size: number): Observable<Page<Alert>> {
@@ -138,6 +140,39 @@ export class MockEnergyApi extends EnergyApi {
     ) as Record<AlertSeverity, number>;
     return of({ since: since.toISOString(), total: recent.length, bySeverity });
   }
+
+  getParcReadings(from: Date, to: Date): Observable<Reading[]> {
+    return of(SITES.flatMap((s) => series(s, from, to)));
+  }
+
+  /** Calculée comme l'API Mock : dernière mesure de chaque site, sites sans mesure exclus des totaux. */
+  getParcSummary(): Observable<ParcSummary> {
+    const to = new Date(currentHour());
+    const from = new Date(to.getTime() - HOUR_MS);
+    const sites: ParcSiteSummary[] = SITES.map((s) => {
+      const last = series(s, from, to)[0];
+      const kw = last.consumption_kw;
+      return {
+        site_id: s.siteId,
+        site_name: s.siteName,
+        current_consumption_kw: kw,
+        capacity_kw: s.capacityKw,
+        load_percent: kw === null ? null : round((kw / s.capacityKw) * 100),
+        data_quality: last.data_quality,
+      };
+    });
+    const reporting = sites.filter((s) => s.current_consumption_kw !== null);
+    const total = reporting.reduce((sum, s) => sum + (s.current_consumption_kw ?? 0), 0);
+    const capacity = SITES.reduce((sum, s) => sum + s.capacityKw, 0);
+    return of({
+      timestamp: to.toISOString(),
+      total_sites: SITES.length,
+      total_consumption_kw: round(total),
+      total_capacity_kw: capacity,
+      average_load_percent: round((total / capacity) * 100),
+      sites,
+    });
+  }
 }
 
 /** Alertes datées par rapport à maintenant, de la plus récente à la plus ancienne. */
@@ -162,6 +197,19 @@ function mockAlerts(): Alert[] {
   });
 }
 
+function currentHour(): number {
+  return Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+}
+
+function series(s: Site, from: Date, to: Date): Reading[] {
+  const now = currentHour();
+  const readings: Reading[] = [];
+  for (let t = from.getTime(); t < to.getTime(); t += HOUR_MS) {
+    readings.push(reading(s, new Date(t), (now - t) / HOUR_MS));
+  }
+  return readings;
+}
+
 function site(
   siteId: string,
   siteType: string,
@@ -172,7 +220,8 @@ function site(
   return { siteId, siteType, siteName, location, capacityKw, status: 'active' };
 }
 
-function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Reading {
+function reading(s: Site, date: Date, hoursAgo: number): Reading {
+  const index = date.getTime() / HOUR_MS;
   const kw = consumption(s, date, index);
   const voltage = round(400 + 3 * noise(index, 1));
   const powerFactor = round(0.93 + 0.02 * noise(index, 2), 3);
@@ -189,7 +238,7 @@ function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Rea
     data_quality: 'good',
   };
 
-  if (s.siteId === NETWORK_LOSS_SITE_ID && inLossWindow) {
+  if (s.siteId === NETWORK_LOSS_SITE_ID && hoursAgo >= 1 && hoursAgo <= NETWORK_LOSS_HOURS) {
     return withNulls(full, 'critical', [
       'consumption_kw',
       'consumption_kwh',
@@ -200,7 +249,7 @@ function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Rea
       'humidity_percent',
     ]);
   }
-  if (s.siteId === SENSOR_FAILURE_SITE_ID && index >= 8 && index < 11) {
+  if (s.siteId === SENSOR_FAILURE_SITE_ID && DEGRADED_HOURS_AGO.includes(hoursAgo)) {
     return withNulls(full, 'degraded', [
       'consumption_kw',
       'consumption_kwh',
@@ -209,7 +258,7 @@ function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Rea
       'power_factor',
     ]);
   }
-  if (s.siteId === SENSOR_FAILURE_SITE_ID && index >= 30 && index < 34) {
+  if (s.siteId === SENSOR_FAILURE_SITE_ID && PARTIAL_HOURS_AGO.includes(hoursAgo)) {
     return withNulls(full, 'partial', ['temperature_celsius']);
   }
   return full;

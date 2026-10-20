@@ -1,1 +1,5 @@
-<p>kpi-card works!</p>
+<p class="label">{{ label() }}</p>
+<p class="value">{{ value() }}</p>
+@if (detail()) {
+  <p class="detail">{{ detail() }}</p>
+}
