@@ -5,6 +5,10 @@ L'application est servie sur **<https://ener-vision.click>** par une seule EC2
 Les images sont construites par GitHub Actions, poussées dans ECR, puis redéployées via
 SSM Run Command (pas de SSH). Seuls les services modifiés sont reconstruits et redéployés.
 
+!!! tip "Première fois ?"
+    [Comprendre le déploiement](fonctionnement-cd.md) explique pas à pas le fonctionnement
+    (build, ECR, SSM) et la sécurité (OIDC, rôles IAM), avec des schémas.
+
 ```mermaid
 flowchart TD
     PUSH("Push sur main")
