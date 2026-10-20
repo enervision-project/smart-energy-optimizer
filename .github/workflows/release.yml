@@ -1,0 +1,40 @@
+# Publie une release (tag vX.Y.Z + notes GitHub) à chaque push sur main,
+# si les commits depuis la dernière release le justifient.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# aucun droit par défaut, le job déclare uniquement ce dont il a besoin
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write       # créer le tag et la release
+      issues: write         # commenter les issues résolues
+      pull-requests: write  # commenter les PR incluses
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0    # semantic-release a besoin de tout l'historique et des tags
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.21.0
+
+      - name: semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          npx --yes
+          -p semantic-release@25.0.9
+          -p conventional-changelog-conventionalcommits@9.3.1
+          semantic-release

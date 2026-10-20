@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Vérifie le message de commit (Conventional Commits, règles dans commitlint.config.mjs).
+# Activation, une fois par clone : git config core.hooksPath .githooks
+set -euo pipefail
+
+if ! command -v npx >/dev/null 2>&1; then
+  echo "commit-msg : npx introuvable, message non vérifié (la CI le vérifiera à la PR)." >&2
+  exit 0
+fi
+
+npx --yes \
+  -p @commitlint/cli@21.2.4 \
+  -p @commitlint/config-conventional@21.2.4 \
+  commitlint --edit "$1"
