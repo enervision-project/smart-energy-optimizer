@@ -188,9 +188,29 @@ class AggregateHourPostgresTests(unittest.TestCase):
         self.assertAlmostEqual(row["humidity_percent"], 40.0)
         self.assertAlmostEqual(row["consumption_kwh"], 120.0)
 
-    def test_fifteen_null_powers_make_energy_null_without_losing_averages(self):
+    def test_fifteen_null_powers_use_the_45_available_values(self):
         readings = self.readings()
-        for reading in readings[:15]:
+        for index, reading in enumerate(readings):
+            reading["consumption_kw"] = None if index < 15 else float(index + 1)
+        load_readings(readings, self.database_url)
+
+        aggregate_hour(self.database_url, end_time=END)
+
+        row = self.stored_hours()[0]
+        # Moyenne des valeurs 16 à 60 : 38 kW, soit 38 kWh estimés sur 1 heure.
+        self.assertEqual(row["consumption_kwh"], Decimal("38.00"))
+        self.assertAlmostEqual(row["voltage_v"], 220.0)
+
+    def test_incomplete_hour_estimates_from_available_minutes(self):
+        load_readings(self.readings(range(41)), self.database_url)
+
+        aggregate_hour(self.database_url, end_time=END)
+
+        self.assertEqual(self.stored_hours()[0]["consumption_kwh"], Decimal("120.00"))
+
+    def test_all_null_powers_keep_energy_null_without_losing_averages(self):
+        readings = self.readings()
+        for reading in readings:
             reading["consumption_kw"] = None
         load_readings(readings, self.database_url)
 
@@ -198,21 +218,19 @@ class AggregateHourPostgresTests(unittest.TestCase):
 
         row = self.stored_hours()[0]
         self.assertIsNone(row["consumption_kwh"])
-        self.assertAlmostEqual(row["voltage_v"], 220.0)
+        self.assertEqual(row["voltage_v"], Decimal("220.00"))
 
-    def test_missing_minute_makes_energy_null(self):
-        load_readings(self.readings(range(59)), self.database_url)
-        aggregate_hour(self.database_url, end_time=END)
-        self.assertIsNone(self.stored_hours()[0]["consumption_kwh"])
-
-    def test_sixty_rows_do_not_hide_a_missing_minute(self):
+    def test_zero_counts_as_valid_and_null_does_not(self):
         readings = self.readings()
-        readings[-1]["timestamp"] = self.start + timedelta(minutes=58, seconds=30)
+        for reading in readings:
+            reading["consumption_kw"] = None
+        readings[0]["consumption_kw"] = 0.0
+        readings[1]["consumption_kw"] = 120.0
         load_readings(readings, self.database_url)
 
         aggregate_hour(self.database_url, end_time=END)
 
-        self.assertIsNone(self.stored_hours()[0]["consumption_kwh"])
+        self.assertEqual(self.stored_hours()[0]["consumption_kwh"], Decimal("60.00"))
 
     def test_window_includes_start_and_excludes_next_hour(self):
         readings = self.readings(range(-1, 61))
@@ -266,18 +284,24 @@ class AggregateHourPostgresTests(unittest.TestCase):
         self.assertAlmostEqual(second["consumption_kwh"], 60.0)
         self.assertAlmostEqual(second["voltage_v"], 240.0)
 
-    def test_replay_fills_late_data_without_duplicates(self):
-        load_readings(self.readings(range(45)), self.database_url)
+    def test_replay_updates_estimate_with_late_data_without_duplicates(self):
+        first = self.readings(range(45))
+        for reading in first:
+            reading["consumption_kw"] = 60.0
+        load_readings(first, self.database_url)
         aggregate_hour(self.database_url, end_time=END)
-        self.assertIsNone(self.stored_hours()[0]["consumption_kwh"])
-        load_readings(self.readings(range(45, 60)), self.database_url)
+        self.assertEqual(self.stored_hours()[0]["consumption_kwh"], Decimal("60.00"))
 
+        late = self.readings(range(45, 60))
+        for reading in late:
+            reading["consumption_kw"] = 180.0
+        load_readings(late, self.database_url)
         aggregate_hour(self.database_url, end_time=END)
         aggregate_hour(self.database_url, end_time=END)
 
         rows = self.stored_hours()
         self.assertEqual(len(rows), 1)
-        self.assertAlmostEqual(rows[0]["consumption_kwh"], 120.0)
+        self.assertEqual(rows[0]["consumption_kwh"], Decimal("90.00"))
 
     def test_paris_reference_is_converted_to_utc(self):
         load_readings(self.readings(), self.database_url)
