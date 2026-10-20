@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { ChartData, ChartOptions } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
 import { EnergyApi } from '../../core/services/energy-api';
-import { isImputed, summarize } from './telemetry-summary';
+import { summarize } from './reading-summary';
 
 const HOUR_MS = 3_600_000;
 const WINDOW_HOURS = 48;
@@ -12,8 +12,8 @@ const WINDOW_HOURS = 48;
 const SITE_TYPE_LABELS: Record<string, string> = {
   office: 'bureaux',
   factory: 'usine',
-  data_center: 'data center',
-  mall: 'centre commercial',
+  datacenter: 'data center',
+  retail: 'centre commercial',
   hospital: 'hôpital',
 };
 
@@ -51,9 +51,9 @@ export class Site {
     stream: ({ params: id }) => this.api.getSite(id),
   });
 
-  protected readonly telemetry = rxResource({
+  protected readonly measures = rxResource({
     params: () => this.id(),
-    stream: ({ params: id }) => this.api.getTelemetry(id, this.from, this.to),
+    stream: ({ params: id }) => this.api.getReadings(id, this.from, this.to),
     defaultValue: [],
   });
 
@@ -62,7 +62,7 @@ export class Site {
     this.site.hasValue() ? this.site.value() : undefined,
   );
   private readonly readings = computed(() =>
-    this.telemetry.hasValue() ? this.telemetry.value() : [],
+    this.measures.hasValue() ? this.measures.value() : [],
   );
 
   protected readonly siteOptions = computed(() =>
@@ -84,29 +84,27 @@ export class Site {
     return {
       energy: `${number.format(s.energyKwh / 1000)} MWh`,
       peak: s.peak
-        ? `${number.format(s.peak.kwh)} kWh (${dateTime.format(new Date(s.peak.measured_at))})`
+        ? `${number.format(s.peak.kw)} kW (${dateTime.format(new Date(s.peak.ts))})`
         : '—',
       availability: `${Math.round(s.availability * 100)} %`,
-      imputed: `${s.imputedPoints} / ${s.totalPoints}`,
+      quality: `${s.quality.good} good · ${s.quality.partial} partial · ${s.quality.degraded} degraded · ${s.quality.critical} critical`,
     };
   });
 
   /**
-   * Trois séries : mesures brutes (trait plein), points imputés (pointillés, reliés aux mesures voisines)
-   * et seuil `peak_consumption`. Les `null` restent des trous (`spanGaps: false`).
+   * Deux séries : consommation horaire (kW) et capacité du site (`capacity_kw`).
+   * Les heures sans mesure (`null`) restent des trous (`spanGaps: false`).
    */
   protected readonly chartData = computed<ChartData<'line', (number | null)[], string>>(() => {
     const readings = this.readings();
-    const imputed = readings.map(isImputed);
-    const values = readings.map((r) => r.consumption_kwh);
-    const peak = this.profile()?.peak_consumption ?? null;
+    const capacity = this.profile()?.capacity_kw ?? null;
 
     return {
-      labels: readings.map((r) => dateTime.format(new Date(r.measured_at))),
+      labels: readings.map((r) => dateTime.format(new Date(r.ts))),
       datasets: [
         {
-          label: 'Mesurée',
-          data: values.map((v, i) => (imputed[i] ? null : v)),
+          label: 'Consommation',
+          data: readings.map((r) => r.consumption_kw),
           borderColor: '#1f7a63',
           backgroundColor: '#1f7a63',
           borderWidth: 2,
@@ -114,18 +112,8 @@ export class Site {
           spanGaps: false,
         },
         {
-          label: 'Imputée',
-          data: values.map((v, i) => (imputed[i] || imputed[i - 1] || imputed[i + 1] ? v : null)),
-          borderColor: '#d08c2b',
-          backgroundColor: '#d08c2b',
-          borderDash: [6, 4],
-          borderWidth: 2,
-          pointRadius: 0,
-          spanGaps: false,
-        },
-        {
-          label: 'Seuil contractuel',
-          data: readings.map(() => peak),
+          label: 'Capacité',
+          data: readings.map(() => capacity),
           borderColor: '#b23a48',
           backgroundColor: '#b23a48',
           borderDash: [2, 4],
@@ -143,7 +131,7 @@ export class Site {
     interaction: { mode: 'index', intersect: false },
     scales: {
       x: { ticks: { maxTicksLimit: 9, maxRotation: 0 } },
-      y: { beginAtZero: true, title: { display: true, text: 'kWh / h' } },
+      y: { beginAtZero: true, title: { display: true, text: 'kW' } },
     },
     plugins: {
       legend: { position: 'bottom' },

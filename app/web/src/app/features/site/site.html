@@ -5,7 +5,7 @@
     <select (change)="selectSite($event)">
       <option value="" disabled [selected]="!id()">Choisir un site…</option>
       @for (s of siteOptions(); track s.site_id) {
-        <option [value]="s.site_id" [selected]="s.site_id === id()">{{ s.name }}</option>
+        <option [value]="s.site_id" [selected]="s.site_id === id()">{{ s.site_name }}</option>
       }
     </select>
   </label>
@@ -17,13 +17,13 @@
   <p class="error" role="alert">Site introuvable ou API indisponible.</p>
 } @else {
   @if (profile(); as s) {
-    <p class="meta">{{ siteTypeLabel() }} · seuil {{ s.peak_consumption }} kWh/h</p>
+    <p class="meta">{{ siteTypeLabel() }} · {{ s.location }} · capacité {{ s.capacity_kw }} kW</p>
   }
 
   <div class="grid">
     <section class="card chart" aria-labelledby="chart-title">
       <h2 id="chart-title">Consommation horaire — 48 dernières heures</h2>
-      @if (telemetry.error()) {
+      @if (measures.error()) {
         <p class="error" role="alert">Mesures indisponibles.</p>
       } @else {
         <div class="canvas-wrapper">
@@ -35,7 +35,10 @@
             aria-label="Courbe de consommation horaire sur 48 heures"
           ></canvas>
         </div>
-        <p class="hint">Les trous dans la courbe correspondent à des périodes sans mesure.</p>
+        <p class="hint">
+          Les trous correspondent aux heures sans mesure de consommation (qualité degraded ou
+          critical).
+        </p>
       }
     </section>
 
@@ -48,8 +51,8 @@
         <dd data-testid="peak">{{ summary().peak }}</dd>
         <dt>Disponibilité des données</dt>
         <dd data-testid="availability">{{ summary().availability }}</dd>
-        <dt>Points imputés</dt>
-        <dd data-testid="imputed">{{ summary().imputed }}</dd>
+        <dt>Qualité des mesures</dt>
+        <dd data-testid="quality">{{ summary().quality }}</dd>
       </dl>
     </aside>
   </div>
