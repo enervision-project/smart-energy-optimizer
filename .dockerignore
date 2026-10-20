@@ -10,6 +10,7 @@
 **/htmlcov
 **/dist
 **/build
+**/target
 **/*.egg-info
 .env
 .env.*
