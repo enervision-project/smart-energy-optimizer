@@ -5,9 +5,11 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
-      - 'services/etl-worker/docs/**'
       - 'mkdocs.yml'
+      - 'services/etl-worker/docs/**'
       - 'services/etl-worker/mkdocs.yml'
+      - 'app/web/docs/**'
+      - 'app/web/mkdocs.yml'
 
 permissions:
   contents: write

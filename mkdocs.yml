@@ -79,3 +79,4 @@ nav:
   - Accueil: index.md
   - ...
   - ETL Worker: '!include ./services/etl-worker/mkdocs.yml'
+  - UI: '!include ./app/web/mkdocs.yml'
