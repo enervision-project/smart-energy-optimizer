@@ -2,6 +2,13 @@
 name: enervision
 
 services:
+  web:
+    # front Angular servi par nginx (contexte app/web : son .dockerignore s'applique)
+    build:
+      context: app/web
+    ports:
+      - "127.0.0.1:4200:80"
+
   etl-worker:
     build:
       context: .
