@@ -44,3 +44,6 @@ services/frontend/coverage/
 services/frontend/tsconfig.tsbuildinfo
 backend.hcl
 .deploy.lock
+
+# doc
+site/
