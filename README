@@ -3,13 +3,73 @@
 ## Structure
 
 ```
-services/etl-worker/   ETL Python planifié par cron
-compose.yaml           stack Docker Compose du projet
+services/etl-worker/   extraction et chargement des données en Python
+infra/db/init.sql     schéma PostgreSQL / TimescaleDB
+compose.yaml          stack Docker Compose du projet
 ```
 
-## Démarrage
+## Configuration
+
+Les commandes suivantes s'exécutent dans WSL, à la racine du dépôt.
+
+Créer `.env` s'il n'existe pas encore :
 
 ```bash
-cp .env.example .env
-docker compose up --build
+test -f .env || cp .env.example .env
 ```
+
+Dans `.env`, renseigner `ENERGY_API_BASE_URL=http://10.43.43.80:8000`.
+La variable `DATABASE_URL` doit reprendre les mêmes identifiants que
+`POSTGRES_USER`, `POSTGRES_PASSWORD` et `POSTGRES_DB`, avec `db:5432`
+comme adresse depuis le worker. Si `.env` a été copié depuis une ancienne
+version de l'exemple, vérifier notamment la concordance des mots de passe.
+
+## Synchroniser les sites
+
+```bash
+docker compose up -d --wait db
+docker compose build etl-worker
+docker compose run --rm --no-deps etl-worker
+```
+
+Le worker effectue un seul passage : extraction des sites, puis chargement
+dans PostgreSQL. La planification quotidienne sera ajoutée ultérieurement.
+
+Les nouveaux `site_id` sont insérés. Un site existant est mis à jour seulement
+si `site_name`, `site_type`, `location`, `capacity_kw` ou `status` a changé.
+Les comparaisons prennent en compte les valeurs `NULL`.
+`updated_at` reste inchangé pour un site identique. Un site absent de la réponse
+n'est pas supprimé. En cas d'erreur, tout le lot est annulé.
+
+La sortie indique le nombre de sites reçus et le nombre de sites insérés ou
+mis à jour. Après un premier chargement dans une table vide, une nouvelle
+exécution avec les mêmes données doit afficher `insérés ou mis à jour : 0`.
+
+## Vérifier les données en base
+
+```bash
+docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT * FROM sites ORDER BY site_id;"'
+```
+
+Relancer la synchronisation puis cette requête permet de vérifier que
+`updated_at` ne change pas quand les données de l'API sont identiques.
+
+## Tests
+
+Après la construction de l'image du worker, lancer les tests sans accès réseau :
+
+```bash
+docker compose run --rm --no-deps etl-worker python -m unittest discover -s tests -v
+```
+
+Les tests PostgreSQL sont ignorés si `TEST_DATABASE_URL` n'est pas défini.
+Pour exécuter toute la suite, avec le service `db` déjà démarré :
+
+```bash
+docker compose run --rm --no-deps etl-worker sh -c 'TEST_DATABASE_URL="$DATABASE_URL" python -m unittest discover -s tests -v'
+```
+
+Ces tests utilisent un schéma temporaire isolé, supprimé après chaque test.
+Ils vérifient l'insertion, les changements de chaque champ, les valeurs `NULL`,
+l'absence de mise à jour pour des données identiques et l'annulation du lot
+en cas d'erreur.

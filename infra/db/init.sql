@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS readings (
     power_factor        DOUBLE PRECISION,
     temperature_celsius DOUBLE PRECISION,
     humidity_percent    DOUBLE PRECISION,
+    null_reasons TEXT[] NOT NULL DEFAULT '{}',
     data_quality        TEXT NOT NULL
         CHECK (data_quality IN ('good', 'partial', 'degraded', 'critical')),
     loaded_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
