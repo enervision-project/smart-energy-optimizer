@@ -15,6 +15,13 @@ x-etl: &etl
 
 services:
   # Commandes ponctuelles : docker compose run --rm etl-worker ...
+  web:
+    # front Angular servi par nginx (contexte app/web : son .dockerignore s'applique)
+    build:
+      context: app/web
+    ports:
+      - "127.0.0.1:4200:80"
+
   etl-worker:
     <<: *etl
     profiles: ["manual"]
@@ -24,6 +31,21 @@ services:
     <<: *etl
     command: ["/usr/local/bin/etl-cron-start"]
     restart: unless-stopped
+
+  core-api:
+    build:
+      context: .
+      dockerfile: services/core-api/Dockerfile
+    environment:
+      # hôte « db » = nom du service ; reprend les valeurs POSTGRES_* du .env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
     restart: unless-stopped

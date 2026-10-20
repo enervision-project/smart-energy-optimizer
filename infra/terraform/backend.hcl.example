@@ -1,0 +1,6 @@
+# Copier en backend.hcl (non versionné) : terraform init -backend-config=backend.hcl
+bucket       = "enervision-tfstate-s3"
+key          = "prod/terraform.tfstate"
+region       = "eu-west-3"
+encrypt      = true
+use_lockfile = true

@@ -1,0 +1,20 @@
+#!/bin/bash
+# Premier démarrage de l'EC2 : Docker + Compose, volume de données sur /var/lib/docker.
+set -euxo pipefail
+
+dnf install -y docker
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl -fsSL https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-x86_64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# le volume est attaché après le démarrage : on l'attend (nom NVMe dérivé de son id)
+dev=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${replace(data_volume_id, "-", "")}
+for _ in $(seq 60); do [ -e "$dev" ] && break; sleep 5; done
+blkid "$dev" || mkfs.xfs "$dev" # formaté seulement s'il est vierge
+mkdir -p /var/lib/docker
+echo "UUID=$(blkid -s UUID -o value "$dev") /var/lib/docker xfs defaults,nofail 0 2" >>/etc/fstab
+mount /var/lib/docker
+
+systemctl enable --now docker
+mkdir -p /opt/enervision

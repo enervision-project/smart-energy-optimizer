@@ -1,0 +1,40 @@
+# Surcharge production (EC2), appliquée par infra/deploy/deploy.sh :
+#   docker compose -f compose.yaml -f compose.prod.yaml ...
+# Les images viennent d'ECR (construites par la CI) au lieu d'être construites sur place.
+# ECR_REGISTRY et <SERVICE>_TAG sont écrits dans deploy.env par le script de déploiement.
+
+services:
+  # seul point d'entrée public : HTTPS (Let's Encrypt) vers les services internes
+  proxy:
+    image: docker.io/library/caddy:2.10-alpine
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./infra/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data # certificats
+    depends_on: [web]
+    restart: unless-stopped
+
+  web:
+    build: !reset null
+    image: ${ECR_REGISTRY}/enervision/web:${WEB_TAG:-latest}
+    # joignable uniquement via proxy
+    ports: !reset []
+    restart: unless-stopped
+
+  etl-worker:
+    build: !reset null
+    image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
+    restart: unless-stopped
+
+  db:
+    # base non exposée sur l'hôte en production
+    ports: !reset []
+    restart: unless-stopped
+
+volumes:
+  caddydata: {}

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+
+	<!-- Parent Spring Boot : gère déjà les versions des starters, de Lombok, PostgreSQL, etc. -->
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.1.1</version>
+		<relativePath/>
+	</parent>
+
+	<!-- Projet parent -->
+	<groupId>com.enervision</groupId>
+	<artifactId>core-api</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+
+	<name>core-api</name>
+	<description>Enervision Core API - Modular Monolith</description>
+
+	<!-- Modules Maven -->
+	<modules>
+		<module>configuration</module>
+		<module>user</module>
+		<module>diagnostic</module>
+		<module>telemetry</module>
+		<module>application</module>
+	</modules>
+
+	<!-- Propriétés -->
+	<properties>
+		<java.version>21</java.version>
+		<springdoc.version>3.1.0</springdoc.version>
+	</properties>
+
+	<!-- Gestion centralisée des dépendances.
+	     Ne PAS redéclarer ici les starters Spring Boot sans version :
+	     cela écrase la gestion du parent et provoque "version is missing". -->
+	<dependencyManagement>
+		<dependencies>
+
+			<!-- Modules internes -->
+			<dependency>
+				<groupId>com.enervision</groupId>
+				<artifactId>configuration</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.enervision</groupId>
+				<artifactId>user</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.enervision</groupId>
+				<artifactId>diagnostic</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.enervision</groupId>
+				<artifactId>telemetry</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+
+			<!-- Springdoc OpenAPI (non géré par Spring Boot) -->
+			<dependency>
+				<groupId>org.springdoc</groupId>
+				<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+				<version>${springdoc.version}</version>
+			</dependency>
+
+		</dependencies>
+	</dependencyManagement>
+
+	<!-- Configuration commune de compilation -->
+	<build>
+		<pluginManagement>
+			<plugins>
+
+				<!-- Compilation Java et annotation processing Lombok (hérité par tous les modules) -->
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<configuration>
+						<annotationProcessorPaths>
+							<path>
+								<groupId>org.projectlombok</groupId>
+								<artifactId>lombok</artifactId>
+								<version>${lombok.version}</version>
+							</path>
+						</annotationProcessorPaths>
+					</configuration>
+				</plugin>
+
+			</plugins>
+		</pluginManagement>
+	</build>
+
+</project>
