@@ -117,3 +117,19 @@ def load_readings(
         with connection.cursor() as cursor:
             cursor.executemany(_INSERT_READING, rows)
             return cursor.rowcount
+
+
+def read_site_ids(
+    database_url: str | None = None, *, connect_timeout: int = 10
+) -> list[str]:
+    """Lit les sites connus en base sans solliciter l'API des sites."""
+    connection_url = (
+        database_url if database_url is not None else os.environ.get("DATABASE_URL", "")
+    ).strip()
+    if not connection_url:
+        raise ValueError("Renseigner DATABASE_URL ou passer une URL à read_site_ids.")
+
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT site_id FROM sites ORDER BY site_id")
+            return [row[0] for row in cursor.fetchall()]
