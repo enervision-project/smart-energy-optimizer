@@ -1,0 +1,2 @@
+# Copier en terraform.tfvars (non versionné) puis renseigner les valeurs.
+energy_api_base_url = "https://api-mock.example.com"

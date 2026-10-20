@@ -1,0 +1,26 @@
+{
+  "global": [
+    "compose.yaml",
+    "compose.prod.yaml",
+    "infra/deploy/",
+    ".github/services.json",
+    ".github/workflows/services.yml",
+    "scripts/ci/"
+  ],
+  "services": {
+    "proxy": {
+      "paths": ["infra/proxy/"]
+    },
+    "web": {
+      "paths": ["app/web/"],
+      "build": { "context": "app/web", "dockerfile": "app/web/Dockerfile" }
+    },
+    "etl-worker": {
+      "paths": ["services/etl-worker/"],
+      "build": { "context": ".", "dockerfile": "services/etl-worker/Dockerfile" }
+    },
+    "db": {
+      "paths": ["infra/db/"]
+    }
+  }
+}
