@@ -31,6 +31,11 @@ services:
     image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
     restart: unless-stopped
 
+  scheduler:
+    build: !reset null
+    image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
+    restart: unless-stopped
+
   db:
     # base non exposée sur l'hôte en production
     ports: !reset []
