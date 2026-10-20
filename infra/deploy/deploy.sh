@@ -34,7 +34,15 @@ done
 aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
 
 compose=(docker compose -f compose.yaml -f compose.prod.yaml --env-file .env --env-file deploy.env)
-"${compose[@]}" pull "$@"
-"${compose[@]}" up -d --no-build --remove-orphans "$@"
+# Le scheduler utilise la même image et le même tag que le worker ponctuel.
+deploy_services=()
+for svc in "$@"; do
+  case "$svc" in
+    etl-worker) deploy_services+=(scheduler) ;;
+    *) deploy_services+=("$svc") ;;
+  esac
+done
+"${compose[@]}" pull "${deploy_services[@]}"
+"${compose[@]}" up -d --no-build --remove-orphans "${deploy_services[@]}"
 docker image prune -f
 "${compose[@]}" ps
