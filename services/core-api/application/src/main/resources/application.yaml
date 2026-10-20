@@ -2,15 +2,34 @@ spring:
   application:
     name: core-api
 
-  # Base TimescaleDB (service « db » du compose.yaml racine).
-  # Valeurs par défaut = dev local, app lancée sur l'hôte (port exposé 15432).
-  # En conteneur, surchargées par les variables SPRING_DATASOURCE_* du compose.yaml.
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:15432/enervision}
-    username: ${SPRING_DATASOURCE_USERNAME:enervision}
-    password: ${SPRING_DATASOURCE_PASSWORD:password}
+  # Local run (java -jar or IDE from services/core-api): read the root .env (gitignored).
+  # Optional: in a container there is no .env, compose.yaml passes the variables instead.
+  config:
+    import: optional:file:../../.env[.properties]
 
-  # Le schéma est géré par infra/db/init.sql : Hibernate vérifie seulement les entités.
+  # TimescaleDB database, from the environment (compose.yaml) or the root .env (local run).
+  # Explicit placeholders: a .env key such as SPRING_DATASOURCE_URL is not relaxed-bound like an
+  # environment variable. Empty defaults on purpose: the app refuses to start without them.
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+
+  # The schema is managed by infra/db/init.sql: Hibernate only validates the entities.
   jpa:
     hibernate:
       ddl-auto: validate
+
+  # Standard HTTP errors (validation, 404, 405…) as ProblemDetail (RFC 9457)
+  mvc:
+    problemdetails:
+      enabled: true
+
+enervision:
+  security:
+    jwt:
+      # Base64-encoded HMAC-SHA256 key (at least 32 bytes, e.g. openssl rand -base64 32).
+      # Secret: empty default on purpose, the app refuses to start (@NotBlank) without JWT_SECRET.
+      secret: ${JWT_SECRET:}
+      expiration: ${JWT_EXPIRATION:1h}
+      issuer: enervision-core-api

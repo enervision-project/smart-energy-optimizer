@@ -11,12 +11,13 @@ core-api est un **monolithe modulaire** : un seul jar exécutable (`application`
 
 ```
 Controller  →  Service (interface)  →  Repository (Spring Data)  →  Base
-   ↑ DTO          ↑ impl : ServiceImpl        ↑ Entity
+   ↑ DTO          ↑ implementation :          ↑ Entity
+                    JpaSiteService…
 ```
 
 | Couche | Rôle | Ne fait PAS |
 |---|---|---|
-| **Controller** (`api`) | HTTP : routes, validation des entrées (`@Valid`), codes de statut, DTO in/out | Pas de logique métier, pas d'accès au repository, n'expose jamais une entité |
+| **Controller** (`api.controllers`) | HTTP : routes, validation des entrées (`@Valid`), codes de statut, DTO in/out | Pas de logique métier, pas d'accès au repository, n'expose jamais une entité |
 | **Service** (`service`) | Logique métier, transactions, orchestration, conversion entité ↔ DTO via le mapper | Ne connaît pas HTTP (`ResponseEntity`, `HttpServletRequest`…) |
 | **Repository** (`repository`) | Accès aux données (interfaces Spring Data JPA) | Pas de logique métier |
 | **Domain** (`domain`) | Entités JPA, enums métier | Pas de dépendance vers les couches supérieures |
@@ -30,26 +31,37 @@ Tout le code d'un module est sous `com.enervision.<module>` (sinon il n'est pas 
 ```
 com.enervision.<module>
 ├── api/
-│   ├── <Nom>Controller.java
-│   └── dto/                    <Nom>Response, Create<Nom>Request, Update<Nom>Request
+│   ├── controllers/
+│   │   └── <Nom>Controller.java
+│   ├── dto/                    <Nom>Response, Create<Nom>Request, Update<Nom>Request
+│   └── handlers/
+│       └── <Module>ExceptionHandler.java
 ├── service/
 │   ├── <Nom>Service.java       interface publique du module
-│   └── impl/
-│       └── <Nom>ServiceImpl.java
+│   └── implementation/
+│       └── <Spécificité><Nom>Service.java   ex. JpaUserService, JwtAuthService
 ├── repository/
 │   └── <Nom>Repository.java
 ├── domain/
-│   └── <Nom>.java              entité JPA
+│   ├── <Nom>.java              entité JPA
+│   └── <Enum>.java             enums métier (ex. Role)
 ├── mapper/
 │   └── <Nom>Mapper.java
-└── exception/
-    └── <Nom>NotFoundException.java
+├── exception/
+│   └── <Nom>NotFoundException.java
+└── security/                   (si besoin) beans de sécurité propres au module
 ```
+
+Exemple de référence : le module `user` (auth et utilisateurs), qui suit exactement cette structure.
+
+**Configuration Spring** :
+- Les `@Configuration` propres à un module restent dans ce module (ex. `com.enervision.user.security.JwtConfig`).
+- La configuration transverse, commune à tous les modules, va dans le module `application`, package `com.enervision.config` (ex. `SecurityConfig`).
 
 ## 3. Communication entre modules
 
 - Un module n'utilise un autre module **que via son interface de service et ses DTO** (`com.enervision.<autre>.service.*Service`, `com.enervision.<autre>.api.dto.*`).
-- Interdit : injecter le repository, utiliser l'entité ou la classe `impl` d'un autre module.
+- Interdit : injecter le repository, utiliser l'entité ou une classe du package `service.implementation` d'un autre module.
 - La dépendance doit être déclarée dans le `pom.xml` du module appelant. Pas de dépendance cyclique entre modules ; un module métier ne dépend jamais d'`application`.
 
 ## 4. Conventions par couche
@@ -99,7 +111,7 @@ public interface SiteService {
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-class SiteServiceImpl implements SiteService {
+class JpaSiteService implements SiteService {
 
 	private final SiteRepository siteRepository;
 	private final SiteMapper siteMapper;
@@ -121,8 +133,9 @@ class SiteServiceImpl implements SiteService {
 }
 ```
 
+- **Nommage** : l'interface porte le nom simple (`UserService`), car c'est le type utilisé partout (controllers, autres modules, tests). L'implémentation est nommée d'après ce qui la distingue : `JpaUserService`, `JwtAuthService`, `JwtTokenService`, `DatabaseUserDetailsService`. Pas de préfixe `I` (`IUserService`) ni de suffixe `Impl`. Les implémentations vont dans le sous-package `service.implementation`.
 - L'interface est `public` ; l'implémentation est **package-private** si possible (seule l'interface est visible des autres modules).
-- `@Transactional(readOnly = true)` sur la classe, `@Transactional` sur les méthodes d'écriture.
+- **Transactions** : `@Transactional(readOnly = true)` sur la classe, comme filet de sécurité (toute méthode publique tourne dans une transaction, et une écriture oubliée échoue au lieu de passer hors transaction). `@Transactional` sur chaque méthode d'écriture.
 - Le service prend et retourne des **DTO**, jamais des entités.
 
 ### Repository
@@ -144,7 +157,7 @@ public interface SiteRepository extends JpaRepository<Site, String> {
 @Table(name = "sites")
 @Getter
 @Setter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor
 public class Site {
 
 	@Id
@@ -157,9 +170,12 @@ public class Site {
 }
 ```
 
-- **Le schéma est géré par `infra/db/init.sql`** (Hibernate est en `ddl-auto: validate`). Toute nouvelle table ou colonne s'ajoute d'abord dans `init.sql`, puis l'entité est alignée dessus : noms de table et de colonnes explicites (`@Table`, `@Column`), types compatibles.
+- **Le schéma est géré par `infra/db/init.sql`** (Hibernate est en `ddl-auto: validate`). L'entité doit être alignée sur ce schéma : noms de table et de colonnes explicites (`@Table`, `@Column`), types compatibles.
+- **Ne pas modifier `infra/db/init.sql` (ni rien sous `infra/`) sans demande explicite.** Si une entité n'a pas encore sa table, le signaler (l'application ne démarrera pas en `validate`) et proposer le SQL, sans l'appliquer.
 - Clé composite (ex. hypertable `readings` : `site_id` + `ts`) : `@IdClass` ou `@EmbeddedId`.
-- Pas de `@Data` ni de `@EqualsAndHashCode` / `@ToString` Lombok générés sur les entités (problèmes avec les proxys et le lazy loading).
+- Lombok sur les entités : `@Getter`, `@Setter` et `@NoArgsConstructor` (public, car le mapper crée l'entité depuis un autre package). Pas de `@Data`, `@AllArgsConstructor`, `@EqualsAndHashCode` ni `@ToString` générés : problèmes avec les proxys Hibernate et le lazy loading. Référence : `com.enervision.user.domain.User`.
+- `@Entity` sans attribut `name` ; le nom de la table se met dans `@Table(name = "...")`.
+- Timestamps techniques : `@CreationTimestamp` (`updatable = false`) et `@UpdateTimestamp`. Ils ne sont renseignés qu'au flush : utiliser `saveAndFlush` si la réponse doit les contenir.
 - Relations en `FetchType.LAZY` par défaut.
 - Dates : `Instant` pour `TIMESTAMPTZ`.
 
@@ -182,17 +198,53 @@ public record CreateSiteRequest(
 
 ### Exceptions
 
-- Exceptions métier non vérifiées (`extends RuntimeException`), nommées d'après le problème : `SiteNotFoundException`, `InvalidThresholdException`.
-- Traduites en réponses HTTP par un `@RestControllerAdvice` global qui renvoie des `ProblemDetail` (RFC 9457). Ne pas faire de `try/catch` dans les controllers pour produire des erreurs HTTP.
+- Exceptions métier non vérifiées (`extends RuntimeException`), nommées d'après le problème : `SiteNotFoundException`, `InvalidThresholdException`. Elles vont dans le package `exception` du module.
+- Chaque module traduit ses propres exceptions en réponses HTTP `ProblemDetail` (RFC 9457) dans `api/handlers/<Module>ExceptionHandler`. Ce handler est un `@RestControllerAdvice(basePackages = "com.enervision.<module>")` package-private : `basePackages` le limite aux controllers du module pour qu'il n'interfère pas avec les autres.
+
+```java
+@RestControllerAdvice(basePackages = "com.enervision.user")
+class UserExceptionHandler {
+
+	@ExceptionHandler(UserNotFoundException.class)
+	ProblemDetail handleUserNotFound(UserNotFoundException exception) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+	}
+
+}
+```
+
+- Les erreurs standard (validation `@Valid`, 404, 405…) sont déjà renvoyées en `ProblemDetail` grâce à `spring.mvc.problemdetails.enabled: true` ; inutile de les gérer dans les handlers.
+- Ne pas faire de `try/catch` dans les controllers pour produire des erreurs HTTP.
+
+### Sécurité
+
+- **Tout endpoint est protégé par défaut** (jeton JWT obligatoire) par la chaîne globale `com.enervision.config.SecurityConfig` du module `application`. Ne pas créer d'autre `SecurityFilterChain` dans un module.
+- Autorisations par rôle sur le controller, via des **méta-annotations** : `@AdminOnly` (`com.enervision.user.security`). Ne pas écrire `@PreAuthorize("hasRole('ADMIN')")` dans les controllers : la chaîne SpEL n'est pas vérifiée à la compilation. Les noms de rôle n'apparaissent en chaîne que dans la méta-annotation, qui doit correspondre à l'enum `Role` (`USER`, `ADMIN`). Pour une nouvelle règle, créer une nouvelle méta-annotation à côté d'`@AdminOnly`.
+
+```java
+@AdminOnly
+@GetMapping
+public List<UserResponse> getUsers() {
+	return userService.getUsers();
+}
+```
+
+- Utilisateur courant : `@AuthenticationPrincipal Jwt jwt`, puis `UUID.fromString(Objects.requireNonNull(jwt.getSubject()))`. L'id se passe ensuite au service ; le service ne lit pas le `SecurityContext`.
+- Une nouvelle route publique s'ajoute dans `SecurityConfig` (et `@SecurityRequirements` vide sur le controller pour la doc OpenAPI).
+- Émission / vérification des jetons et mots de passe : uniquement dans `com.enervision.user.security`. Ne jamais logger un mot de passe ni un jeton.
 
 ## 5. Conventions Java générales
 
 - **Java 21** : `record`, `switch` expressions, pattern matching `instanceof`, text blocks. `var` seulement si le type est évident à la lecture.
 - **Injection par constructeur uniquement** : champs `private final` + `@RequiredArgsConstructor`. Jamais de `@Autowired` sur un champ.
-- **Nommage** : identifiants en anglais (classes, méthodes, variables) ; Javadoc et commentaires en français, comme le reste du dépôt. Classes `PascalCase`, méthodes et champs `camelCase`, constantes `UPPER_SNAKE_CASE`, packages en minuscules sans `_`.
-- **Null** : ne pas retourner `null` depuis un service ; `Optional` en retour de recherche (repository), jamais en paramètre ni en champ.
-- **Logs** : `@Slf4j`, messages paramétrés (`log.info("Site {} créé", siteId)`), jamais de `System.out` ni de données sensibles (mots de passe, tokens).
-- **Configuration** : propriétés typées via `@ConfigurationProperties` (record) plutôt que des `@Value` dispersés. Une seule config : `application/src/main/resources/application.yaml`.
+- **Langue du code : tout en anglais.** Identifiants (classes, méthodes, variables), Javadoc et commentaires, mais aussi messages d'exception et d'erreur HTTP, messages de log, annotations OpenAPI (`@Tag`, `@Operation`) et commentaires des fichiers de config (`application.yaml`, `pom.xml`, `Dockerfile`). Seule la documentation (README, skill) reste en français.
+- **Nommage** : Classes `PascalCase`, méthodes et champs `camelCase`, constantes `UPPER_SNAKE_CASE`, packages en minuscules sans `_`.
+- **Null** : ne pas retourner `null` depuis un service ; `Optional` en retour de recherche (repository), jamais en paramètre ni en champ. Null-safety avec les annotations JSpecify (`org.jspecify.annotations.NonNull` / `Nullable`), utilisées par Spring 7 : les reprendre quand on redéfinit une méthode d'une API Spring (ex. `loadUserByUsername(@NonNull String email)`).
+- **Pas de chaîne magique répétée** : noms de claims, rôles, en-têtes… dans des constantes `static final` (ex. `JwtTokenService.ROLES_CLAIM`, `EMAIL_CLAIM`).
+- **Chaînes** : concaténation avec `+` (`"User " + userId + " not found"`) ; pas de `String.format` ni de `.formatted()`.
+- **Logs** : `@Slf4j`, toujours avec les placeholders SLF4J (`log.info("Site {} created", siteId)`), **jamais de concaténation** dans un log (la chaîne serait construite même si le niveau est désactivé). Jamais de `System.out` ni de données sensibles (mots de passe, tokens).
+- **Configuration** : propriétés typées via `@ConfigurationProperties` (record, `@Validated`) plutôt que des `@Value` dispersés. Une seule config : `application/src/main/resources/application.yaml` (pas de profil Spring pour l'instant).
+- **Secrets** (mots de passe, clés JWT, tokens) : **jamais dans un fichier versionné**, même en dev, et jamais de valeur par défaut dans `application.yaml`. Ils viennent du `.env` racine (gitignoré ; lu par Compose, et importé par Spring en lancement local) ou de variables d'environnement (secrets de la plateforme en déploiement). Un nouveau secret ou une nouvelle variable : placeholder dans `application.yaml`, entrée sans valeur réelle dans `.env.example`, et passage au conteneur dans `compose.yaml`. Préférer un défaut vide (`${MY_SECRET:}`) + `@NotBlank` sur la propriété, pour un message d'erreur clair au démarrage.
 - **Indentation** : tabulations, comme le code existant. Accolade ouvrante en fin de ligne, ligne vide après la déclaration de classe et avant l'accolade fermante.
 - Pas de code mort, pas d'import inutilisé, pas de `catch` vide.
 
@@ -200,11 +252,13 @@ public record CreateSiteRequest(
 
 | Cible | Type de test | Outils |
 |---|---|---|
-| `ServiceImpl` | Unitaire | JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`), sans contexte Spring |
+| Implémentation de service (`JpaUserService`…) | Unitaire | JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`), sans contexte Spring |
 | Controller | Slice web | `@WebMvcTest(SiteController.class)` + `@MockitoBean` du service |
 | Repository | Slice JPA | `@DataJpaTest` sur TimescaleDB via Testcontainers (jamais H2 : le schéma utilise des fonctions TimescaleDB) |
-| Application complète | Intégration | `@SpringBootTest` + `@Import(TestcontainersConfiguration.class)` (module `application`) |
+| Application complète | Intégration | `@SpringBootTest` dans le module `application`, base TimescaleDB via Testcontainers (dépendances déjà présentes ; aucun test de ce type pour l'instant) |
+| Sécurité / JWT | Unitaire | Instancier la config directement (ex. `new JwtConfig()`), sans contexte Spring (voir `JwtTokenServiceTest`) |
 
+- Les tests reprennent le package de la classe testée (ex. `service.implementation.JpaUserServiceTest`), ce qui donne accès aux classes package-private.
 - Nommage : `<Classe>Test` pour l'unitaire, `<Classe>IT` ou `@SpringBootTest` pour l'intégration ; méthodes `shouldXxx_whenYyy`.
 - Structure given / when / then, assertions AssertJ (`assertThat`).
 - Spring Security est actif : les tests web doivent s'authentifier (`@WithMockUser`) ou tester explicitement le 401/403.
@@ -217,6 +271,6 @@ public record CreateSiteRequest(
 
 ## 8. Avant de terminer une tâche
 
-1. `./mvnw clean verify` passe (Docker doit tourner pour les tests Testcontainers).
+1. `./mvnw clean verify` passe (Docker doit tourner si des tests Testcontainers existent).
 2. Le code est dans le bon module et le bon package, et respecte les couches (pas d'entité dans un controller, pas de repository d'un autre module).
 3. Si le schéma change : `infra/db/init.sql` est mis à jour et la doc (`README.md`) aussi si besoin.
