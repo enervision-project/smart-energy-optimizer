@@ -1,0 +1,28 @@
+:host {
+  display: block;
+  padding: 14px 18px;
+  background: #fff;
+  border: 1px solid #dde2da;
+  border-radius: 10px;
+}
+
+p {
+  margin: 0;
+}
+
+.label {
+  font-size: 0.85rem;
+  color: #5b6573;
+}
+
+.value {
+  margin: 4px 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: #1f2a37;
+}
+
+.detail {
+  font-size: 0.8rem;
+  color: #5b6573;
+}
