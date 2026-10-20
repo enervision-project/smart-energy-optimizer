@@ -45,7 +45,7 @@ class JwtAuthService implements AuthService {
 		user.setEmail(email);
 		user.setPassword(passwordEncoder.encode(request.password()));
 		user.setRole(Role.USER);
-		// flush so that createdAt / updatedAt are populated in the response
+		// flush so that createdAt/updatedAt are populated in the response
 		User savedUser = userRepository.saveAndFlush(user);
 		log.info("User {} registered", savedUser.getId());
 		return userMapper.toResponse(savedUser);
