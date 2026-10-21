@@ -66,7 +66,6 @@ core-api utilise la base TimescaleDB (PostgreSQL 16) du service `db`, défini da
 
 - **Schéma** : géré par les changesets Liquibase de [`infra/db/changelog/`](../../infra/db/changelog/changelog.yaml), appliqués par le service `migrate` à chaque `docker compose up` (core-api attend sa fin). Hibernate est en `ddl-auto: validate` : il ne crée ni ne modifie aucune table, il vérifie seulement que les entités JPA correspondent au schéma. Toute évolution du schéma passe donc par un **nouveau** fichier dans `infra/db/changelog/changes/`, ajouté à la fin de `changelog.yaml` ; un changeset déjà déployé ne se modifie jamais.
 - **Connexion** : via les variables `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` et `SPRING_DATASOURCE_PASSWORD`, lues directement par Spring Boot. `application.yaml` ne contient aucune valeur par défaut : en conteneur, `compose.yaml` les fournit ; en local, le `.env` racine (voir [Configuration et secrets](#configuration-et-secrets)).
-- **Base existante** : les évolutions sont aussi livrées en scripts numérotés dans [`infra/db/migrations/`](../../infra/db/migrations), à appliquer à la main (`psql < 005_….sql`) pour éviter la recréation du volume.
 
 ### Tables du module configuration
 
@@ -75,7 +74,7 @@ core-api ne fait que **lire** ces tables (entités `@Immutable`) ; aucun endpoin
 | Table | Rempli par | Contenu |
 |---|---|---|
 | `sites` | ETL worker (API énergie) | Sites suivis, clé `site_id` (`SITE001`…) |
-| `site_profiles` | Script dédié (à venir) | Profil de référence, au plus un par site (clé = `site_id`) |
+| `site_profiles` | ETL worker (à venir) | Profil de référence, au plus un par site (clé = `site_id`) |
 | `users_sites` | Seed (à venir) | Sites visibles par chaque `USER` ; un `ADMIN` n'y a aucune ligne |
 
 Conventions de `site_profiles`, contrôlées par des `CHECK` :
