@@ -3,7 +3,7 @@ set -eu
 . /run/etl-worker.env
 
 case "${1:-}" in
-    sync-readings|sync-sites|sync-hours) ;;
+    sync-readings|sync-sites|sync-hours|sync-alerts) ;;
     *) echo "Commande cron inconnue." >&2; exit 2 ;;
 esac
 
@@ -14,8 +14,16 @@ if ! flock -n 9; then
     exit 0
 fi
 
+run_job() {
+    if [ "$1" = sync-alerts ]; then
+        etl-sync-alerts
+    else
+        etl-worker "$1"
+    fi
+}
+
 printf '%s Début %s.\n' "$(date -Iseconds)" "$1"
-if etl-worker "$1"; then
+if run_job "$1"; then
     printf '%s Fin %s.\n' "$(date -Iseconds)" "$1"
 else
     status=$?

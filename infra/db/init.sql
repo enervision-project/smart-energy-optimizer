@@ -65,6 +65,22 @@ CREATE TABLE IF NOT EXISTS readings_raws (
     PRIMARY KEY (site_id, ts)
 );
 
+-- Alertes reçues de GET /api/v1/alerts.
+CREATE TABLE IF NOT EXISTS alerts (
+    alert_id   TEXT PRIMARY KEY,
+    "timestamp" TIMESTAMPTZ NOT NULL,
+    site_id    TEXT NOT NULL REFERENCES sites (site_id),
+    severity   TEXT NOT NULL,
+    type       TEXT NOT NULL,
+    message    TEXT NOT NULL,
+    value      DOUBLE PRECISION,
+    threshold  DOUBLE PRECISION NOT NULL,
+    loaded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS alerts_site_timestamp_idx
+    ON alerts (site_id, "timestamp" DESC);
+
 -- Agrégats horaires : même instant UTC, affiché dans le fuseau de la connexion.
 -- Seuls les résultats horaires sont arrondis à deux décimales.
 CREATE TABLE IF NOT EXISTS readings_hours (
