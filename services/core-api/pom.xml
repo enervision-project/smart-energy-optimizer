@@ -24,11 +24,12 @@
 
 	<!-- Maven modules -->
 	<modules>
+		<module>common</module>
 		<module>configuration</module>
 		<module>user</module>
 		<module>diagnostic</module>
 		<module>telemetry</module>
-		<module>application</module>
+		<module>bootstrap</module>
 	</modules>
 
 	<!-- Properties -->
@@ -44,6 +45,11 @@
 		<dependencies>
 
 			<!-- Internal modules -->
+			<dependency>
+				<groupId>com.enervision</groupId>
+				<artifactId>common</artifactId>
+				<version>${project.version}</version>
+			</dependency>
 			<dependency>
 				<groupId>com.enervision</groupId>
 				<artifactId>configuration</artifactId>

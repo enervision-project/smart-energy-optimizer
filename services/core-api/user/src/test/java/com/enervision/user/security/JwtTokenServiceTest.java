@@ -1,7 +1,7 @@
 package com.enervision.user.security;
 
+import com.enervision.common.security.Role;
 import com.enervision.user.api.dto.TokenResponse;
-import com.enervision.user.entity.Role;
 import com.enervision.user.entity.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.GrantedAuthority;

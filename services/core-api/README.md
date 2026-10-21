@@ -8,25 +8,31 @@ Un seul processus est déployé, mais le code est découpé en modules métier i
 
 ```mermaid
 flowchart TD
-    APP("application<br/><i>point d'entrée Spring Boot</i>")
+    APP("bootstrap<br/><i>point d'entrée Spring Boot</i>")
     USER("user")
     DIAG("diagnostic")
     TELEM("telemetry")
     CONF("configuration")
+    COMMON("common<br/><i>code transverse partagé</i>")
 
     APP --> USER
     APP --> DIAG
     APP --> TELEM
     APP --> CONF
+    USER --> COMMON
+    DIAG --> COMMON
+    TELEM --> COMMON
+    CONF --> COMMON
 ```
 
 | Module          | Rôle                                                        | Package racine               |
 |-----------------|-------------------------------------------------------------|------------------------------|
-| `application`   | Assemble les modules, contient la classe `main` et la config | `com.enervision`             |
+| `bootstrap`     | Assemble les modules, contient la classe `main` et la config | `com.enervision`             |
+| `common`        | Code transverse partagé : utilisateur courant, rôles, `@AdminOnly` | `com.enervision.common` |
 | `user`          | Gestion des utilisateurs                                    | `com.enervision.user`        |
 | `diagnostic`    | Alertes et recommandations                                  | `com.enervision.diagnostic`  |
 | `telemetry`     | Données de télémétrie (appels au ML-service via RestClient) | `com.enervision.telemetry`   |
-| `configuration` | Configuration fonctionnelle de la plateforme                | `com.enervision.configuration` |
+| `configuration` | Sites, profils de référence et visibilité des sites par utilisateur | `com.enervision.configuration` |
 
 ### Structure Maven
 
@@ -34,7 +40,8 @@ flowchart TD
 core-api/                  pom parent (packaging pom)
 ├── pom.xml
 ├── Dockerfile             image de l'API (contexte = racine du dépôt)
-├── application/           jar exécutable (spring-boot-maven-plugin)
+├── bootstrap/             jar exécutable (spring-boot-maven-plugin)
+├── common/                jar simple, dont dépendent tous les modules métier
 ├── user/                  jar simple
 ├── diagnostic/            jar simple
 ├── telemetry/             jar simple
@@ -43,14 +50,15 @@ core-api/                  pom parent (packaging pom)
 
 - **`pom.xml` (parent)** : hérite de `spring-boot-starter-parent`, déclare les modules, gère les versions des modules internes et de springdoc dans `<dependencyManagement>`, et configure Lombok pour tous les modules.
 - **Modules métier** : héritent de `core-api` et produisent un jar classique. Ils ne déclarent **pas** `spring-boot-maven-plugin` (un jar repackagé n'est pas utilisable comme dépendance).
-- **`application`** : dépend de tous les modules métier, porte les dépendances runtime (PostgreSQL, DevTools) et produit le jar exécutable final.
+- **`common`** : code transverse utilisé par plusieurs modules (sécurité : `CurrentUser`, `Role`, `@AdminOnly`). **Pas de logique métier**, pas d'entité ni de repository ; il ne dépend d'aucun module interne, ce qui exclut tout cycle.
+- **`bootstrap`** : dépend de tous les modules métier, porte les dépendances runtime (PostgreSQL, DevTools) et produit le jar exécutable final.
 
 ### Règles à respecter
 
 - **Versions** : ne pas redéclarer dans `<dependencyManagement>` une dépendance déjà gérée par Spring Boot (starters, Lombok, PostgreSQL…). Une entrée sans version écrase celle du parent et casse le build (`version is missing`).
 - **Packages** : tout le code d'un module doit être sous `com.enervision.<module>`. La classe `Application` est dans `com.enervision`, ce qui permet au scan des composants et des entités JPA de trouver tous les modules.
-- **Configuration** : un seul `application.yaml`, dans `application/src/main/resources`. Les modules métier ne doivent pas en avoir (un seul serait chargé sur le classpath).
-- **Dépendances entre modules** : un module métier ne dépend pas d'`application`. Si un module doit en utiliser un autre, déclarer la dépendance dans son `pom.xml` et éviter les cycles.
+- **Configuration** : un seul `application.yaml`, dans `bootstrap/src/main/resources`. Les modules métier ne doivent pas en avoir (un seul serait chargé sur le classpath).
+- **Dépendances entre modules** : un module métier ne dépend pas de `bootstrap`. Si un module doit en utiliser un autre, déclarer la dépendance dans son `pom.xml` et éviter les cycles.
 
 ## Base de données
 
@@ -58,6 +66,24 @@ core-api utilise la base TimescaleDB (PostgreSQL 16) du service `db`, défini da
 
 - **Schéma** : géré par les changesets Liquibase de [`infra/db/changelog/`](../../infra/db/changelog/changelog.yaml), appliqués par le service `migrate` à chaque `docker compose up` (core-api attend sa fin). Hibernate est en `ddl-auto: validate` : il ne crée ni ne modifie aucune table, il vérifie seulement que les entités JPA correspondent au schéma. Toute évolution du schéma passe donc par un **nouveau** fichier dans `infra/db/changelog/changes/`, ajouté à la fin de `changelog.yaml` ; un changeset déjà déployé ne se modifie jamais.
 - **Connexion** : via les variables `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` et `SPRING_DATASOURCE_PASSWORD`, lues directement par Spring Boot. `application.yaml` ne contient aucune valeur par défaut : en conteneur, `compose.yaml` les fournit ; en local, le `.env` racine (voir [Configuration et secrets](#configuration-et-secrets)).
+- **Base existante** : les évolutions sont aussi livrées en scripts numérotés dans [`infra/db/migrations/`](../../infra/db/migrations), à appliquer à la main (`psql < 005_….sql`) pour éviter la recréation du volume.
+
+### Tables du module configuration
+
+core-api ne fait que **lire** ces tables (entités `@Immutable`) ; aucun endpoint n'y écrit.
+
+| Table | Rempli par | Contenu |
+|---|---|---|
+| `sites` | ETL worker (API énergie) | Sites suivis, clé `site_id` (`SITE001`…) |
+| `site_profiles` | Script dédié (à venir) | Profil de référence, au plus un par site (clé = `site_id`) |
+| `users_sites` | Seed (à venir) | Sites visibles par chaque `USER` ; un `ADMIN` n'y a aucune ligne |
+
+Conventions de `site_profiles`, contrôlées par des `CHECK` :
+- `base_consumption` / `peak_consumption` en kW, avec `peak_consumption >= base_consumption`.
+- `working_hour_start` / `working_hour_end` : plage `[début, fin[` en heures ; `0` / `24` pour un site actif 24h/24.
+- `working_days` : numérotation **ISO**, `1` = lundi … `7` = dimanche (comme `DayOfWeek` en Java et `ISODOW` en SQL). L'API les renvoie en noms (`["MONDAY", …]`).
+- `seasonal_variation`, `noise_level` : ratios (`0.15` = ±15 %).
+- `weekend_factor` : multiplicateur de consommation le week-end (`1.2` = +20 %), `NULL` si le site n'en a pas.
 
 ## Build et exécution
 
@@ -71,7 +97,7 @@ docker compose up -d migrate
 
 # Depuis services/core-api : construire puis lancer l'application
 ./mvnw clean package -DskipTests
-java -jar application/target/application-0.0.1-SNAPSHOT.jar
+java -jar bootstrap/target/bootstrap-0.0.1-SNAPSHOT.jar
 ```
 
 L'application lit automatiquement le `.env` racine (`spring.config.import: optional:file:../../.env[.properties]`), à condition d'être lancée **depuis `services/core-api`**. Dans l'IDE, le répertoire de travail de la configuration de lancement doit donc être `services/core-api`. Sinon le `.env` n'est pas trouvé, et l'application refuse de démarrer avec un message indiquant la propriété manquante.
@@ -97,7 +123,7 @@ L'image est construite par [`Dockerfile`](Dockerfile), avec la racine du dépôt
 ./mvnw clean package -DskipTests
 
 # Lancer le jar
-java -jar application/target/application-0.0.1-SNAPSHOT.jar
+java -jar bootstrap/target/bootstrap-0.0.1-SNAPSHOT.jar
 ```
 
 ## Sécurité
@@ -106,8 +132,9 @@ Authentification **stateless par jeton JWT** (Bearer, signé en HS256), avec Spr
 
 | Où | Quoi |
 |---|---|
-| `application` — `com.enervision.config.SecurityConfig` | Règles communes à tous les modules : tout endpoint exige un jeton valide, sauf les routes publiques (login, doc OpenAPI). Active `@PreAuthorize` et déclare le schéma Bearer dans la doc OpenAPI. |
+| `bootstrap` — `com.enervision.config.SecurityConfig` | Règles communes à tous les modules : tout endpoint exige un jeton valide, sauf les routes publiques (login, doc OpenAPI). Active `@PreAuthorize` et déclare le schéma Bearer dans la doc OpenAPI. |
 | `user` — `com.enervision.user.security` | Fournisseur d'identité : émission des jetons (`TokenService`), vérification (`JwtDecoder`), conversion des rôles, hash des mots de passe (BCrypt), chargement des utilisateurs pour le login. |
+| `common` — `com.enervision.common.security` | Partagé par tous les modules : `Role`, `@AdminOnly`, et `CurrentUser` (l'utilisateur de la requête, injecté dans les controllers). |
 
 ### Endpoints
 
@@ -117,12 +144,14 @@ Authentification **stateless par jeton JWT** (Bearer, signé en HS256), avec Spr
 | `GET` | `/api/v1/users/me` | Connecté |
 | `GET` | `/api/v1/users`, `/api/v1/users/{userId}` | `ADMIN` |
 | `PATCH` | `/api/v1/users/{userId}/role` | `ADMIN` |
+| `GET` | `/api/v1/sites` | Connecté : sites visibles par l'utilisateur |
+| `GET` | `/api/v1/sites/{siteId}` | Connecté : site et son profil de référence (`profile` à `null` si aucun profil n'est chargé) |
 
 Les appels authentifiés envoient l'en-tête `Authorization: Bearer <accessToken>`. Le jeton contient l'id de l'utilisateur (`sub`), son email et ses rôles (`roles`). La doc interactive est sur http://localhost:8080/swagger-ui.html (bouton « Authorize »).
 
 ### Rôles
 
-`USER` et `ADMIN`, exposés à Spring Security sous la forme `ROLE_USER` / `ROLE_ADMIN`. Pour restreindre un endpoint aux administrateurs, utiliser la méta-annotation `@AdminOnly` (`com.enervision.user.security`) plutôt qu'un `@PreAuthorize("hasRole('ADMIN')")` écrit à la main :
+`USER` et `ADMIN` (enum `Role`, module `common`), exposés à Spring Security sous la forme `ROLE_USER` / `ROLE_ADMIN` (`Role.authority()`). Pour restreindre un endpoint aux administrateurs, utiliser la méta-annotation `@AdminOnly` (`com.enervision.common.security`) plutôt qu'un `@PreAuthorize("hasRole('ADMIN')")` écrit à la main :
 
 ```java
 @AdminOnly
@@ -130,7 +159,24 @@ Les appels authentifiés envoient l'en-tête `Authorization: Bearer <accessToken
 public List<SiteResponse> getSites() { … }
 ```
 
-Une route publique se déclare dans `SecurityConfig` (module `application`).
+Une route publique se déclare dans `SecurityConfig` (module `bootstrap`).
+
+### Utilisateur courant
+
+Un controller qui a besoin de l'utilisateur connecté déclare un paramètre `CurrentUser` (`com.enervision.common.security`) : il est construit à partir de l'authentification Spring Security (id = `sub` du jeton, rôle = autorité `ROLE_*`) puis passé au service.
+
+```java
+@GetMapping
+public List<SiteSummaryResponse> getSites(CurrentUser currentUser) {
+	return siteService.getSites(currentUser);
+}
+```
+
+`currentUser.id()` donne l'id de l'utilisateur, `currentUser.isAdmin()` son rôle.
+
+### Visibilité des sites
+
+Un `ADMIN` voit tous les sites. Un `USER` ne voit que les sites qui lui sont attribués dans la table `users_sites` ; un site non attribué répond 404, comme un site inexistant, pour ne pas révéler son existence. Les autres modules vérifient l'accès via `SiteService.canView(currentUser, siteId)` (module `configuration`).
 
 > **Comptes** : il n'y a pas d'inscription. Les utilisateurs sont les membres de l'équipe, créés directement en base, et ont accès à tous les sites (pas d'isolation par utilisateur pour l'instant). Le mot de passe stocké doit porter le préfixe de son encodeur (`DelegatingPasswordEncoder`) : `{bcrypt}$2a$10$…` (recommandé), ou `{noop}motdepasse` en dev uniquement. Sans préfixe, le login échoue.
 
@@ -166,8 +212,9 @@ Où vivent les valeurs selon l'environnement :
 
 1. Créer le dossier `<module>/` avec un `pom.xml` qui a `core-api` comme parent.
 2. L'ajouter dans `<modules>` et dans `<dependencyManagement>` du `pom.xml` parent.
-3. L'ajouter comme dépendance dans `application/pom.xml`.
-4. Placer le code sous `com.enervision.<module>`.
+3. L'ajouter comme dépendance dans `bootstrap/pom.xml`.
+4. Lui ajouter la dépendance `common` (utilisateur courant, rôles, `@AdminOnly`).
+5. Placer le code sous `com.enervision.<module>`.
 
 ## Références
 

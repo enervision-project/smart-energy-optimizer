@@ -1,7 +1,7 @@
 package com.enervision.user.service.implementation;
 
+import com.enervision.common.security.Role;
 import com.enervision.user.api.dto.UserResponse;
-import com.enervision.user.entity.Role;
 import com.enervision.user.entity.User;
 import com.enervision.user.exception.UserNotFoundException;
 import com.enervision.user.mapper.UserMapper;
@@ -19,7 +19,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-class JpaUserService implements UserService {
+class DefaultUserService implements UserService {
 
 	private final UserRepository userRepository;
 	private final UserMapper userMapper;

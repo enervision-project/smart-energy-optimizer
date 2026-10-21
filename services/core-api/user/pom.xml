@@ -15,6 +15,11 @@
 	<artifactId>user</artifactId>
 
 	<dependencies>
+		<!-- Shared module: CurrentUser, Role, @AdminOnly -->
+		<dependency>
+			<groupId>com.enervision</groupId>
+			<artifactId>common</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>

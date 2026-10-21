@@ -1,4 +1,4 @@
-package com.enervision.user.security;
+package com.enervision.common.security;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
 /**
  * Restricts a controller method (or every method of a controller) to users with the {@code ADMIN} role.
  * <p>
- * Single place where the role name appears as a string: it must match {@link com.enervision.user.entity.Role#ADMIN}.
+ * Single place where the role name appears as a string: it must match {@link Role#ADMIN}.
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

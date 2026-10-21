@@ -5,14 +5,14 @@ description: Conventions de code Java et architecture en couches du core-api Ene
 
 # Conventions Java — core-api
 
-core-api est un **monolithe modulaire** : un seul jar exécutable (`application`) qui assemble des modules métier Maven (`user`, `diagnostic`, `telemetry`, `configuration`). Chaque module suit la même **architecture en couches** avec interfaces et implémentations. Voir `README.md` pour le build, la base et Docker.
+core-api est un **monolithe modulaire** : un seul jar exécutable (module `bootstrap`) qui assemble des modules métier Maven (`user`, `diagnostic`, `telemetry`, `configuration`), qui partagent tous le module transverse `common`. Chaque module suit la même **architecture en couches** avec interfaces et implémentations. Voir `README.md` pour le build, la base et Docker.
 
 ## 1. Architecture en couches
 
 ```
 Controller  →  Service (interface)  →  Repository (Spring Data)  →  Base
    ↑ DTO          ↑ implementation :          ↑ Entity
-                    JpaSiteService…
+                    DefaultSiteService…
 ```
 
 | Couche | Rôle | Ne fait PAS |
@@ -39,7 +39,7 @@ com.enervision.<module>
 ├── service/
 │   ├── <Nom>Service.java       interface publique du module
 │   └── implementation/
-│       └── <Spécificité><Nom>Service.java   ex. JpaUserService, JwtAuthService
+│       └── <Spécificité><Nom>Service.java   ex. DefaultUserService, JwtAuthService
 ├── repository/
 │   └── <Nom>Repository.java
 ├── entity/
@@ -56,13 +56,16 @@ Exemple de référence : le module `user` (auth et utilisateurs), qui suit exact
 
 **Configuration Spring** :
 - Les `@Configuration` propres à un module restent dans ce module (ex. `com.enervision.user.security.JwtConfig`).
-- La configuration transverse, commune à tous les modules, va dans le module `application`, package `com.enervision.config` (ex. `SecurityConfig`).
+- La configuration transverse, commune à tous les modules, va dans le module `bootstrap`, package `com.enervision.config` (ex. `SecurityConfig`).
+
+**Module `common`** : code transverse utilisé par plusieurs modules, sous `com.enervision.common.<sujet>` (ex. `common.security` : `CurrentUser`, `Role`, `@AdminOnly`). Il ne contient **aucune logique métier**, ni entité, ni repository, et ne dépend d'aucun module interne. Tous les modules métier en dépendent. N'y mettre une classe que si au moins deux modules en ont besoin.
 
 ## 3. Communication entre modules
 
 - Un module n'utilise un autre module **que via son interface de service et ses DTO** (`com.enervision.<autre>.service.*Service`, `com.enervision.<autre>.api.dto.*`).
 - Interdit : injecter le repository, utiliser l'entité ou une classe du package `service.implementation` d'un autre module.
-- La dépendance doit être déclarée dans le `pom.xml` du module appelant. Pas de dépendance cyclique entre modules ; un module métier ne dépend jamais d'`application`.
+- Exception : `common` s'utilise librement depuis tout module (c'est sa raison d'être).
+- La dépendance doit être déclarée dans le `pom.xml` du module appelant. Pas de dépendance cyclique entre modules ; un module métier ne dépend jamais de `bootstrap`.
 
 ## 4. Conventions par couche
 
@@ -111,7 +114,7 @@ public interface SiteService {
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-class JpaSiteService implements SiteService {
+class DefaultSiteService implements SiteService {
 
 	private final SiteRepository siteRepository;
 	private final SiteMapper siteMapper;
@@ -133,7 +136,7 @@ class JpaSiteService implements SiteService {
 }
 ```
 
-- **Nommage** : l'interface porte le nom simple (`UserService`), car c'est le type utilisé partout (controllers, autres modules, tests). L'implémentation est nommée d'après ce qui la distingue : `JpaUserService`, `JwtAuthService`, `JwtTokenService`, `DatabaseUserDetailsService`. Pas de préfixe `I` (`IUserService`) ni de suffixe `Impl`. Les implémentations vont dans le sous-package `service.implementation`.
+- **Nommage** : l'interface porte le nom simple (`UserService`), car c'est le type utilisé partout (controllers, autres modules, tests). L'implémentation est nommée d'après ce qui la distingue, ou `Default<Nom>Service` s'il n'y en a qu'une sans particularité : `DefaultUserService`, `JwtAuthService`, `JwtTokenService`, `DatabaseUserDetailsService`. Pas de préfixe `I` (`IUserService`) ni de suffixe `Impl`. Les implémentations vont dans le sous-package `service.implementation`.
 - L'interface est `public` ; l'implémentation est **package-private** si possible (seule l'interface est visible des autres modules).
 - **Transactions** : `@Transactional(readOnly = true)` sur la classe, comme filet de sécurité (toute méthode publique tourne dans une transaction, et une écriture oubliée échoue au lieu de passer hors transaction). `@Transactional` sur chaque méthode d'écriture.
 - Le service prend et retourne des **DTO**, jamais des entités.
@@ -178,6 +181,8 @@ public class Site {
 - Timestamps techniques : `@CreationTimestamp` (`updatable = false`) et `@UpdateTimestamp`. Ils ne sont renseignés qu'au flush : utiliser `saveAndFlush` si la réponse doit les contenir.
 - Relations en `FetchType.LAZY` par défaut.
 - Dates : `Instant` pour `TIMESTAMPTZ`.
+- Table écrite par un autre composant (ETL, script) : entité `@Immutable` (`org.hibernate.annotations`), core-api ne fait que la lire. Référence : `com.enervision.configuration.entity.Site`.
+- Pas d'association JPA vers l'entité d'un autre module : stocker l'identifiant seul (ex. `UserSiteId.userId`).
 
 ### DTO
 
@@ -218,8 +223,8 @@ class UserExceptionHandler {
 
 ### Sécurité
 
-- **Tout endpoint est protégé par défaut** (jeton JWT obligatoire) par la chaîne globale `com.enervision.config.SecurityConfig` du module `application`. Ne pas créer d'autre `SecurityFilterChain` dans un module.
-- Autorisations par rôle sur le controller, via des **méta-annotations** : `@AdminOnly` (`com.enervision.user.security`). Ne pas écrire `@PreAuthorize("hasRole('ADMIN')")` dans les controllers : la chaîne SpEL n'est pas vérifiée à la compilation. Les noms de rôle n'apparaissent en chaîne que dans la méta-annotation, qui doit correspondre à l'enum `Role` (`USER`, `ADMIN`). Pour une nouvelle règle, créer une nouvelle méta-annotation à côté d'`@AdminOnly`.
+- **Tout endpoint est protégé par défaut** (jeton JWT obligatoire) par la chaîne globale `com.enervision.config.SecurityConfig` du module `bootstrap`. Ne pas créer d'autre `SecurityFilterChain` dans un module.
+- Autorisations par rôle sur le controller, via des **méta-annotations** : `@AdminOnly` (`com.enervision.common.security`). Ne pas écrire `@PreAuthorize("hasRole('ADMIN')")` dans les controllers : la chaîne SpEL n'est pas vérifiée à la compilation. Les noms de rôle n'apparaissent en chaîne que dans la méta-annotation, qui doit correspondre à l'enum `Role` (`USER`, `ADMIN`). Pour une nouvelle règle, créer une nouvelle méta-annotation à côté d'`@AdminOnly`.
 
 ```java
 @AdminOnly
@@ -229,7 +234,7 @@ public List<UserResponse> getUsers() {
 }
 ```
 
-- Utilisateur courant : `@AuthenticationPrincipal Jwt jwt`, puis `UUID.fromString(Objects.requireNonNull(jwt.getSubject()))`. L'id se passe ensuite au service ; le service ne lit pas le `SecurityContext`.
+- Utilisateur courant : déclarer un paramètre `CurrentUser` (`com.enervision.common.security`) dans la méthode du controller ; il est injecté par `CurrentUserArgumentResolver` (id = `sub` du JWT, rôle = autorité `ROLE_*`). Le passer tel quel au service (`currentUser.id()`, `currentUser.isAdmin()`) ; le service ne lit pas le `SecurityContext`. Ne pas lire `Jwt` ni `Authentication` dans un controller, et ne jamais écrire `"ROLE_ADMIN"` : utiliser `Role.ADMIN.authority()`.
 - Une nouvelle route publique s'ajoute dans `SecurityConfig` (et `@SecurityRequirements` vide sur le controller pour la doc OpenAPI).
 - Émission / vérification des jetons et mots de passe : uniquement dans `com.enervision.user.security`. Ne jamais logger un mot de passe ni un jeton.
 
@@ -243,7 +248,7 @@ public List<UserResponse> getUsers() {
 - **Pas de chaîne magique répétée** : noms de claims, rôles, en-têtes… dans des constantes `static final` (ex. `JwtTokenService.ROLES_CLAIM`, `EMAIL_CLAIM`).
 - **Chaînes** : concaténation avec `+` (`"User " + userId + " not found"`) ; pas de `String.format` ni de `.formatted()`.
 - **Logs** : `@Slf4j`, toujours avec les placeholders SLF4J (`log.info("Site {} created", siteId)`), **jamais de concaténation** dans un log (la chaîne serait construite même si le niveau est désactivé). Jamais de `System.out` ni de données sensibles (mots de passe, tokens).
-- **Configuration** : propriétés typées via `@ConfigurationProperties` (record, `@Validated`) plutôt que des `@Value` dispersés. Une seule config : `application/src/main/resources/application.yaml` (pas de profil Spring pour l'instant).
+- **Configuration** : propriétés typées via `@ConfigurationProperties` (record, `@Validated`) plutôt que des `@Value` dispersés. Une seule config : `bootstrap/src/main/resources/application.yaml` (pas de profil Spring pour l'instant).
 - **Secrets** (mots de passe, clés JWT, tokens) : **jamais dans un fichier versionné**, même en dev, et jamais de valeur par défaut dans `application.yaml`. Ils viennent du `.env` racine (gitignoré ; lu par Compose, et importé par Spring en lancement local) ou de variables d'environnement (secrets de la plateforme en déploiement). Un nouveau secret ou une nouvelle variable : placeholder dans `application.yaml`, entrée sans valeur réelle dans `.env.example`, et passage au conteneur dans `compose.yaml`. Préférer un défaut vide (`${MY_SECRET:}`) + `@NotBlank` sur la propriété, pour un message d'erreur clair au démarrage.
 - **Indentation** : tabulations, comme le code existant. Accolade ouvrante en fin de ligne, ligne vide après la déclaration de classe et avant l'accolade fermante.
 - Pas de code mort, pas d'import inutilisé, pas de `catch` vide.
@@ -252,22 +257,23 @@ public List<UserResponse> getUsers() {
 
 | Cible | Type de test | Outils |
 |---|---|---|
-| Implémentation de service (`JpaUserService`…) | Unitaire | JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`), sans contexte Spring |
+| Implémentation de service (`DefaultUserService`…) | Unitaire | JUnit 5 + Mockito (`@ExtendWith(MockitoExtension.class)`), sans contexte Spring |
 | Controller | Slice web | `@WebMvcTest(SiteController.class)` + `@MockitoBean` du service |
 | Repository | Slice JPA | `@DataJpaTest` sur TimescaleDB via Testcontainers (jamais H2 : le schéma utilise des fonctions TimescaleDB) |
-| Application complète | Intégration | `@SpringBootTest` dans le module `application`, base TimescaleDB via Testcontainers (dépendances déjà présentes ; aucun test de ce type pour l'instant) |
+| Application complète | Intégration | `@SpringBootTest` dans le module `bootstrap`, base TimescaleDB via Testcontainers (dépendances déjà présentes ; aucun test de ce type pour l'instant) |
 | Sécurité / JWT | Unitaire | Instancier la config directement (ex. `new JwtConfig()`), sans contexte Spring (voir `JwtTokenServiceTest`) |
 
-- Les tests reprennent le package de la classe testée (ex. `service.implementation.JpaUserServiceTest`), ce qui donne accès aux classes package-private.
+- Les tests reprennent le package de la classe testée (ex. `service.implementation.DefaultUserServiceTest`), ce qui donne accès aux classes package-private.
 - Nommage : `<Classe>Test` pour l'unitaire, `<Classe>IT` ou `@SpringBootTest` pour l'intégration ; méthodes `shouldXxx_whenYyy`.
 - Structure given / when / then, assertions AssertJ (`assertThat`).
-- Spring Security est actif : les tests web doivent s'authentifier (`@WithMockUser`) ou tester explicitement le 401/403.
+- Spring Security est actif : les tests web doivent s'authentifier (`@WithMockUser`, avec `username` = un UUID si le controller reçoit un `CurrentUser`) ou tester explicitement le 401/403.
+- `@WebMvcTest` dans un module métier : il faut une classe `@SpringBootApplication` de test à la racine du package du module (ex. `ConfigurationTestApplication`), la vraie classe `Application` étant dans le module `bootstrap` ; ajouter `@Import(CurrentUserWebConfig.class)` si le controller reçoit un `CurrentUser`.
 
 ## 7. Dépendances Maven
 
 - Versions gérées par `spring-boot-starter-parent` : ne jamais redéclarer un starter Spring Boot (ni Lombok, PostgreSQL, Testcontainers…) dans `<dependencyManagement>` ou avec une `<version>`.
 - Une version qui n'est pas gérée par Boot se déclare comme propriété + entrée `<dependencyManagement>` dans le `pom.xml` parent (ex. `springdoc.version`).
-- `spring-boot-maven-plugin` uniquement dans `application`.
+- `spring-boot-maven-plugin` uniquement dans `bootstrap`.
 
 ## 8. Avant de terminer une tâche
 

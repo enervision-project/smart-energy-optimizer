@@ -1,5 +1,6 @@
 package com.enervision.user.entity;
 
+import com.enervision.common.security.Role;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

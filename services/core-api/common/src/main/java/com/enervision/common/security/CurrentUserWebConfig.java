@@ -1,0 +1,20 @@
+package com.enervision.common.security;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.List;
+
+/**
+ * Registers {@link CurrentUserArgumentResolver} for the controllers of every module.
+ */
+@Configuration
+public class CurrentUserWebConfig implements WebMvcConfigurer {
+
+	@Override
+	public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+		resolvers.add(new CurrentUserArgumentResolver());
+	}
+
+}

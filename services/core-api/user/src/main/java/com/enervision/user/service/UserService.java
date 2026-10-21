@@ -1,7 +1,7 @@
 package com.enervision.user.service;
 
+import com.enervision.common.security.Role;
 import com.enervision.user.api.dto.UserResponse;
-import com.enervision.user.entity.Role;
 
 import java.util.List;
 import java.util.UUID;
