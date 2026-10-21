@@ -78,7 +78,7 @@ resource "aws_instance" "app" {
 
   metadata_options {
     http_tokens                 = "required" # IMDSv2
-    http_put_response_hop_limit = 1          # IMDS inaccessible depuis les conteneurs
+    http_put_response_hop_limit = 2          # conteneurs (etl-worker) : rôle de l'instance pour écrire en bronze
   }
 
   root_block_device {
@@ -173,6 +173,30 @@ resource "aws_s3_bucket_lifecycle_configuration" "deploy" {
   }
 }
 
+# --- Data lake : données brutes (bronze/) de l'ETL, privées et chiffrées
+resource "aws_s3_bucket" "datalake" {
+  bucket = "${local.name}-datalake-${data.aws_caller_identity.current.account_id}"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "datalake" {
+  bucket                  = aws_s3_bucket.datalake.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "datalake" {
+  bucket = aws_s3_bucket.datalake.id
+  versioning_configuration {
+    status = "Enabled" # un écrasement ou une suppression ne perd pas la donnée brute
+  }
+}
+
 # --- .env de production : /enervision/prod/env/<NOM>, relu à chaque déploiement
 resource "random_password" "db" {
   length  = 32
@@ -188,6 +212,8 @@ locals {
     POSTGRES_DB         = local.db_name
     DATABASE_URL        = "postgresql://${local.db_user}:${random_password.db.result}@db:5432/${local.db_name}"
     ENERGY_API_BASE_URL = var.energy_api_base_url
+    BRONZE_BUCKET       = aws_s3_bucket.datalake.bucket
+    AWS_DEFAULT_REGION  = var.region
     DOMAIN              = var.domain
   })
 }
