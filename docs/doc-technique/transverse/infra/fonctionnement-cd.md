@@ -35,8 +35,9 @@ class ECR,EC2 aws
 class NOTHING plain
 ```
 
-Sur une PR, seuls les deux premiers jobs tournent : les images sont construites pour vérifier
-qu'elles compilent, mais ne sont ni publiées ni déployées.
+Ce workflow ne tourne pas sur les PR : c'est le workflow `ci.yml` (job `call-images`) qui
+construit alors les images des services modifiés, avec les mêmes règles de sélection, pour
+vérifier qu'elles compilent. Elles ne sont ni publiées ni déployées.
 
 ## 1. `changes` : quels services ont changé ?
 
@@ -201,7 +202,7 @@ Le jeton contient notamment :
 
 Le rôle n'accepte qu'un seul `sub` : **la branche `main` de ce dépôt**. Une PR, une autre
 branche, un fork ou un autre dépôt obtiennent un jeton avec un `sub` différent, refusé par AWS.
-C'est pour cela que les PR construisent les images sans pouvoir les publier.
+C'est pour cela que, sur une PR, `ci.yml` construit les images sans pouvoir les publier.
 
 !!! info "Format immuable du `sub`"
     Le dépôt utilise le format **immuable** de GitHub : les noms de l'organisation et du dépôt
