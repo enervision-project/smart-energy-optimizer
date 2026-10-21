@@ -5,7 +5,7 @@
 # et c'est eux que semantic-release analyse ; le titre de la PR n'est pas utilisé.
 # synchronize (nouveaux commits sur une PR ouverte) est nécessaire : un check
 # obligatoire est lié au dernier commit de la PR, sans lui la PR resterait bloquée.
-name: Commits
+name: Conventions
 
 on:
   pull_request:

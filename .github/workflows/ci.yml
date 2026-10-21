@@ -1,4 +1,4 @@
-name: Verification code
+name: CI
 
 on:
   pull_request:
@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   changes:
+    name: Detect changes
     runs-on: ubuntu-24.04
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -45,6 +46,7 @@ jobs:
         run: python3 scripts/ci/changed-services.py --base "$BASE" --head "$GITHUB_SHA"
 
   call-frontend:
+    name: Frontend
     needs: changes
     # Exécute si 'app/' a changé OU si le workflow est lancé manuellement
     if: ${{ needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' }}
@@ -53,6 +55,7 @@ jobs:
       SONAR_TOKEN_FRONTEND: ${{ secrets.SONAR_TOKEN_FRONTEND }}
 
   call-terraform:
+    name: Terraform
     needs: changes
     # runs when Terraform files changed, or on a manual run (like call-frontend)
     if: ${{ needs.changes.outputs.terraform == 'true' || github.event_name == 'workflow_dispatch' }}
@@ -64,6 +67,7 @@ jobs:
 
   # pull requests only: on main, services.yml builds, publishes and deploys the images
   call-images:
+    name: Docker images
     needs: changes
     if: ${{ needs.changes.outputs.images != '[]' }}
     uses: ./.github/workflows/_ci-images.yml

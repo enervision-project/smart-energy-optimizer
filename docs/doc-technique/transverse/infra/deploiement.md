@@ -51,7 +51,7 @@ style EC2 fill:#d0d4da,stroke:#333
 |---|---|
 | PR vers `main` | Construit les images des services modifiés, sans les publier (workflow `ci.yml`, job `call-images`) |
 | Push sur `main` | Construit, publie dans ECR, redéploie les services modifiés |
-| Lancement manuel | Déploie les services choisis : `gh workflow run Services -f services=web,db` |
+| Lancement manuel | Déploie les services choisis : `gh workflow run Deploy -f services=web,db` |
 
 ## Composants
 
