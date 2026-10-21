@@ -4,6 +4,21 @@
 
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
+-- Utilisateurs de la plateforme (core-api, module user : entité com.enervision.user.entity.User)
+CREATE TABLE IF NOT EXISTS users (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    -- stocké en minuscules par l'API (normalisation à l'inscription et au login)
+    email         TEXT NOT NULL UNIQUE,
+    -- hash du mot de passe (BCrypt, préfixe {bcrypt}), jamais le mot de passe en clair
+    password      TEXT NOT NULL,
+    first_name    TEXT NOT NULL,
+    last_name     TEXT NOT NULL,
+    company_name  TEXT NOT NULL,
+    role          TEXT NOT NULL CHECK (role IN ('USER', 'ADMIN')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Valeur par défaut persistante pour les nouvelles connexions à cette base.
 DO $$
 BEGIN

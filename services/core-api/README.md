@@ -57,7 +57,7 @@ core-api/                  pom parent (packaging pom)
 core-api utilise la base TimescaleDB (PostgreSQL 16) du service `db`, défini dans le [`compose.yaml` racine](../../compose.yaml).
 
 - **Schéma** : géré par [`infra/db/init.sql`](../../infra/db/init.sql), exécuté uniquement au premier démarrage du conteneur (volume vide). Hibernate est en `ddl-auto: validate` : il ne crée ni ne modifie aucune table, il vérifie seulement que les entités JPA correspondent au schéma. Toute évolution du schéma passe donc par `init.sql`, puis par une recréation du volume (`docker compose down -v`).
-- **Connexion** : configurée dans `application/src/main/resources/application.yaml` via les variables `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` et `SPRING_DATASOURCE_PASSWORD`. Sans ces variables, les valeurs par défaut pointent vers la base exposée sur l'hôte (`localhost:15432`, identifiants du `.env.example`).
+- **Connexion** : via les variables `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` et `SPRING_DATASOURCE_PASSWORD`, lues directement par Spring Boot. `application.yaml` ne contient aucune valeur par défaut : en conteneur, `compose.yaml` les fournit ; en local, le `.env` racine (voir [Configuration et secrets](#configuration-et-secrets)).
 
 ## Build et exécution
 
@@ -69,9 +69,12 @@ Prérequis : Java 21, Docker avec les plugins Compose v2 et Buildx (le Dockerfil
 # Depuis la racine du dépôt : démarrer uniquement la base
 docker compose up -d db
 
-# Depuis services/core-api : lancer l'application
-./mvnw -pl application -am spring-boot:run
+# Depuis services/core-api : construire puis lancer l'application
+./mvnw clean package -DskipTests
+java -jar application/target/application-0.0.1-SNAPSHOT.jar
 ```
+
+L'application lit automatiquement le `.env` racine (`spring.config.import: optional:file:../../.env[.properties]`), à condition d'être lancée **depuis `services/core-api`**. Dans l'IDE, le répertoire de travail de la configuration de lancement doit donc être `services/core-api`. Sinon le `.env` n'est pas trouvé, et l'application refuse de démarrer avec un message indiquant la propriété manquante.
 
 ### Stack complète en conteneurs
 
@@ -80,7 +83,7 @@ docker compose up -d db
 docker compose up --build
 ```
 
-L'API est alors disponible sur http://localhost:8080. Le service `core-api` attend que `db` soit healthy, puis s'y connecte via le réseau Compose (hôte `db`), avec les identifiants `POSTGRES_*` du `.env`.
+L'API est alors disponible sur http://localhost:8080. Le service `core-api` attend que `db` soit healthy, puis s'y connecte via le réseau Compose (hôte `db`), avec les identifiants `POSTGRES_*` du `.env`. `JWT_SECRET` doit être renseigné dans le `.env` : sinon `docker compose` refuse de démarrer.
 
 L'image est construite par [`Dockerfile`](Dockerfile), avec la racine du dépôt comme contexte (même convention que `etl-worker`) : une étape Maven produit le jar, puis une image JRE 21 seule l'exécute.
 
@@ -96,6 +99,60 @@ L'image est construite par [`Dockerfile`](Dockerfile), avec la racine du dépôt
 # Lancer le jar
 java -jar application/target/application-0.0.1-SNAPSHOT.jar
 ```
+
+## Sécurité
+
+Authentification **stateless par jeton JWT** (Bearer, signé en HS256), avec Spring Security en resource server.
+
+| Où | Quoi |
+|---|---|
+| `application` — `com.enervision.config.SecurityConfig` | Règles communes à tous les modules : tout endpoint exige un jeton valide, sauf les routes publiques (login, doc OpenAPI). Active `@PreAuthorize` et déclare le schéma Bearer dans la doc OpenAPI. |
+| `user` — `com.enervision.user.security` | Fournisseur d'identité : émission des jetons (`TokenService`), vérification (`JwtDecoder`), conversion des rôles, hash des mots de passe (BCrypt), chargement des utilisateurs pour le login. |
+
+### Endpoints
+
+| Méthode | Route | Accès |
+|---|---|---|
+| `POST` | `/api/v1/auth/login` | Public : renvoie `{ accessToken, tokenType, expiresIn }` |
+| `GET` | `/api/v1/users/me` | Connecté |
+| `GET` | `/api/v1/users`, `/api/v1/users/{userId}` | `ADMIN` |
+| `PATCH` | `/api/v1/users/{userId}/role` | `ADMIN` |
+
+Les appels authentifiés envoient l'en-tête `Authorization: Bearer <accessToken>`. Le jeton contient l'id de l'utilisateur (`sub`), son email et ses rôles (`roles`). La doc interactive est sur http://localhost:8080/swagger-ui.html (bouton « Authorize »).
+
+### Rôles
+
+`USER` et `ADMIN`, exposés à Spring Security sous la forme `ROLE_USER` / `ROLE_ADMIN`. Pour restreindre un endpoint aux administrateurs, utiliser la méta-annotation `@AdminOnly` (`com.enervision.user.security`) plutôt qu'un `@PreAuthorize("hasRole('ADMIN')")` écrit à la main :
+
+```java
+@AdminOnly
+@GetMapping
+public List<SiteResponse> getSites() { … }
+```
+
+Une route publique se déclare dans `SecurityConfig` (module `application`).
+
+> **Comptes** : il n'y a pas d'inscription. Les utilisateurs sont les membres de l'équipe, créés directement en base, et ont accès à tous les sites (pas d'isolation par utilisateur pour l'instant). Le mot de passe stocké doit porter le préfixe de son encodeur (`DelegatingPasswordEncoder`) : `{bcrypt}$2a$10$…` (recommandé), ou `{noop}motdepasse` en dev uniquement. Sans préfixe, le login échoue.
+
+## Configuration et secrets
+
+**Aucun secret n'est versionné.** `application.yaml` ne contient que des valeurs non sensibles ; les secrets n'ont pas de valeur par défaut, et l'application refuse de démarrer s'ils manquent (message explicite au démarrage).
+
+| Variable | Secret | Défaut | Rôle |
+|---|---|---|---|
+| `SPRING_DATASOURCE_URL` | Non | aucun | URL JDBC de la base |
+| `SPRING_DATASOURCE_USERNAME` | Non | aucun | Utilisateur de la base |
+| `SPRING_DATASOURCE_PASSWORD` | **Oui** | aucun | Mot de passe de la base |
+| `JWT_SECRET` | **Oui** | aucun | Clé HMAC encodée en Base64, 32 octets minimum (`openssl rand -base64 32`). Une clé différente par environnement. |
+| `JWT_EXPIRATION` | Non | `1h` | Durée de validité d'un jeton |
+
+Où vivent les valeurs selon l'environnement :
+
+| Environnement | Source | Versionné ? |
+|---|---|---|
+| Dev local (IDE, `java -jar`) | `.env` à la racine du dépôt, créé à partir de `.env.example`, importé par Spring au démarrage | Non (gitignoré, exclu des images Docker) |
+| Stack Compose | Même `.env` ; `compose.yaml` passe les variables au conteneur (avec l'hôte `db` pour la base) | Non (gitignoré) |
+| CI / déploiement | Secrets de la plateforme (ex. GitHub Secrets transmis par le workflow de déploiement), injectés en variables d'environnement | Non |
 
 ## Tests
 
