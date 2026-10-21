@@ -1,5 +1,5 @@
 # Construit et déploie uniquement les services modifiés (liste dans .github/services.json).
-# - PR vers main : construit les images des services modifiés, sans les publier.
+# Les PR ne passent pas par ce workflow : ci.yml (_ci-images.yml) y construit les images sans les publier.
 # - push sur main : construit, publie dans ECR, puis redéploie ces services sur l'EC2 (SSM).
 #   Les changements sont calculés depuis le dernier commit déployé avec succès
 #   (paramètre SSM /enervision/prod/deployed-sha) : un run annulé ou en échec
@@ -9,8 +9,6 @@
 name: Services
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -29,8 +27,8 @@ env:
 
 jobs:
   changes:
-    # tant que l'infra n'est pas créée (variable absente), seules les PR sont construites
-    if: github.event_name == 'pull_request' || vars.AWS_DEPLOY_ROLE_ARN != ''
+    # tant que l'infra n'est pas créée (variable absente), rien n'est construit ni déployé
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
     runs-on: ubuntu-24.04
     permissions:
       contents: read        # checkout du dépôt
@@ -52,11 +50,8 @@ jobs:
 
       - name: Base de comparaison
         id: base
-        env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           case "$GITHUB_EVENT_NAME" in
-            pull_request) base=$PR_BASE ;;
             push) base=$(aws ssm get-parameter --name "$DEPLOYED_SHA_PARAM" \
                     --query Parameter.Value --output text 2>/dev/null) || base= ;;
             *) base= ;;
@@ -76,7 +71,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read        # checkout du dépôt
-      id-token: write       # OIDC AWS (push ECR), hors PR
+      id-token: write       # OIDC AWS (push ECR)
     strategy:
       fail-fast: false
       matrix:
@@ -89,14 +84,12 @@ jobs:
 
       - uses: docker/setup-buildx-action@v3
 
-      - if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@v5
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - if: github.event_name != 'pull_request'
-        id: ecr
+      - id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Tags de l'image
@@ -105,18 +98,14 @@ jobs:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           NAME: ${{ matrix.name }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
-            echo "tags=enervision/$NAME:ci" >>"$GITHUB_OUTPUT"
-          else
-            image=$REGISTRY/enervision/$NAME
-            echo "tags=$image:$GITHUB_SHA,$image:latest" >>"$GITHUB_OUTPUT"
-          fi
+          image=$REGISTRY/enervision/$NAME
+          echo "tags=$image:$GITHUB_SHA,$image:latest" >>"$GITHUB_OUTPUT"
 
       - uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           provenance: false # sinon une attestation sans tag par image, comptée dans la rétention ECR
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.name }}
@@ -127,7 +116,6 @@ jobs:
     # build « skipped » quand seuls des services sans image (db) ont changé
     if: >-
       always()
-      && github.event_name != 'pull_request'
       && github.ref == 'refs/heads/main'
       && needs.changes.result == 'success'
       && contains(fromJSON('["success", "skipped"]'), needs.build.result)
@@ -199,20 +187,3 @@ jobs:
         run: |
           aws ssm put-parameter --name "$DEPLOYED_SHA_PARAM" --type String \
             --value "$GITHUB_SHA" --overwrite >/dev/null
-
-  # Single check to require in the main ruleset: the build matrix job names
-  # (build (web), build (etl-worker)...) depend on the changed services.
-  ci:
-    needs: [changes, build]
-    # always(): also report a result when a needed job failed or was skipped
-    if: always()
-    runs-on: ubuntu-24.04
-    permissions: {}
-    steps:
-      - name: All required jobs passed
-        env:
-          RESULTS: ${{ toJSON(needs.*.result) }}
-        run: |
-          echo "$RESULTS"
-          # skipped = no service with an image changed; failure or cancelled blocks the merge
-          jq -e 'all(. == "success" or . == "skipped")' <<<"$RESULTS"

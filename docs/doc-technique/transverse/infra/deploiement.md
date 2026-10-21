@@ -49,7 +49,7 @@ style EC2 fill:#d0d4da,stroke:#333
 
 | Événement | Ce qui se passe |
 |---|---|
-| PR vers `main` | Construit les images des services modifiés, sans les publier |
+| PR vers `main` | Construit les images des services modifiés, sans les publier (workflow `ci.yml`, job `call-images`) |
 | Push sur `main` | Construit, publie dans ECR, redéploie les services modifiés |
 | Lancement manuel | Déploie les services choisis : `gh workflow run Services -f services=web,db` |
 
@@ -132,14 +132,18 @@ Chaque service de `.github/services.json` déclare :
   images publiques), le service est seulement redémarré avec sa nouvelle configuration.
 
 ```json
-"web": {
-  "paths": ["app/web/"],
-  "build": { "context": "app/web", "dockerfile": "app/web/Dockerfile" }
+{
+  "services": {
+    "web": {
+      "paths": ["app/web/"],
+      "build": { "context": "app/web", "dockerfile": "app/web/Dockerfile" }
+    }
+  }
 }
 ```
 
 Un fichier listé dans `global` (compose, scripts de déploiement, workflow…) redéploie tous
-les services.
+les services..
 
 Les changements sont comparés au **dernier commit déployé avec succès** (paramètre SSM
 `/enervision/prod/deployed-sha`), et non au commit précédent : un déploiement en échec ou

@@ -17,9 +17,12 @@ jobs:
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       terraform: ${{ steps.filter.outputs.terraform }}
+      images: ${{ steps.images.outputs.builds || '[]' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # changed-services.py diffs against the PR base
 
       - name: Détection des modifications
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -32,6 +35,14 @@ jobs:
             terraform:
               - 'infra/terraform/**'
               - '.github/services.json'
+
+      # same selection rules as the deployment (services.yml), against the PR base
+      - name: Services with an image to build
+        id: images
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/ci/changed-services.py --base "$BASE" --head "$GITHUB_SHA"
 
   call-frontend:
     needs: changes
@@ -51,10 +62,18 @@ jobs:
       id-token: write
     uses: ./.github/workflows/_ci-terraform.yml
 
+  # pull requests only: on main, services.yml builds, publishes and deploys the images
+  call-images:
+    needs: changes
+    if: ${{ needs.changes.outputs.images != '[]' }}
+    uses: ./.github/workflows/_ci-images.yml
+    with:
+      builds: ${{ needs.changes.outputs.images }}
+
   # Single check to require in the main ruleset: the call-* jobs only
   # exist when their paths changed.
   mr-ok:
-    needs: [changes, call-frontend, call-terraform]
+    needs: [changes, call-frontend, call-terraform, call-images]
     # Uniquement sur les Pull Requests
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04

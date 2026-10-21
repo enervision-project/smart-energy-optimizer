@@ -1,0 +1,42 @@
+name: Images CI
+
+# Called by ci.yml on pull requests: builds the Docker image of each changed service
+# (list computed by scripts/ci/changed-services.py from .github/services.json),
+# without publishing it. Publishing and deployment are done by services.yml on main.
+
+on:
+  workflow_call:
+    inputs:
+      builds:
+        description: 'JSON list of {name, context, dockerfile}, "builds" output of changed-services.py'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.builds) }}
+    name: build (${{ matrix.name }})
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: enervision/${{ matrix.name }}:ci
+          # same cache scope as services.yml: the main builds warm up the PR builds
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
