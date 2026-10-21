@@ -19,7 +19,9 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.brand')?.textContent).toContain('EnerVision');
+    const logo = compiled.querySelector('img.brand');
+    expect(logo?.getAttribute('alt')).toBe('EnerVision');
+    expect(logo?.getAttribute('src')).toBe('asset/logo_long.png');
   });
 
   it('propose une entrée Sites dans le menu latéral', async () => {
