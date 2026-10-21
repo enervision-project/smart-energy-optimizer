@@ -1,5 +1,6 @@
 """Extract : récupération des données depuis l'API énergie."""
 
+import argparse
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 import json
@@ -108,3 +109,50 @@ def extract_readings(
         readings.append(reading)
 
     return readings
+
+
+_ALERT_FIELDS = frozenset({
+    "alert_id", "timestamp", "site_id", "severity",
+    "type", "message", "value", "threshold",
+})
+
+#Récupère toutes les alertes actives
+def extract_alerts(
+    base_url: str | None = None, *, timeout: float = 10.0
+) -> list[dict[str, Any]]:
+
+    api_base_url = (
+        base_url if base_url is not None else os.environ.get("ENERGY_API_BASE_URL", "")
+    ).strip().rstrip("/")
+    if not api_base_url:
+        raise ValueError(
+            "Renseigner ENERGY_API_BASE_URL ou passer une URL à extract_alerts."
+        )
+
+    request = Request(
+        f"{api_base_url}/api/v1/alerts", headers={"Accept": "application/json"}
+    )
+    with urlopen(request, timeout=timeout) as response:
+        alerts = json.load(response)
+
+    if not isinstance(alerts, list) or not all(isinstance(alert, dict) for alert in alerts):
+        raise ValueError(
+            "La réponse de /api/v1/alerts doit être une liste d'objets JSON."
+        )
+    for alert in alerts:
+        missing = _ALERT_FIELDS.difference(alert)
+        if missing:
+            raise ValueError(
+                f"Champs manquants dans une alerte : {', '.join(sorted(missing))}."
+            )
+
+    return alerts
+
+
+def alerts_main() -> None:
+    """Extrait une fois les alertes et affiche le JSON, sans base de données."""
+    parser = argparse.ArgumentParser(
+        description="Extrait une fois les alertes actives de l'API et affiche le JSON."
+    )
+    parser.parse_args()
+    print(json.dumps(extract_alerts(), ensure_ascii=False))
