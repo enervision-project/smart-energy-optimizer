@@ -1,8 +1,8 @@
 package com.enervision.user.security;
 
 import com.enervision.user.api.dto.TokenResponse;
-import com.enervision.user.domain.Role;
-import com.enervision.user.domain.User;
+import com.enervision.user.entities.Role;
+import com.enervision.user.entities.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
