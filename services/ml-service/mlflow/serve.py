@@ -1,4 +1,4 @@
-"""Demarre le serveur local avec les fichiers servis depuis le volume persistant."""
+"""Demarre MLflow avec des artefacts locaux ou S3, servis par le serveur."""
 
 import os
 
@@ -15,7 +15,7 @@ if __name__ == "__main__":
             "--workers", "1",
             "--backend-store-uri", backend_uri(),
             "--serve-artifacts",
-            "--artifacts-destination", "/mlartifacts",
+            "--artifacts-destination", os.environ.get("MLFLOW_ARTIFACTS_DESTINATION", "/mlartifacts"),
             "--allowed-hosts", "localhost:*,127.0.0.1:*,mlflow,mlflow:5000",
         ],
     )

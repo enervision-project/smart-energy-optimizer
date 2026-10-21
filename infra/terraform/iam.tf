@@ -41,6 +41,23 @@ data "aws_iam_policy_document" "app" {
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.datalake.arn}/bronze/readings/*"]
   }
+  statement {
+    # MLflow : lister uniquement son prefixe, sans ouvrir la lecture du bronze.
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.datalake.arn]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = [local.mlflow_artifacts_prefix, "${local.mlflow_artifacts_prefix}/*"]
+    }
+  }
+  statement {
+    # Les uploads multipart utilisent PutObject ; Abort permet de nettoyer un echec.
+    actions = [
+      "s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload",
+    ]
+    resources = ["${aws_s3_bucket.datalake.arn}/${local.mlflow_artifacts_prefix}/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "app" {
