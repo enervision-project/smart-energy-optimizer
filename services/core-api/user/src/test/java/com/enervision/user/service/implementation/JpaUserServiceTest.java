@@ -1,8 +1,8 @@
 package com.enervision.user.service.implementation;
 
 import com.enervision.user.api.dto.UserResponse;
-import com.enervision.user.domain.Role;
-import com.enervision.user.domain.User;
+import com.enervision.user.entities.Role;
+import com.enervision.user.entities.User;
 import com.enervision.user.exception.UserNotFoundException;
 import com.enervision.user.mapper.UserMapper;
 import com.enervision.user.repository.UserRepository;

@@ -4,7 +4,7 @@
 
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
--- Utilisateurs de la plateforme (core-api, module user : entité com.enervision.user.domain.User)
+-- Utilisateurs de la plateforme (core-api, module user : entité com.enervision.user.entities.User)
 CREATE TABLE IF NOT EXISTS users (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     -- stocké en minuscules par l'API (normalisation à l'inscription et au login)

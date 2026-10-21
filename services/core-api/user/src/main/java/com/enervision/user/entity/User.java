@@ -1,4 +1,4 @@
-package com.enervision.user.domain;
+package com.enervision.user.entities;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

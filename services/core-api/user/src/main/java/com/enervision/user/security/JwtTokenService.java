@@ -1,7 +1,7 @@
 package com.enervision.user.security;
 
 import com.enervision.user.api.dto.TokenResponse;
-import com.enervision.user.domain.User;
+import com.enervision.user.entities.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;

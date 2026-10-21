@@ -2,7 +2,7 @@ package com.enervision.user.mapper;
 
 import com.enervision.user.api.dto.RegisterRequest;
 import com.enervision.user.api.dto.UserResponse;
-import com.enervision.user.domain.User;
+import com.enervision.user.entities.User;
 import org.springframework.stereotype.Component;
 
 @Component

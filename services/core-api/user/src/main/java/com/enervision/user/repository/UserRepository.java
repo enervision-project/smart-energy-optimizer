@@ -1,6 +1,6 @@
 package com.enervision.user.repository;
 
-import com.enervision.user.domain.User;
+import com.enervision.user.entities.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

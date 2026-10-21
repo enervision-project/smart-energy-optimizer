@@ -1,6 +1,6 @@
 package com.enervision.user.api.dto;
 
-import com.enervision.user.domain.Role;
+import com.enervision.user.entities.Role;
 
 import java.time.Instant;
 import java.util.UUID;
