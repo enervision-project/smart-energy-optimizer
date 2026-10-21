@@ -19,5 +19,5 @@ PY
 
 # Remplir la table au premier démarrage ; une table déjà remplie attendra 16 h.
 etl-worker init-sites
-printf '%s Cron démarré : consommations chaque minute ; agrégats à H+2 min ; sites à 16 h (Europe/Paris).\n' "$(date -Iseconds)"
+printf '%s Cron démarré : consommations et alertes chaque minute ; agrégats à H+2 min ; sites à 16 h (Europe/Paris).\n' "$(date -Iseconds)"
 exec cron -f
