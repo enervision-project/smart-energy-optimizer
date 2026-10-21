@@ -217,6 +217,8 @@ locals {
     POSTGRES_DB         = local.db_name
     DATABASE_URL        = "postgresql://${local.db_user}:${random_password.db.result}@db:5432/${local.db_name}"
     ENERGY_API_BASE_URL = var.energy_api_base_url
+    ENERGY_API_USERNAME = var.energy_api_username
+    ENERGY_API_PASSWORD = var.energy_api_password
     BRONZE_BUCKET       = aws_s3_bucket.datalake.bucket
     AWS_DEFAULT_REGION  = var.region
     DOMAIN              = var.domain

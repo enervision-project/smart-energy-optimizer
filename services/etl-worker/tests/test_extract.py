@@ -89,3 +89,22 @@ class ExtractSitesTests(unittest.TestCase):
                     extract_sites("http://energy-api.test")
 
                 self.assertIs(caught.exception, error)
+
+
+class ApiAuthenticationTests(unittest.TestCase):
+    @patch("etl_worker.extract.urlopen")
+    def test_basic_auth_is_sent_when_credentials_are_configured(self, mock_urlopen):
+        mock_urlopen.return_value = io.BytesIO(b"[]")
+        with patch.dict(os.environ, {"ENERGY_API_USERNAME": "user", "ENERGY_API_PASSWORD": "secret"}):
+            extract_sites("http://energy-api.test")
+
+        request = mock_urlopen.call_args.args[0]
+        self.assertEqual(request.get_header("Authorization"), "Basic dXNlcjpzZWNyZXQ=")
+
+    @patch("etl_worker.extract.urlopen")
+    def test_no_auth_header_without_credentials(self, mock_urlopen):
+        mock_urlopen.return_value = io.BytesIO(b"[]")
+        with patch.dict(os.environ, {"ENERGY_API_USERNAME": ""}):
+            extract_sites("http://energy-api.test")
+
+        self.assertIsNone(mock_urlopen.call_args.args[0].get_header("Authorization"))

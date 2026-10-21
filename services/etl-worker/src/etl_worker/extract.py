@@ -1,6 +1,7 @@
 """Extract : récupération des données depuis l'API énergie."""
 
 import argparse
+import base64
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 import json
@@ -8,6 +9,17 @@ import os
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+
+
+# En-têtes communs ; authentification Basic si ENERGY_API_USERNAME est renseigné.
+def _api_headers() -> dict[str, str]:
+    headers = {"Accept": "application/json"}
+    username = os.environ.get("ENERGY_API_USERNAME", "")
+    if username:
+        password = os.environ.get("ENERGY_API_PASSWORD", "")
+        token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+        headers["Authorization"] = f"Basic {token}"
+    return headers
 
 #Permet d'extraire les différents sites 
 #Les erreurs HTTP, réseau et de décodage JSON remontent à l'appelant
@@ -24,7 +36,7 @@ def extract_sites(
         )
 
     request = Request(
-        f"{api_base_url}/api/v1/sites", headers={"Accept": "application/json"}
+        f"{api_base_url}/api/v1/sites", headers=_api_headers()
     )
     with urlopen(request, timeout=timeout) as response:
         sites = json.load(response)
@@ -81,7 +93,7 @@ def extract_readings(
         )
         request = Request(
             f"{api_base_url}/api/v1/readings?{query}",
-            headers={"Accept": "application/json"},
+            headers=_api_headers(),
         )
         with urlopen(request, timeout=timeout) as response:
             payload = json.load(response)
@@ -130,7 +142,7 @@ def extract_alerts(
         )
 
     request = Request(
-        f"{api_base_url}/api/v1/alerts", headers={"Accept": "application/json"}
+        f"{api_base_url}/api/v1/alerts", headers=_api_headers()
     )
     with urlopen(request, timeout=timeout) as response:
         alerts = json.load(response)
