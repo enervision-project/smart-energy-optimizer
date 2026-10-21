@@ -1,6 +1,7 @@
 # Construit et déploie uniquement les services modifiés (liste dans .github/services.json).
 # Les PR ne passent pas par ce workflow : ci.yml (_ci-images.yml) y construit les images sans les publier.
-# - push sur main : construit, publie dans ECR, puis redéploie ces services sur l'EC2 (SSM).
+# - push sur main : construit, publie dans ECR, puis redéploie ces services sur l'EC2 (SSM)
+#   après validation manuelle (environment GitHub « production », reviewers obligatoires).
 #   Les changements sont calculés depuis le dernier commit déployé avec succès
 #   (paramètre SSM /enervision/prod/deployed-sha) : un run annulé ou en échec
 #   est donc rattrapé par le suivant.
@@ -123,9 +124,16 @@ jobs:
       && contains(fromJSON('["success", "skipped"]'), needs.build.result)
       && needs.changes.outputs.services != '[]'
     runs-on: ubuntu-24.04
+    # manual approval: the job waits for a required reviewer of the production environment
+    # (Settings > Environments). The AWS role trusts its OIDC sub (…:environment:production).
+    environment:
+      name: production
+      url: https://ener-vision.click
     permissions:
       contents: read        # checkout du dépôt (fichiers compose)
       id-token: write       # OIDC AWS
+    # a newer run waiting for approval replaces an older pending one: approving it also
+    # deploys the skipped changes, the diff starting from the last deployed commit
     concurrency:
       group: deploy-prod
       cancel-in-progress: false

@@ -50,8 +50,21 @@ style EC2 fill:#d0d4da,stroke:#333
 | Événement | Ce qui se passe |
 |---|---|
 | PR vers `main` | Construit les images des services modifiés, sans les publier (workflow `ci.yml`, job `call-images`) |
-| Push sur `main` | Construit, publie dans ECR, redéploie les services modifiés |
-| Lancement manuel | Déploie les services choisis : `gh workflow run Deploy -f services=web,db` |
+| Push sur `main` | Construit et publie dans ECR, puis redéploie les services modifiés **après validation** |
+| Lancement manuel | Déploie les services choisis, **après validation** : `gh workflow run Deploy -f services=web,db` |
+
+!!! warning "Validation manuelle du déploiement"
+    Le job `Production` utilise l'environment GitHub **`production`** : il attend qu'un membre
+    de l'équipe `smart-energy-optimizer-team` clique sur **Review deployments → Approve and
+    deploy** dans le run du workflow `Deploy`. Les images sont déjà publiées dans ECR : seule la
+    mise à jour de l'EC2 attend. Si plusieurs merges arrivent avant la validation, seul le
+    dernier reste en attente ; il déploie aussi les changements des précédents (comparaison
+    avec le dernier commit déployé).
+
+    Configuration (*Settings → Environments → production*) :
+
+    - **Required reviewers** : l'équipe `smart-energy-optimizer-team` ;
+    - **Deployment branches and tags** : *Selected branches*, règle `main` uniquement.
 
 ## Composants
 
