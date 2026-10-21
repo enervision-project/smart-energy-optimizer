@@ -1,7 +1,7 @@
 package com.enervision.user.service.implementation;
 
+import com.enervision.common.security.Role;
 import com.enervision.user.api.dto.UserResponse;
-import com.enervision.user.entity.Role;
 import com.enervision.user.entity.User;
 import com.enervision.user.exception.UserNotFoundException;
 import com.enervision.user.mapper.UserMapper;
@@ -22,7 +22,7 @@ import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class JpaUserServiceTest {
+class DefaultUserServiceTest {
 
 	@Mock
 	private UserRepository userRepository;
@@ -31,7 +31,7 @@ class JpaUserServiceTest {
 	private UserMapper userMapper = new UserMapper();
 
 	@InjectMocks
-	private JpaUserService userService;
+	private DefaultUserService userService;
 
 	@Test
 	void shouldThrowUserNotFound_whenUserDoesNotExist() {

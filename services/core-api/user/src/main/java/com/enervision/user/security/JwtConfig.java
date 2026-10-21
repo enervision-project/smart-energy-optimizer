@@ -1,5 +1,6 @@
 package com.enervision.user.security;
 
+import com.enervision.common.security.Role;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -40,7 +41,7 @@ class JwtConfig {
 	JwtAuthenticationConverter jwtAuthenticationConverter() {
 		JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
 		authoritiesConverter.setAuthoritiesClaimName(JwtTokenService.ROLES_CLAIM);
-		authoritiesConverter.setAuthorityPrefix("ROLE_");
+		authoritiesConverter.setAuthorityPrefix(Role.AUTHORITY_PREFIX);
 		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
 		converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
 		return converter;

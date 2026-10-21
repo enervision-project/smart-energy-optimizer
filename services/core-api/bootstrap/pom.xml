@@ -11,7 +11,7 @@
 	</parent>
 
 	<!-- Assembly module: the monolith's only executable module -->
-	<artifactId>application</artifactId>
+	<artifactId>bootstrap</artifactId>
 
 	<dependencies>
 		<!-- Business modules -->
