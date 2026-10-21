@@ -44,7 +44,7 @@ jobs:
         run: npm run lint
 
       - name: Test
-        run: npm run test -- --no-watch --coverage
+        run: npm run test -- --watch=false --coverage --coverage-reporters=text --coverage-reporters=lcov
 
       - name: Build
         run: npm run build
