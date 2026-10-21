@@ -4,7 +4,7 @@
 
 ```
 services/etl-worker/   extraction et chargement des données en Python
-infra/db/init.sql     schéma PostgreSQL / TimescaleDB
+infra/db/changelog/   schéma PostgreSQL / TimescaleDB (changesets Liquibase)
 compose.yaml          stack Docker Compose du projet
 ```
 

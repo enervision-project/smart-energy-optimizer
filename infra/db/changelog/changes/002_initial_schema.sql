@@ -1,7 +1,7 @@
--- Schéma initial EnerVision.
--- Exécuté automatiquement par l'image TimescaleDB au premier démarrage (volume vide),
--- via /docker-entrypoint-initdb.d/ (voir compose.yaml).
+--liquibase formatted sql
 
+--changeset enervision:002-initial-schema splitStatements:false
+--comment: Schéma complet ; IF NOT EXISTS partout : sur une base existante, seules les tables manquantes sont créées.
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 -- Utilisateurs de la plateforme (core-api, module user : entité com.enervision.user.entity.User)

@@ -168,7 +168,6 @@ les autres conteneurs ne sont pas touchés.
 
 ## Limites actuelles
 
-- `infra/db/init.sql` n'est exécuté qu'au premier démarrage de la base (volume vide).
 - La CI construit les images mais ne lance pas encore de tests.
 - Coût estimé : environ 25 $/mois (EC2 ~17 $, 40 Go d'EBS ~4 $, IP publique ~4 $,
   zone Route 53 0,50 $).

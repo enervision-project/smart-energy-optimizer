@@ -170,8 +170,8 @@ public class Site {
 }
 ```
 
-- **Le schéma est géré par `infra/db/init.sql`** (Hibernate est en `ddl-auto: validate`). L'entité doit être alignée sur ce schéma : noms de table et de colonnes explicites (`@Table`, `@Column`), types compatibles.
-- **Ne pas modifier `infra/db/init.sql` (ni rien sous `infra/`) sans demande explicite.** Si une entité n'a pas encore sa table, le signaler (l'application ne démarrera pas en `validate`) et proposer le SQL, sans l'appliquer.
+- **Le schéma est géré par les changesets Liquibase de `infra/db/changelog/`** (Hibernate est en `ddl-auto: validate`). L'entité doit être alignée sur ce schéma : noms de table et de colonnes explicites (`@Table`, `@Column`), types compatibles.
+- **Ne rien modifier sous `infra/` (dont `infra/db/changelog/`) sans demande explicite.** Si une entité n'a pas encore sa table, le signaler (l'application ne démarrera pas en `validate`) et proposer le SQL, sans l'appliquer.
 - Clé composite (ex. hypertable `readings` : `site_id` + `ts`) : `@IdClass` ou `@EmbeddedId`.
 - Lombok sur les entités : `@Getter`, `@Setter` et `@NoArgsConstructor` (public, car le mapper crée l'entité depuis un autre package). Pas de `@Data`, `@AllArgsConstructor`, `@EqualsAndHashCode` ni `@ToString` générés : problèmes avec les proxys Hibernate et le lazy loading. Référence : `com.enervision.user.entity.User`.
 - `@Entity` sans attribut `name` ; le nom de la table se met dans `@Table(name = "...")`.
@@ -273,4 +273,4 @@ public List<UserResponse> getUsers() {
 
 1. `./mvnw clean verify` passe (Docker doit tourner si des tests Testcontainers existent).
 2. Le code est dans le bon module et le bon package, et respecte les couches (pas d'entité dans un controller, pas de repository d'un autre module).
-3. Si le schéma change : `infra/db/init.sql` est mis à jour et la doc (`README.md`) aussi si besoin.
+3. Si le schéma change : un nouveau changeset est ajouté dans `infra/db/changelog/` (jamais de modification d'un changeset existant) et la doc (`README.md`) aussi si besoin.

@@ -1,0 +1,7 @@
+# Changelog Liquibase : appliqué par le service « migrate » (compose.yaml) avant l'ETL et l'API.
+# Liquibase note chaque changeset dans databasechangelog et n'applique que les nouveaux.
+# Ne jamais modifier un fichier déjà déployé : ajouter un nouveau fichier en fin de liste.
+databaseChangeLog:
+  - include: { file: changes/001_rename_legacy_readings.sql, relativeToChangelogFile: true }
+  - include: { file: changes/002_initial_schema.sql, relativeToChangelogFile: true }
+  - include: { file: changes/003_upgrade_legacy_schema.sql, relativeToChangelogFile: true }
