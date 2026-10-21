@@ -36,6 +36,11 @@ data "aws_iam_policy_document" "app" {
     actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.deploy.arn]
   }
+  statement {
+    # etl-worker : écriture seule des mesures brutes
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.datalake.arn}/bronze/readings/*"]
+  }
 }
 
 resource "aws_iam_role_policy" "app" {

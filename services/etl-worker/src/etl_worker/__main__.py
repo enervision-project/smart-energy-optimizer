@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 import json
 
+from etl_worker.bronze import write_readings_bronze
 from etl_worker.extract import extract_readings, extract_sites
 from etl_worker.load import load_readings, load_sites, read_site_ids
 from etl_worker.transform import aggregate_hour
@@ -46,6 +47,10 @@ def main() -> None:
         if args.command == "extract-readings":
             print(json.dumps(readings, ensure_ascii=False))
         else:
+            # Bronze d'abord : la donnée brute est archivée même si la base échoue.
+            bronze_key = write_readings_bronze(readings)
+            if bronze_key is not None:
+                print(f"Bronze : {bronze_key}.")
             inserted = load_readings(readings)
             print(
                 f"Mesures reçues : {len(readings)} ; insérées : {inserted} ; "

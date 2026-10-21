@@ -16,6 +16,8 @@ class WorkerCommandTests(unittest.TestCase):
         self.load_sites = self.patch("load_sites")
         self.extract_readings = self.patch("extract_readings")
         self.load_readings = self.patch("load_readings")
+        self.write_bronze = self.patch("write_readings_bronze")
+        self.write_bronze.return_value = None
         self.aggregate_hour = self.patch("aggregate_hour")
 
     def patch(self, name):
@@ -88,6 +90,29 @@ class WorkerCommandTests(unittest.TestCase):
         self.load_readings.assert_called_once_with(readings)
         self.assertIn("insérées : 1 ; déjà présentes : 1", output)
 
+    def test_readings_are_archived_in_bronze_before_loading(self):
+        self.read_ids.return_value = ["SITE001"]
+        readings = [{"site_id": "SITE001"}]
+        self.extract_readings.return_value = readings
+        self.load_readings.return_value = 1
+        key = "bronze/readings/minutes/date=2026-10-21/hour=08/2026-10-21T08-08Z.jsonl"
+        self.write_bronze.return_value = key
+
+        output = self.run_command("sync-readings")
+
+        self.write_bronze.assert_called_once_with(readings)
+        self.assertIn(key, output)
+
+    def test_bronze_failure_skips_database_load(self):
+        self.read_ids.return_value = ["SITE001"]
+        self.extract_readings.return_value = [{"site_id": "SITE001"}]
+        self.write_bronze.side_effect = RuntimeError("s3 unavailable")
+
+        with self.assertRaisesRegex(RuntimeError, "s3 unavailable"):
+            self.run_command("sync-readings")
+
+        self.load_readings.assert_not_called()
+
     def test_extract_still_outputs_json_without_loading(self):
         self.read_ids.return_value = ["SITE001"]
         readings = [{"site_id": "SITE001", "consumption_kw": None}]
@@ -96,6 +121,7 @@ class WorkerCommandTests(unittest.TestCase):
         self.assertEqual(json.loads(self.run_command("extract-readings")), readings)
 
         self.load_readings.assert_not_called()
+        self.write_bronze.assert_not_called()
         self.extract_sites.assert_not_called()
 
     def test_collecting_without_sites_fails_visibly(self):

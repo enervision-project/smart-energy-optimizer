@@ -14,6 +14,10 @@ output "deploy_bucket" {
   value = aws_s3_bucket.deploy.bucket
 }
 
+output "datalake_bucket" {
+  value = aws_s3_bucket.datalake.bucket
+}
+
 output "github_variables" {
   description = "À lancer une fois après l'apply pour brancher le workflow Services."
   value       = <<-EOT
