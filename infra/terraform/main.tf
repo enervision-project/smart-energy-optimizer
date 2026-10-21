@@ -203,6 +203,11 @@ resource "random_password" "db" {
   special = false # pas de $ ni de caractères à échapper dans .env / l'URL
 }
 
+# clé HMAC de core-api : 32 octets aléatoires, encodés en Base64 (format attendu par l'API)
+resource "random_bytes" "jwt" {
+  length = 32
+}
+
 locals {
   db_user = "enervision"
   db_name = "enervision"
@@ -215,6 +220,7 @@ locals {
     BRONZE_BUCKET       = aws_s3_bucket.datalake.bucket
     AWS_DEFAULT_REGION  = var.region
     DOMAIN              = var.domain
+    JWT_SECRET          = random_bytes.jwt.base64
   })
 }
 
