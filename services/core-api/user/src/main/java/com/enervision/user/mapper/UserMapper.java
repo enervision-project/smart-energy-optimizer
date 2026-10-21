@@ -1,6 +1,5 @@
 package com.enervision.user.mapper;
 
-import com.enervision.user.api.dto.RegisterRequest;
 import com.enervision.user.api.dto.UserResponse;
 import com.enervision.user.entity.User;
 import org.springframework.stereotype.Component;
@@ -18,17 +17,6 @@ public class UserMapper {
 				user.getRole(),
 				user.getCreatedAt(),
 				user.getUpdatedAt());
-	}
-
-	/**
-	 * Copies the profile fields. The normalized email, password hash and role are set by the service.
-	 */
-	public User toEntity(RegisterRequest request) {
-		User user = new User();
-		user.setFirstName(request.firstName().trim());
-		user.setLastName(request.lastName().trim());
-		user.setCompanyName(request.companyName().trim());
-		return user;
 	}
 
 }

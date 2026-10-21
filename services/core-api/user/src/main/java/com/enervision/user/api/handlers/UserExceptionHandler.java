@@ -1,6 +1,5 @@
 package com.enervision.user.api.handlers;
 
-import com.enervision.user.exception.EmailAlreadyUsedException;
 import com.enervision.user.exception.UserNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -18,11 +17,6 @@ class UserExceptionHandler {
 	@ExceptionHandler(UserNotFoundException.class)
 	ProblemDetail handleUserNotFound(UserNotFoundException exception) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
-	}
-
-	@ExceptionHandler(EmailAlreadyUsedException.class)
-	ProblemDetail handleEmailAlreadyUsed(EmailAlreadyUsedException exception) {
-		return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
 	}
 
 	/** Login failure: the message is deliberately generic so it does not reveal whether the email exists. */

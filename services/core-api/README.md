@@ -106,14 +106,13 @@ Authentification **stateless par jeton JWT** (Bearer, signé en HS256), avec Spr
 
 | Où | Quoi |
 |---|---|
-| `application` — `com.enervision.config.SecurityConfig` | Règles communes à tous les modules : tout endpoint exige un jeton valide, sauf les routes publiques (login, register, doc OpenAPI). Active `@PreAuthorize` et déclare le schéma Bearer dans la doc OpenAPI. |
+| `application` — `com.enervision.config.SecurityConfig` | Règles communes à tous les modules : tout endpoint exige un jeton valide, sauf les routes publiques (login, doc OpenAPI). Active `@PreAuthorize` et déclare le schéma Bearer dans la doc OpenAPI. |
 | `user` — `com.enervision.user.security` | Fournisseur d'identité : émission des jetons (`TokenService`), vérification (`JwtDecoder`), conversion des rôles, hash des mots de passe (BCrypt), chargement des utilisateurs pour le login. |
 
 ### Endpoints
 
 | Méthode | Route | Accès |
 |---|---|---|
-| `POST` | `/api/v1/auth/register` | Public : crée un compte avec le rôle `USER` |
 | `POST` | `/api/v1/auth/login` | Public : renvoie `{ accessToken, tokenType, expiresIn }` |
 | `GET` | `/api/v1/users/me` | Connecté |
 | `GET` | `/api/v1/users`, `/api/v1/users/{userId}` | `ADMIN` |
@@ -133,7 +132,7 @@ public List<SiteResponse> getSites() { … }
 
 Une route publique se déclare dans `SecurityConfig` (module `application`).
 
-> **Premier ADMIN** : l'inscription donne toujours le rôle `USER`. Pour l'instant, le premier administrateur se crée en changeant le rôle directement en base (`UPDATE users SET role = 'ADMIN' WHERE email = '…'`).
+> **Comptes** : il n'y a pas d'inscription. Les utilisateurs sont les membres de l'équipe, créés directement en base, et ont accès à tous les sites (pas d'isolation par utilisateur pour l'instant). Le mot de passe stocké doit porter le préfixe de son encodeur (`DelegatingPasswordEncoder`) : `{bcrypt}$2a$10$…` (recommandé), ou `{noop}motdepasse` en dev uniquement. Sans préfixe, le login échoue.
 
 ## Configuration et secrets
 
