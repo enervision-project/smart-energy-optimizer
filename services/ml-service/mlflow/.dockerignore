@@ -1,0 +1,7 @@
+*
+!Dockerfile
+!requirements.txt
+!settings.py
+!init_db.py
+!serve.py
+!smoke_test.py

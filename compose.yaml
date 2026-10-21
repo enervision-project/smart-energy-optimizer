@@ -13,6 +13,18 @@ x-etl: &etl
     migrate:
       condition: service_completed_successfully
 
+x-mlflow: &mlflow
+  image: enervision-mlflow:local
+  build:
+    context: services/ml-service/mlflow
+  profiles: ["ml"]
+  environment: &mlflow-env
+    MLFLOW_DB_HOST: db
+    MLFLOW_DB_PORT: "5432"
+    MLFLOW_DB_NAME: ${MLFLOW_DB_NAME:-mlflow}
+    MLFLOW_DB_USER: ${MLFLOW_DB_USER:-mlflow}
+    MLFLOW_DB_PASSWORD: ${MLFLOW_DB_PASSWORD:-mlflow-local}
+
 services:
   web:
     # front Angular servi par nginx (contexte app/web : son .dockerignore s'applique)
@@ -63,6 +75,40 @@ services:
       db:
         condition: service_healthy
 
+  mlflow-init:
+    <<: *mlflow
+    command: ["python", "init_db.py"]
+    environment:
+      <<: *mlflow-env
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  mlflow:
+    <<: *mlflow
+    environment:
+      <<: *mlflow-env
+      MLFLOW_TRACKING_URI: http://127.0.0.1:5000
+      MLFLOW_SQLALCHEMYSTORE_POOL_SIZE: "2"
+      MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW: "2"
+    ports:
+      - "127.0.0.1:${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - mlflow_artifacts:/mlartifacts
+    depends_on:
+      mlflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:5000/health', timeout=5).read()"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 6
+    restart: unless-stopped
+
   db:
     restart: unless-stopped
     # PostgreSQL 16 + extension TimescaleDB
@@ -83,3 +129,4 @@ services:
 
 volumes:
   dbdata: {}
+  mlflow_artifacts: {}
