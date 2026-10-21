@@ -24,6 +24,6 @@ jobs:
   call-frontend:
     needs: changes
     if: ${{ needs.changes.outputs.frontend == 'true' }}
-    uses: ./.github/workflows/merge-request/frontend.yml
+    uses: ./.github/workflows/_mr-frontend.yml
     secrets:
       SONAR_TOKEN_FRONTEND: ${{ secrets.SONAR_TOKEN_FRONTEND }}
