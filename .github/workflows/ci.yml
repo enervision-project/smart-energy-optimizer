@@ -1,7 +1,11 @@
-name: MR Verification
+name: Verification code
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,7 +28,7 @@ jobs:
   call-frontend:
     needs: changes
     if: ${{ needs.changes.outputs.frontend == 'true' }}
-    uses: ./.github/workflows/_mr-frontend.yml
+    uses: ./.github/workflows/_ci-frontend.yml
     secrets:
       SONAR_TOKEN_FRONTEND: ${{ secrets.SONAR_TOKEN_FRONTEND }}
 
