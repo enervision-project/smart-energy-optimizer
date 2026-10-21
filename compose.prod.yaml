@@ -6,7 +6,7 @@
 services:
   # seul point d'entrée public : HTTPS (Let's Encrypt) vers les services internes
   proxy:
-    image: docker.io/library/caddy:2.10-alpine
+    image: docker.io/library/caddy:2.11-alpine
     environment:
       DOMAIN: ${DOMAIN}
     ports:
