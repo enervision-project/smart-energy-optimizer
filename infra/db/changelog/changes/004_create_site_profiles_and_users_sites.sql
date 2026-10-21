@@ -1,10 +1,11 @@
--- Ajoute le profil de référence des sites et la visibilité des sites par utilisateur
--- (core-api, module configuration) pour les bases déjà initialisées.
-BEGIN;
+--liquibase formatted sql
 
--- Au plus un profil par site ; rempli par un script dédié, jamais par l'API.
-CREATE TABLE IF NOT EXISTS public.site_profiles (
-    site_id             TEXT PRIMARY KEY REFERENCES public.sites (site_id) ON DELETE CASCADE,
+--changeset enervision:004-create-site-profiles-and-users-sites splitStatements:false
+--comment: Profil de référence des sites et visibilité des sites par utilisateur (core-api, module configuration).
+
+-- Profil de référence d'un site (entité SiteProfile) : au plus un profil par site, rempli par l'ETL, jamais par l'API.
+CREATE TABLE IF NOT EXISTS site_profiles (
+    site_id             TEXT PRIMARY KEY REFERENCES sites (site_id) ON DELETE CASCADE,
     -- consommations de repos et de pic attendues (kW)
     base_consumption    NUMERIC(14, 2) NOT NULL CHECK (base_consumption >= 0),
     peak_consumption    NUMERIC(14, 2) NOT NULL,
@@ -25,13 +26,11 @@ CREATE TABLE IF NOT EXISTS public.site_profiles (
 );
 
 -- Sites visibles par chaque utilisateur de rôle USER (un ADMIN voit tous les sites, sans ligne ici).
-CREATE TABLE IF NOT EXISTS public.users_sites (
-    user_id  UUID NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
-    site_id  TEXT NOT NULL REFERENCES public.sites (site_id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS users_sites (
+    user_id  UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    site_id  TEXT NOT NULL REFERENCES sites (site_id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, site_id)
 );
 
 -- Recherche inverse : quels utilisateurs voient un site
-CREATE INDEX IF NOT EXISTS users_sites_site_id_idx ON public.users_sites (site_id);
-
-COMMIT;
+CREATE INDEX IF NOT EXISTS users_sites_site_id_idx ON users_sites (site_id);
