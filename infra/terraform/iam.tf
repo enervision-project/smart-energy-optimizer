@@ -114,3 +114,38 @@ resource "aws_iam_role_policy" "github_deploy" {
   role   = aws_iam_role.github_deploy.id
   policy = data.aws_iam_policy_document.github_deploy.json
 }
+
+# --- GitHub Actions (OIDC): read-only terraform plan, from the repository pull requests
+# Pull requests from forks get no OIDC token: only repository members can use this role.
+data "aws_iam_policy_document" "github_plan_assume" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["${var.github_oidc_sub_prefix}:pull_request"]
+    }
+  }
+}
+
+resource "aws_iam_role" "github_plan" {
+  name                 = "${local.name}-github-plan"
+  assume_role_policy   = data.aws_iam_policy_document.github_plan_assume.json
+  max_session_duration = 3600
+}
+
+# reads every managed resource and the state (S3 bucket); no write access,
+# hence the plan runs with -lock=false
+resource "aws_iam_role_policy_attachment" "github_plan" {
+  role       = aws_iam_role.github_plan.name
+  policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+}
