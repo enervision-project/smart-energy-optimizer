@@ -1,19 +1,54 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Paris",
+  "schedule": ["before 6am"],
+  "minimumReleaseAge": "3 days",
+  "prConcurrentLimit": 5,
+  "vulnerabilityAlerts": { "schedule": ["at any time"] },
+
   "packageRules": [
     {
-      "description": "Ignorer les dépendances internes Maven inter-modules",
-      "matchDatasources": ["maven"],
-      "matchPackageNames": ["com.enervision:**"],
+      "groupName": "angular (major)",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["@angular/**", "@angular-devkit/**", "@schematics/angular", "angular-eslint", "@angular-eslint/**", "ng-packagr"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "groupName": "angular (non-major)",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["@angular/**", "@angular-devkit/**", "@schematics/angular", "angular-eslint", "@angular-eslint/**", "ng-packagr"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "matchPackageNames": ["typescript"],
+      "matchUpdateTypes": ["major", "minor"],
       "enabled": false
     },
     {
-      "description": "Désactiver le pinning par SHA pour GitHub Actions si non requis",
+      "groupName": "npm (non-major)",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "groupName": "Docker (non-major)",
+      "matchUpdateTypes": ["minor", "patch", "digest"]
+    },
+    {
       "matchManagers": ["github-actions"],
-      "pinDigests": false
+      "groupName": "CI",
+      "matchUpdateTypes": ["minor", "patch", "digest"]
+    },
+    {
+      "matchManagers": ["terraform"],
+      "groupName": "Terraform (non-major)",
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
     }
   ]
 }
