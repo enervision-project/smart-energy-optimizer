@@ -15,7 +15,7 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:}
     password: ${SPRING_DATASOURCE_PASSWORD:}
 
-  # The schema is managed by infra/db/init.sql: Hibernate only validates the entities.
+  # The schema is managed by Liquibase (infra/db/changelog): Hibernate only validates the entities.
   jpa:
     hibernate:
       ddl-auto: validate

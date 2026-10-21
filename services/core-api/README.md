@@ -56,7 +56,7 @@ core-api/                  pom parent (packaging pom)
 
 core-api utilise la base TimescaleDB (PostgreSQL 16) du service `db`, défini dans le [`compose.yaml` racine](../../compose.yaml).
 
-- **Schéma** : géré par [`infra/db/init.sql`](../../infra/db/init.sql), exécuté uniquement au premier démarrage du conteneur (volume vide). Hibernate est en `ddl-auto: validate` : il ne crée ni ne modifie aucune table, il vérifie seulement que les entités JPA correspondent au schéma. Toute évolution du schéma passe donc par `init.sql`, puis par une recréation du volume (`docker compose down -v`).
+- **Schéma** : géré par les changesets Liquibase de [`infra/db/changelog/`](../../infra/db/changelog/changelog.yaml), appliqués par le service `migrate` à chaque `docker compose up` (core-api attend sa fin). Hibernate est en `ddl-auto: validate` : il ne crée ni ne modifie aucune table, il vérifie seulement que les entités JPA correspondent au schéma. Toute évolution du schéma passe donc par un **nouveau** fichier dans `infra/db/changelog/changes/`, ajouté à la fin de `changelog.yaml` ; un changeset déjà déployé ne se modifie jamais.
 - **Connexion** : via les variables `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` et `SPRING_DATASOURCE_PASSWORD`, lues directement par Spring Boot. `application.yaml` ne contient aucune valeur par défaut : en conteneur, `compose.yaml` les fournit ; en local, le `.env` racine (voir [Configuration et secrets](#configuration-et-secrets)).
 
 ## Build et exécution
@@ -66,8 +66,8 @@ Prérequis : Java 21, Docker avec les plugins Compose v2 et Buildx (le Dockerfil
 ### Dev local (app lancée depuis l'IDE ou Maven)
 
 ```bash
-# Depuis la racine du dépôt : démarrer uniquement la base
-docker compose up -d db
+# Depuis la racine du dépôt : démarrer la base et appliquer le schéma (Liquibase)
+docker compose up -d migrate
 
 # Depuis services/core-api : construire puis lancer l'application
 ./mvnw clean package -DskipTests

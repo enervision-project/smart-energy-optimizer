@@ -1,6 +1,7 @@
--- Renomme l'ancienne table en conservant ses donnees.
-BEGIN;
+--liquibase formatted sql
 
+--changeset enervision:001-rename-legacy-readings splitStatements:false
+--comment: Bases créées avant le renommage : readings devient readings_raws, données conservées.
 DO $migration$
 BEGIN
     IF to_regclass('public.readings') IS NOT NULL
@@ -13,10 +14,3 @@ BEGIN
     END IF;
 END;
 $migration$;
-
--- Les anciens releves gardent site_type a NULL et un tableau null_reasons vide.
-ALTER TABLE public.readings_raws
-    ADD COLUMN IF NOT EXISTS site_type TEXT,
-    ADD COLUMN IF NOT EXISTS null_reasons TEXT[] NOT NULL DEFAULT '{}';
-
-COMMIT;
