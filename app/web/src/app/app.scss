@@ -12,15 +12,16 @@
 .topbar {
   grid-area: topbar;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 16px;
   padding: 0 24px;
-  line-height: 56px;
-  background: #14213d;
-  color: #fff;
+  // fond clair : le bleu du logo est peu lisible sur fond sombre
+  background: #fff;
+  border-bottom: 1px solid #dde2da;
+  color: #3f4a5a;
 
-  .brand { font-weight: 600; font-size: 1.2rem; }
-  .subtitle { opacity: 0.7; font-size: 0.9rem; }
+  .brand { height: 32px; width: auto; }
+  .subtitle { font-size: 0.9rem; }
 }
 
 .sidebar {
