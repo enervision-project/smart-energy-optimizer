@@ -1,4 +1,4 @@
-name: Images CI
+name: Docker images CI
 
 # Called by ci.yml on pull requests: builds the Docker image of each changed service
 # (list computed by scripts/ci/changed-services.py from .github/services.json),
@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(inputs.builds) }}
-    name: build (${{ matrix.name }})
+    name: ${{ matrix.name }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

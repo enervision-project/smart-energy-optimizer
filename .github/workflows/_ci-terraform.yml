@@ -20,6 +20,7 @@ env:
 
 jobs:
   validate:
+    name: Format and validate
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -49,6 +50,7 @@ jobs:
         run: terraform validate -no-color
 
   plan:
+    name: Plan
     needs: validate
     if: github.event_name == 'pull_request' && vars.AWS_PLAN_ROLE_ARN != ''
     runs-on: ubuntu-24.04

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exécuté sur l'EC2 (root, via SSM Run Command) par le workflow Services.
+# Exécuté sur l'EC2 (root, via SSM Run Command) par le workflow Deploy (services.yml).
 # Les fichiers de la release (compose*.yaml, infra/…) sont déjà copiés dans /opt/enervision.
 # Redéploie uniquement les services passés en argument, les autres ne sont pas touchés.
 # Usage : deploy.sh <sha> <registre ECR> <service>...

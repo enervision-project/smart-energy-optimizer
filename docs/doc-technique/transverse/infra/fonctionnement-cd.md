@@ -6,7 +6,7 @@ cet accès est sécurisé. Pour les commandes et la configuration, voir
 
 ## Vue d'ensemble
 
-À chaque push sur `main`, le workflow `Services` (`.github/workflows/services.yml`) enchaîne
+À chaque push sur `main`, le workflow `Deploy` (`.github/workflows/services.yml`) enchaîne
 trois jobs :
 
 ```mermaid
