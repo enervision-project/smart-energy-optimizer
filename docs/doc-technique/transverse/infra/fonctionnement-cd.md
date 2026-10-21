@@ -189,7 +189,7 @@ sequenceDiagram
     JOB->>STS: AssumeRoleWithWebIdentity avec le jeton
     STS->>STS: vérifie la signature de GitHub
     STS->>IAM: lit la politique de confiance
-    IAM-->>STS: aud = sts.amazonaws.com et sub = ce dépôt, branche main
+    IAM-->>STS: aud = sts.amazonaws.com et sub = ce dépôt, branche main ou environment production
     STS-->>JOB: identifiants temporaires, valables 1 heure
 ```
 
@@ -198,10 +198,14 @@ Le jeton contient notamment :
 | Champ | Valeur | Vérifié par AWS |
 |---|---|---|
 | `aud` | `sts.amazonaws.com` | le jeton est bien destiné à AWS |
-| `sub` | `repo:enervision-project@318340507/smart-energy-optimizer@1425361683:ref:refs/heads/main` | dépôt **et** branche autorisés |
+| `sub` | `repo:enervision-project@318340507/smart-energy-optimizer@1425361683:ref:refs/heads/main` (jobs `Changed services`, `Image …`) ou `…:environment:production` (job `Production`) | dépôt **et** branche, ou environment, autorisés |
 
-Le rôle n'accepte qu'un seul `sub` : **la branche `main` de ce dépôt**. Une PR, une autre
-branche, un fork ou un autre dépôt obtiennent un jeton avec un `sub` différent, refusé par AWS.
+Le rôle n'accepte que deux `sub` : **la branche `main` de ce dépôt**, et **l'environment
+`production`**, utilisé par le job `Production`. Un job lié à un environment reçoit un `sub`
+qui nomme l'environment et non la branche : c'est la règle *Deployment branches* de
+l'environment (`main` uniquement) qui garantit qu'on ne déploie que depuis `main`. Une PR, une
+autre branche, un fork ou un autre dépôt obtiennent un jeton avec un `sub` différent, refusé
+par AWS.
 C'est pour cela que, sur une PR, `ci.yml` construit les images sans pouvoir les publier.
 
 !!! info "Format immuable du `sub`"

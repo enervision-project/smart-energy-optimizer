@@ -71,10 +71,15 @@ data "aws_iam_policy_document" "github_assume" {
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
+    # jobs without environment (changes, build) get a ref sub; the deploy job, gated by the
+    # production environment (required reviewers, main branch only), gets an environment sub
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["${var.github_oidc_sub_prefix}:ref:refs/heads/main"]
+      values = [
+        "${var.github_oidc_sub_prefix}:ref:refs/heads/main",
+        "${var.github_oidc_sub_prefix}:environment:production",
+      ]
     }
   }
 }
