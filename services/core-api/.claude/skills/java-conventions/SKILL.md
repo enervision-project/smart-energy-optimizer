@@ -20,7 +20,7 @@ Controller  →  Service (interface)  →  Repository (Spring Data)  →  Base
 | **Controller** (`api.controllers`) | HTTP : routes, validation des entrées (`@Valid`), codes de statut, DTO in/out | Pas de logique métier, pas d'accès au repository, n'expose jamais une entité |
 | **Service** (`service`) | Logique métier, transactions, orchestration, conversion entité ↔ DTO via le mapper | Ne connaît pas HTTP (`ResponseEntity`, `HttpServletRequest`…) |
 | **Repository** (`repository`) | Accès aux données (interfaces Spring Data JPA) | Pas de logique métier |
-| **Entities** (`entities`) | Entités JPA, enums métier | Pas de dépendance vers les couches supérieures |
+| **Entity** (`entity`) | Entités JPA, enums métier | Pas de dépendance vers les couches supérieures |
 
 Règles de dépendance : une couche n'appelle que la couche juste en dessous. Le controller dépend de **l'interface** du service, jamais de l'implémentation.
 
@@ -42,7 +42,7 @@ com.enervision.<module>
 │       └── <Spécificité><Nom>Service.java   ex. JpaUserService, JwtAuthService
 ├── repository/
 │   └── <Nom>Repository.java
-├── entities/
+├── entity/
 │   ├── <Nom>.java              entité JPA
 │   └── <Enum>.java             enums métier (ex. Role)
 ├── mapper/
@@ -173,7 +173,7 @@ public class Site {
 - **Le schéma est géré par `infra/db/init.sql`** (Hibernate est en `ddl-auto: validate`). L'entité doit être alignée sur ce schéma : noms de table et de colonnes explicites (`@Table`, `@Column`), types compatibles.
 - **Ne pas modifier `infra/db/init.sql` (ni rien sous `infra/`) sans demande explicite.** Si une entité n'a pas encore sa table, le signaler (l'application ne démarrera pas en `validate`) et proposer le SQL, sans l'appliquer.
 - Clé composite (ex. hypertable `readings` : `site_id` + `ts`) : `@IdClass` ou `@EmbeddedId`.
-- Lombok sur les entités : `@Getter`, `@Setter` et `@NoArgsConstructor` (public, car le mapper crée l'entité depuis un autre package). Pas de `@Data`, `@AllArgsConstructor`, `@EqualsAndHashCode` ni `@ToString` générés : problèmes avec les proxys Hibernate et le lazy loading. Référence : `com.enervision.user.entities.User`.
+- Lombok sur les entités : `@Getter`, `@Setter` et `@NoArgsConstructor` (public, car le mapper crée l'entité depuis un autre package). Pas de `@Data`, `@AllArgsConstructor`, `@EqualsAndHashCode` ni `@ToString` générés : problèmes avec les proxys Hibernate et le lazy loading. Référence : `com.enervision.user.entity.User`.
 - `@Entity` sans attribut `name` ; le nom de la table se met dans `@Table(name = "...")`.
 - Timestamps techniques : `@CreationTimestamp` (`updatable = false`) et `@UpdateTimestamp`. Ils ne sont renseignés qu'au flush : utiliser `saveAndFlush` si la réponse doit les contenir.
 - Relations en `FetchType.LAZY` par défaut.
