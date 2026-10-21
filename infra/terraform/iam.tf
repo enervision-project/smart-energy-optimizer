@@ -130,6 +130,12 @@ data "aws_iam_policy_document" "github_deploy" {
     actions   = ["ssm:GetParameter", "ssm:PutParameter"]
     resources = ["arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name}/prod/deployed-sha"]
   }
+  statement {
+    # identifiants de l'API énergie : source de vérité = secrets GitHub, recopiés à chaque déploiement
+    actions = ["ssm:PutParameter"]
+    resources = [for k in ["ENERGY_API_USERNAME", "ENERGY_API_PASSWORD"] :
+    "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name}/prod/env/${k}"]
+  }
 }
 
 resource "aws_iam_role_policy" "github_deploy" {

@@ -1,4 +1,2 @@
 # Copier en terraform.tfvars (non versionné) puis renseigner les valeurs.
 energy_api_base_url = "https://api-mock.example.com"
-energy_api_username = "identifiant-fourni-par-le-formateur"
-energy_api_password = "mot-de-passe-fourni-par-le-formateur"
