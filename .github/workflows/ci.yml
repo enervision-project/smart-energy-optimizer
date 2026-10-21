@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
+      terraform: ${{ steps.filter.outputs.terraform }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -27,6 +28,10 @@ jobs:
           filters: |
             frontend:
               - 'app/**'
+            # services.json also drives the ECR repositories created by Terraform
+            terraform:
+              - 'infra/terraform/**'
+              - '.github/services.json'
 
   call-frontend:
     needs: changes
@@ -36,10 +41,20 @@ jobs:
     secrets:
       SONAR_TOKEN_FRONTEND: ${{ secrets.SONAR_TOKEN_FRONTEND }}
 
-  # Single check to require in the main ruleset: call-frontend / build only
-  # exists when app/ changed.
+  call-terraform:
+    needs: changes
+    # runs when Terraform files changed, or on a manual run (like call-frontend)
+    if: ${{ needs.changes.outputs.terraform == 'true' || github.event_name == 'workflow_dispatch' }}
+    # a called workflow cannot get more permissions than its caller job
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/_ci-terraform.yml
+
+  # Single check to require in the main ruleset: the call-* jobs only
+  # exist when their paths changed.
   mr-ok:
-    needs: [changes, call-frontend]
+    needs: [changes, call-frontend, call-terraform]
     # Uniquement sur les Pull Requests
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
@@ -50,5 +65,5 @@ jobs:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
           echo "$RESULTS"
-          # skipped = app/ unchanged; failure or cancelled blocks the merge
+          # skipped = paths unchanged; failure or cancelled blocks the merge
           jq -e 'all(. == "success" or . == "skipped")' <<<"$RESULTS"
