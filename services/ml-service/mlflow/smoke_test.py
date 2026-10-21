@@ -19,11 +19,11 @@ def main() -> None:
     ).info.run_id
 
     try:
-        client.log_param(run_id, "check", "local-setup")
+        client.log_param(run_id, "check", "tracking-and-artifacts")
         client.log_metric(run_id, "setup_ok", 1)
         with TemporaryDirectory() as directory, TemporaryDirectory() as downloads:
             path = Path(directory) / "verification.txt"
-            expected = "MLflow : stockage local operationnel.\n"
+            expected = "MLflow : stockage des artefacts operationnel.\n"
             path.write_text(expected, encoding="utf-8")
             client.log_artifact(run_id, str(path))
             restored = Path(client.download_artifacts(run_id, path.name, downloads))

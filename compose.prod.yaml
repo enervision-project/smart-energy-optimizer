@@ -3,6 +3,16 @@
 # Les images viennent d'ECR (construites par la CI) au lieu d'être construites sur place.
 # ECR_REGISTRY et <SERVICE>_TAG sont écrits dans deploy.env par le script de déploiement.
 
+# Meme image pour les migrations et le serveur ; le profil optionnel reste local.
+x-mlflow-prod: &mlflow-prod
+  build: !reset null
+  profiles: !reset []
+  image: ${ECR_REGISTRY}/enervision/mlflow:${MLFLOW_TAG:-latest}
+  environment: &mlflow-prod-env
+    MLFLOW_DB_NAME: ${MLFLOW_DB_NAME:?MLFLOW_DB_NAME doit etre fourni par SSM}
+    MLFLOW_DB_USER: ${MLFLOW_DB_USER:?MLFLOW_DB_USER doit etre fourni par SSM}
+    MLFLOW_DB_PASSWORD: ${MLFLOW_DB_PASSWORD:?MLFLOW_DB_PASSWORD doit etre fourni par SSM}
+
 services:
   # seul point d'entrée public : HTTPS (Let's Encrypt) vers les services internes
   proxy:
@@ -35,6 +45,19 @@ services:
     build: !reset null
     image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
     restart: unless-stopped
+
+  mlflow-init:
+    <<: *mlflow-prod
+
+  mlflow:
+    <<: *mlflow-prod
+    environment:
+      <<: *mlflow-prod-env
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:?AWS_DEFAULT_REGION doit etre fourni par SSM}
+      MLFLOW_ARTIFACTS_DESTINATION: ${MLFLOW_ARTIFACTS_DESTINATION:?MLFLOW_ARTIFACTS_DESTINATION doit etre fourni par SSM}
+    # Les artefacts sont sur S3 ; seul le port local 127.0.0.1 du Compose de base
+    # reste accessible sur l'EC2 pour un tunnel SSM. Aucun acces public via Caddy.
+    volumes: !reset []
 
   db:
     # base non exposée sur l'hôte en production
