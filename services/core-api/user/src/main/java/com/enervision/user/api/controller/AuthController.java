@@ -1,4 +1,4 @@
-package com.enervision.user.api.controllers;
+package com.enervision.user.api.controller;
 
 import com.enervision.user.api.dto.LoginRequest;
 import com.enervision.user.api.dto.TokenResponse;

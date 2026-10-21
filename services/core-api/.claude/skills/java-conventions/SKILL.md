@@ -17,7 +17,7 @@ Controller  →  Service (interface)  →  Repository (Spring Data)  →  Base
 
 | Couche | Rôle | Ne fait PAS |
 |---|---|---|
-| **Controller** (`api.controllers`) | HTTP : routes, validation des entrées (`@Valid`), codes de statut, DTO in/out | Pas de logique métier, pas d'accès au repository, n'expose jamais une entité |
+| **Controller** (`api.controller`) | HTTP : routes, validation des entrées (`@Valid`), codes de statut, DTO in/out | Pas de logique métier, pas d'accès au repository, n'expose jamais une entité |
 | **Service** (`service`) | Logique métier, transactions, orchestration, conversion entité ↔ DTO via le mapper | Ne connaît pas HTTP (`ResponseEntity`, `HttpServletRequest`…) |
 | **Repository** (`repository`) | Accès aux données (interfaces Spring Data JPA) | Pas de logique métier |
 | **Entity** (`entity`) | Entités JPA, enums métier | Pas de dépendance vers les couches supérieures |
@@ -31,10 +31,10 @@ Tout le code d'un module est sous `com.enervision.<module>` (sinon il n'est pas 
 ```
 com.enervision.<module>
 ├── api/
-│   ├── controllers/
+│   ├── controller/
 │   │   └── <Nom>Controller.java
 │   ├── dto/                    <Nom>Response, Create<Nom>Request, Update<Nom>Request
-│   └── handlers/
+│   └── handler/
 │       └── <Module>ExceptionHandler.java
 ├── service/
 │   ├── <Nom>Service.java       interface publique du module
@@ -199,7 +199,7 @@ public record CreateSiteRequest(
 ### Exceptions
 
 - Exceptions métier non vérifiées (`extends RuntimeException`), nommées d'après le problème : `SiteNotFoundException`, `InvalidThresholdException`. Elles vont dans le package `exception` du module.
-- Chaque module traduit ses propres exceptions en réponses HTTP `ProblemDetail` (RFC 9457) dans `api/handlers/<Module>ExceptionHandler`. Ce handler est un `@RestControllerAdvice(basePackages = "com.enervision.<module>")` package-private : `basePackages` le limite aux controllers du module pour qu'il n'interfère pas avec les autres.
+- Chaque module traduit ses propres exceptions en réponses HTTP `ProblemDetail` (RFC 9457) dans `api/handler/<Module>ExceptionHandler`. Ce handler est un `@RestControllerAdvice(basePackages = "com.enervision.<module>")` package-private : `basePackages` le limite aux controllers du module pour qu'il n'interfère pas avec les autres.
 
 ```java
 @RestControllerAdvice(basePackages = "com.enervision.user")
@@ -238,7 +238,7 @@ public List<UserResponse> getUsers() {
 - **Java 21** : `record`, `switch` expressions, pattern matching `instanceof`, text blocks. `var` seulement si le type est évident à la lecture.
 - **Injection par constructeur uniquement** : champs `private final` + `@RequiredArgsConstructor`. Jamais de `@Autowired` sur un champ.
 - **Langue du code : tout en anglais.** Identifiants (classes, méthodes, variables), Javadoc et commentaires, mais aussi messages d'exception et d'erreur HTTP, messages de log, annotations OpenAPI (`@Tag`, `@Operation`) et commentaires des fichiers de config (`application.yaml`, `pom.xml`, `Dockerfile`). Seule la documentation (README, skill) reste en français.
-- **Nommage** : Classes `PascalCase`, méthodes et champs `camelCase`, constantes `UPPER_SNAKE_CASE`, packages en minuscules sans `_`.
+- **Nommage** : Classes `PascalCase`, méthodes et champs `camelCase`, constantes `UPPER_SNAKE_CASE`, packages en minuscules sans `_`, toujours au singulier (`controller`, `handler`, `entity`, `exception`…).
 - **Null** : ne pas retourner `null` depuis un service ; `Optional` en retour de recherche (repository), jamais en paramètre ni en champ. Null-safety avec les annotations JSpecify (`org.jspecify.annotations.NonNull` / `Nullable`), utilisées par Spring 7 : les reprendre quand on redéfinit une méthode d'une API Spring (ex. `loadUserByUsername(@NonNull String email)`).
 - **Pas de chaîne magique répétée** : noms de claims, rôles, en-têtes… dans des constantes `static final` (ex. `JwtTokenService.ROLES_CLAIM`, `EMAIL_CLAIM`).
 - **Chaînes** : concaténation avec `+` (`"User " + userId + " not found"`) ; pas de `String.format` ni de `.formatted()`.

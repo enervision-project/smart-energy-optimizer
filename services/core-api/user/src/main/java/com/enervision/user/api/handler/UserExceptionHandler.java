@@ -1,4 +1,4 @@
-package com.enervision.user.api.handlers;
+package com.enervision.user.api.handler;
 
 import com.enervision.user.exception.UserNotFoundException;
 import org.springframework.http.HttpStatus;
