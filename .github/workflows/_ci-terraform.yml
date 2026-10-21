@@ -5,9 +5,17 @@ name: Terraform CI
 # - plan: changes the apply would make, with a read-only AWS role.
 #   Pull requests only (the role trusts pull_request OIDC tokens), and skipped
 #   until the role exists (repository variable AWS_PLAN_ROLE_ARN, Terraform output).
+#   Terraform variables without default: ENERGY_API_BASE_URL (repository variable),
+#   ENERGY_API_USERNAME and ENERGY_API_PASSWORD (repository secrets).
 
 on:
   workflow_call:
+    secrets:
+      # optional: only the plan job needs them
+      ENERGY_API_USERNAME:
+        required: false
+      ENERGY_API_PASSWORD:
+        required: false
 
 permissions: {}
 
@@ -88,6 +96,8 @@ jobs:
       - name: Plan
         env:
           TF_VAR_energy_api_base_url: ${{ vars.ENERGY_API_BASE_URL }}
+          TF_VAR_energy_api_username: ${{ secrets.ENERGY_API_USERNAME }}
+          TF_VAR_energy_api_password: ${{ secrets.ENERGY_API_PASSWORD }}
         run: |
           terraform plan -input=false -lock=false -no-color -detailed-exitcode -out=tfplan \
             && status=0 || status=$?

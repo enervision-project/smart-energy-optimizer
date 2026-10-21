@@ -29,5 +29,7 @@ output "github_variables" {
     gh variable set DEPLOY_BUCKET --body ${aws_s3_bucket.deploy.bucket}
     gh variable set AWS_PLAN_ROLE_ARN --body ${aws_iam_role.github_plan.arn}
     gh variable set ENERGY_API_BASE_URL --body ${var.energy_api_base_url}
+    gh secret set ENERGY_API_USERNAME   # prompts for the value (terraform.tfvars)
+    gh secret set ENERGY_API_PASSWORD   # prompts for the value (terraform.tfvars)
   EOT
 }
