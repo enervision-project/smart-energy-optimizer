@@ -7,6 +7,7 @@
 #   est donc rattrapé par le suivant.
 # - lancement manuel : déploie les services choisis (« all » par défaut).
 # Variables du dépôt requises (outputs Terraform) : AWS_DEPLOY_ROLE_ARN, DEPLOY_BUCKET.
+# Secrets du dépôt requis : ENERGY_API_USERNAME, ENERGY_API_PASSWORD (recopiés dans SSM à chaque déploiement).
 name: Deploy
 
 on:
@@ -154,6 +155,19 @@ jobs:
           dest=s3://$BUCKET/releases/$GITHUB_SHA
           for f in compose.yaml compose.prod.yaml; do aws s3 cp "$f" "$dest/$f"; done
           aws s3 cp --recursive infra "$dest/infra" --exclude 'terraform/*'
+
+      # source de vérité : secrets GitHub ; deploy.sh les relit dans SSM pour construire le .env
+      - name: Identifiants de l'API énergie
+        env:
+          ENERGY_API_USERNAME: ${{ secrets.ENERGY_API_USERNAME }}
+          ENERGY_API_PASSWORD: ${{ secrets.ENERGY_API_PASSWORD }}
+        run: |
+          [[ -n "$ENERGY_API_USERNAME" && -n "$ENERGY_API_PASSWORD" ]] \
+            || { echo "::error::secrets ENERGY_API_USERNAME / ENERGY_API_PASSWORD vides"; exit 1; }
+          aws ssm put-parameter --name /enervision/prod/env/ENERGY_API_USERNAME --type String \
+            --value "$ENERGY_API_USERNAME" --overwrite >/dev/null
+          aws ssm put-parameter --name /enervision/prod/env/ENERGY_API_PASSWORD --type SecureString \
+            --value "$ENERGY_API_PASSWORD" --overwrite >/dev/null
 
       - name: Déploiement sur l'EC2 (SSM)
         env:
