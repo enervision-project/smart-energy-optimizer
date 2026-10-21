@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "packageRules": [
+    {
+      "description": "Ignorer les dépendances internes Maven inter-modules",
+      "matchDatasources": ["maven"],
+      "matchPackageNames": ["com.enervision:**"],
+      "enabled": false
+    },
+    {
+      "description": "Désactiver le pinning par SHA pour GitHub Actions si non requis",
+      "matchManagers": ["github-actions"],
+      "pinDigests": false
+    }
+  ]
+}
