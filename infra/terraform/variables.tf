@@ -35,6 +35,17 @@ variable "energy_api_base_url" {
   type        = string
 }
 
+variable "energy_api_username" {
+  description = "Identifiant HTTP Basic de l'API énergie (fourni par le formateur)."
+  type        = string
+}
+
+variable "energy_api_password" {
+  description = "Mot de passe HTTP Basic de l'API énergie (fourni par le formateur)."
+  type        = string
+  sensitive   = true
+}
+
 variable "app_env" {
   description = "Variables non secrètes ajoutées au .env de production."
   type        = map(string)

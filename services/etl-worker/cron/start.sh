@@ -10,7 +10,10 @@ import os
 import shlex
 from pathlib import Path
 
-keys = ("DATABASE_URL", "ENERGY_API_BASE_URL", "LOG_LEVEL", "PYTHONUNBUFFERED", "TZ")
+keys = (
+    "DATABASE_URL", "ENERGY_API_BASE_URL", "ENERGY_API_USERNAME", "ENERGY_API_PASSWORD",
+    "BRONZE_BUCKET", "AWS_DEFAULT_REGION", "LOG_LEVEL", "PYTHONUNBUFFERED", "TZ",
+)
 Path("/run/etl-worker.env").write_text(
     "".join(f"export {key}={shlex.quote(os.environ[key])}\n" for key in keys if key in os.environ),
     encoding="utf-8",
