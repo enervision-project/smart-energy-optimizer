@@ -11,6 +11,7 @@ dependencies = [
 [project.scripts]
 etl-worker = "etl_worker.__main__:main"
 etl-extract-alerts = "etl_worker.extract:alerts_main"
+etl-sync-alerts = "etl_worker.load:alerts_main"
 
 [build-system]
 requires = ["hatchling>=1.25"]
