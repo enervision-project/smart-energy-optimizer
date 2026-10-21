@@ -1,6 +1,18 @@
 # EnerVision — stack Docker Compose du projet.
 name: enervision
 
+x-etl: &etl
+  image: enervision-etl-worker:local
+  build:
+    context: .
+    dockerfile: services/etl-worker/Dockerfile
+  env_file: .env
+  # API lancée sur l'hôte : disponible aussi sous Linux.
+  extra_hosts: ["host.docker.internal:host-gateway"]
+  depends_on:
+    db:
+      condition: service_healthy
+
 services:
   web:
     # front Angular servi par nginx (contexte app/web : son .dockerignore s'applique)
@@ -10,15 +22,13 @@ services:
       - "127.0.0.1:4200:80"
 
   etl-worker:
-    build:
-      context: .
-      dockerfile: services/etl-worker/Dockerfile
-    env_file: .env
-    # rend host.docker.internal disponible sous Linux (API lancée sur l'hôte)
-    extra_hosts: ["host.docker.internal:host-gateway"]
-    depends_on:
-      db:
-        condition: service_healthy
+    <<: *etl
+    profiles: ["manual"]
+
+  scheduler:
+    <<: *etl
+    command: ["/usr/local/bin/etl-cron-start"]
+    restart: unless-stopped
 
   core-api:
     build:
@@ -39,6 +49,7 @@ services:
         condition: service_healthy
 
   db:
+    restart: unless-stopped
     # PostgreSQL 16 + extension TimescaleDB
     image: docker.io/timescale/timescaledb:2.17.2-pg16
     environment:
@@ -47,7 +58,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - dbdata:/var/lib/postgresql/data
-      # exécuté au premier démarrage uniquement (volume vide)
+      # Exécuté au premier démarrage uniquement (volume vide).
       - ./infra/db/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
     ports:
       - "127.0.0.1:15432:5432"

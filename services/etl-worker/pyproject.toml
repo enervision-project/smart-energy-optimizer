@@ -3,7 +3,9 @@ name = "enervision-etl-worker"
 version = "0.1.0"
 description = "ETL EnerVision planifié par cron"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "psycopg[binary]>=3.2,<4",
+]
 
 [project.scripts]
 etl-worker = "etl_worker.__main__:main"

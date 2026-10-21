@@ -1,107 +1,148 @@
 import { Service } from '@angular/core';
 import { Observable, of, throwError } from 'rxjs';
-import { SiteProfile } from '../models/site-profile';
-import { Telemetry } from '../models/telemetry';
+import { DataQuality, Reading } from '../models/reading';
+import { Site } from '../models/site';
 import { EnergyApi } from './energy-api';
 
 const HOUR_MS = 3_600_000;
 
-const SITES: SiteProfile[] = [
-  site(1, 'Bureaux Paris La Défense', 'office', 120, 260, { weekdays: '08:00-19:00' }),
-  site(2, 'Bureaux Lyon Part-Dieu', 'office', 90, 200, { weekdays: '08:00-19:00' }),
-  site(3, 'Usine Lyon Vénissieux', 'factory', 420, 760, { weekdays: '06:00-22:00' }),
-  site(4, 'Usine Lille Roubaix', 'factory', 380, 650, { weekdays: '06:00-22:00' }),
-  site(5, 'Data center Marseille', 'data_center', 900, 1100, { all: '00:00-24:00' }),
-  site(6, 'Centre commercial Nantes Atlantis', 'mall', 300, 620, { all: '09:00-21:00' }),
-  site(7, 'Hôpital Toulouse Purpan', 'hospital', 400, 700, { all: '00:00-24:00' }),
+/** Réponse réelle de GET /api/v1/sites de l'API Mock de l'école. */
+const SITES: Site[] = [
+  site('SITE001', 'office', 'Bureau Paris La Défense', 'Paris, France', 200),
+  site('SITE002', 'factory', 'Usine Lyon Vénissieux', 'Lyon, France', 1000),
+  site('SITE003', 'datacenter', 'Data Center Marseille', 'Marseille, France', 800),
+  site('SITE004', 'retail', 'Centre Commercial Lille', 'Lille, France', 400),
+  site('SITE005', 'hospital', 'Hôpital Toulouse Purpan', 'Toulouse, France', 600),
+  site('SITE006', 'office', 'Bureau Bordeaux Centre', 'Bordeaux, France', 180),
+  site('SITE007', 'factory', 'Usine Nantes Rezé', 'Nantes, France', 950),
 ];
 
-/** Site en perte réseau sur une partie de la fenêtre : trous (null) puis points imputés. */
-const DEGRADED_SITE_ID = SITES[2].site_id;
+/**
+ * Profils de charge par type, en fraction de `capacity_kw`, inspirés des profils du jeu de données
+ * fourni (talon, pic, heures et jours d'activité).
+ */
+const PROFILES: Record<
+  string,
+  { base: number; peak: number; hours: [number, number]; weekdaysOnly: boolean }
+> = {
+  office: { base: 0.25, peak: 0.75, hours: [8, 19], weekdaysOnly: true },
+  factory: { base: 0.2, peak: 0.8, hours: [6, 22], weekdaysOnly: true },
+  datacenter: { base: 0.7, peak: 0.85, hours: [0, 24], weekdaysOnly: false },
+  retail: { base: 0.25, peak: 0.75, hours: [9, 21], weekdaysOnly: false },
+  hospital: { base: 0.55, peak: 0.75, hours: [8, 20], weekdaysOnly: false },
+};
+
+/** Site en perte réseau sur les 3 dernières heures : toutes les mesures à null, qualité `critical`. */
+const NETWORK_LOSS_SITE_ID = 'SITE003';
+/** Site avec une panne des capteurs de consommation (`degraded`) puis de température (`partial`). */
+const SENSOR_FAILURE_SITE_ID = 'SITE002';
 
 /** Données factices pour développer sans back-end (voir `environment.development.ts`). */
 @Service()
 export class MockEnergyApi extends EnergyApi {
-  getSites(): Observable<SiteProfile[]> {
+  getSites(): Observable<Site[]> {
     return of(SITES);
   }
 
-  getSite(siteId: string): Observable<SiteProfile> {
+  getSite(siteId: string): Observable<Site> {
     const found = SITES.find((s) => s.site_id === siteId);
     return found ? of(found) : throwError(() => new Error(`Site inconnu : ${siteId}`));
   }
 
-  getTelemetry(siteId: string, from: Date, to: Date): Observable<Telemetry[]> {
-    const profile = SITES.find((s) => s.site_id === siteId);
-    if (!profile) {
+  getReadings(siteId: string, from: Date, to: Date): Observable<Reading[]> {
+    const found = SITES.find((s) => s.site_id === siteId);
+    if (!found) {
       return throwError(() => new Error(`Site inconnu : ${siteId}`));
     }
-    const readings: Telemetry[] = [];
+    const lossStart = Math.floor(Date.now() / HOUR_MS) * HOUR_MS - 3 * HOUR_MS;
+    const readings: Reading[] = [];
     for (let t = from.getTime(), i = 0; t < to.getTime(); t += HOUR_MS, i++) {
-      readings.push(reading(profile, new Date(t), i));
+      readings.push(reading(found, new Date(t), i, t >= lossStart));
     }
     return of(readings);
   }
 }
 
 function site(
-  n: number,
-  name: string,
+  site_id: string,
   site_type: string,
-  base_consumption: number,
-  peak_consumption: number,
-  operating_hours: Record<string, string>,
-): SiteProfile {
-  const site_id = `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-  return { site_id, name, site_type, base_consumption, peak_consumption, operating_hours };
+  site_name: string,
+  location: string,
+  capacity_kw: number,
+): Site {
+  return { site_id, site_type, site_name, location, capacity_kw, status: 'active' };
 }
 
-function reading(profile: SiteProfile, date: Date, index: number): Telemetry {
-  const base = { measured_at: date.toISOString(), site_id: profile.site_id };
-  if (profile.site_id === DEGRADED_SITE_ID) {
-    if (index >= 8 && index < 11) {
-      return { ...base, consumption_kwh: null, quality_status: 'missing', correction_reason: null };
-    }
-    if (index >= 30 && index < 34) {
-      return {
-        ...base,
-        consumption_kwh: consumption(profile, date, index),
-        quality_status: 'imputed',
-        correction_reason: 'linear_interpolation',
-      };
-    }
-  }
-  return {
-    ...base,
-    consumption_kwh: consumption(profile, date, index),
-    quality_status: 'valid',
-    correction_reason: null,
+function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Reading {
+  const kw = consumption(s, date, index);
+  const voltage = round(400 + 3 * noise(index, 1));
+  const powerFactor = round(0.93 + 0.02 * noise(index, 2), 3);
+  const full: Reading = {
+    site_id: s.site_id,
+    ts: date.toISOString(),
+    consumption_kw: kw,
+    consumption_kwh: kw,
+    voltage_v: voltage,
+    current_a: round((kw * 1000) / (Math.sqrt(3) * voltage * powerFactor)),
+    power_factor: powerFactor,
+    temperature_celsius: round(15 + 5 * Math.sin(((date.getHours() - 9) / 24) * 2 * Math.PI)),
+    humidity_percent: round(60 + 8 * noise(index, 3)),
+    data_quality: 'good',
   };
+
+  if (s.site_id === NETWORK_LOSS_SITE_ID && inLossWindow) {
+    return withNulls(full, 'critical', [
+      'consumption_kw',
+      'consumption_kwh',
+      'voltage_v',
+      'current_a',
+      'power_factor',
+      'temperature_celsius',
+      'humidity_percent',
+    ]);
+  }
+  if (s.site_id === SENSOR_FAILURE_SITE_ID && index >= 8 && index < 11) {
+    return withNulls(full, 'degraded', [
+      'consumption_kw',
+      'consumption_kwh',
+      'voltage_v',
+      'current_a',
+      'power_factor',
+    ]);
+  }
+  if (s.site_id === SENSOR_FAILURE_SITE_ID && index >= 30 && index < 34) {
+    return withNulls(full, 'partial', ['temperature_celsius']);
+  }
+  return full;
 }
 
-/** Courbe déterministe : talon + activité selon le type de site + bruit, avec un dépassement du seuil pour les usines. */
-function consumption(profile: SiteProfile, date: Date, index: number): number {
+function withNulls(r: Reading, quality: DataQuality, fields: (keyof Reading)[]): Reading {
+  const copy: Record<string, unknown> = { ...r, data_quality: quality };
+  for (const f of fields) {
+    copy[f] = null;
+  }
+  return copy as unknown as Reading;
+}
+
+/** Courbe déterministe : talon + activité selon le profil du type de site + bruit, avec une pointe en fin de matinée pour les usines. */
+function consumption(s: Site, date: Date, index: number): number {
+  const p = PROFILES[s.site_type] ?? PROFILES['office'];
   const hour = date.getHours();
-  const range = profile.peak_consumption - profile.base_consumption;
-  const noise = (Math.sin(index * 12.9898 + profile.base_consumption) * 43758.5453) % 1;
-  let value = profile.base_consumption + range * activity(profile.site_type, hour) * 0.9;
-  if (profile.site_type === 'factory' && hour >= 10 && hour <= 12) {
-    value = profile.peak_consumption * 1.12;
+  const day = date.getDay();
+  const working =
+    hour >= p.hours[0] && hour < p.hours[1] && (!p.weekdaysOnly || (day >= 1 && day <= 5));
+  let ratio = working ? p.peak : p.base;
+  if (s.site_type === 'factory' && working && hour >= 10 && hour <= 12) {
+    ratio = 0.92;
   }
-  return Math.round((value + noise * 0.04 * profile.peak_consumption) * 10) / 10;
+  return round(s.capacity_kw * (ratio + 0.03 * noise(index, s.capacity_kw)));
 }
 
-function activity(siteType: string, hour: number): number {
-  switch (siteType) {
-    case 'office':
-      return hour >= 8 && hour < 19 ? 1 : 0.1;
-    case 'factory':
-      return hour >= 6 && hour < 22 ? 0.85 : 0.1;
-    case 'mall':
-      return hour >= 9 && hour < 21 ? 1 : 0.15;
-    case 'hospital':
-      return hour >= 8 && hour < 20 ? 0.8 : 0.4;
-    default:
-      return 0.5;
-  }
+function noise(index: number, seed: number): number {
+  return (Math.sin(index * 12.9898 + seed * 78.233) * 43758.5453) % 1;
+}
+
+function round(value: number, digits = 1): number {
+  const f = 10 ** digits;
+  return Math.round(value * f) / f;
 }
