@@ -27,3 +27,20 @@ jobs:
     uses: ./.github/workflows/_mr-frontend.yml
     secrets:
       SONAR_TOKEN_FRONTEND: ${{ secrets.SONAR_TOKEN_FRONTEND }}
+
+  # Single check to require in the main ruleset: call-frontend / build only
+  # exists when app/ changed.
+  mr-ok:
+    needs: [changes, call-frontend]
+    # always(): also report a result when a needed job failed or was skipped
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: All required jobs passed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          # skipped = app/ unchanged; failure or cancelled blocks the merge
+          jq -e 'all(. == "success" or . == "skipped")' <<<"$RESULTS"

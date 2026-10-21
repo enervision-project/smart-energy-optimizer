@@ -199,3 +199,20 @@ jobs:
         run: |
           aws ssm put-parameter --name "$DEPLOYED_SHA_PARAM" --type String \
             --value "$GITHUB_SHA" --overwrite >/dev/null
+
+  # Single check to require in the main ruleset: the build matrix job names
+  # (build (web), build (etl-worker)...) depend on the changed services.
+  ci:
+    needs: [changes, build]
+    # always(): also report a result when a needed job failed or was skipped
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: All required jobs passed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          # skipped = no service with an image changed; failure or cancelled blocks the merge
+          jq -e 'all(. == "success" or . == "skipped")' <<<"$RESULTS"
