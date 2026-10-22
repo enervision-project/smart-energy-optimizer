@@ -147,6 +147,8 @@ Authentification **stateless par jeton JWT** (Bearer, signé en HS256), avec Spr
 | `PATCH` | `/api/v1/users/{userId}/role` | `ADMIN` |
 | `GET` | `/api/v1/sites` | Connecté : sites visibles par l'utilisateur |
 | `GET` | `/api/v1/sites/{siteId}` | Connecté : site et son profil de référence (`profile` à `null` si aucun profil n'est chargé) |
+| `GET` | `/api/v1/alerts` | Connecté : alertes des sites visibles, paginées, de la plus récente à la plus ancienne (dernière heure par défaut ; filtres `siteId`, `severity`, `type`, `from`, `to`) |
+| `GET` | `/api/v1/alerts/summary` | Connecté : nombre d'alertes de la dernière heure par sévérité (filtre `siteId`) |
 
 Les appels authentifiés envoient l'en-tête `Authorization: Bearer <accessToken>`. Le jeton contient l'id de l'utilisateur (`sub`), son email et ses rôles (`roles`). La doc interactive est sur http://localhost:8080/swagger-ui.html (bouton « Authorize »).
 

@@ -62,7 +62,7 @@ Conséquences :
 1. **Pas d'acquittement ni de statut** (Nouvelle / Prise en charge / Résolue dans la maquette) : sans identifiant stable, il n'y a rien à acquitter. L'issue #49 « Marquer une alerte comme vue » est à fermer ou à réécrire avec le PO.
 2. **Alerte récente = `timestamp` dans la dernière heure**, la même fenêtre que celle de l'API Mock. core-api fait ce calcul au moment de la requête : pas de nouveau changeset, pas de modification de l'ETL.
 3. **Lecture seule** : l'entité `Alert` est `@Immutable` et aucun endpoint n'écrit.
-4. **Visibilité** : un `USER` ne voit que les alertes de ses sites, un `ADMIN` voit tout. Ce filtre passe par `SiteService` du module `configuration` (PR #129, à merger avant).
+4. **Visibilité** : un `USER` ne voit que les alertes de ses sites, un `ADMIN` voit tout. Ce filtre passe par `SiteService` du module `configuration`.
 5. **Relais vers l'utilisateur (#46)** : le front interroge l'API toutes les 30 s. Pas de SSE ni de WebSocket : l'ETL ne synchronise qu'une fois par minute, le temps réel n'apporterait rien et compliquerait le proxy, la sécurité JWT et les tests.
 6. **Hors périmètre** :
     - la matrice d'état des capteurs et leur fiabilité sur 7 jours (maquette wf4) : ces données viennent de `readings_raws` (`data_quality`, `null_reasons`), elles relèvent du module `telemetry` et feront l'objet d'une story séparée ;
@@ -74,15 +74,15 @@ JSON en camelCase, comme le reste de core-api. Les dates sont en ISO 8601 UTC.
 
 ### `GET /api/v1/alerts`
 
-Liste paginée, triée par `timestamp` décroissant.
+Liste paginée, triée par `timestamp` décroissant (puis par `alertId` pour que les pages restent stables).
 
 | Paramètre | Défaut | Description |
 |---|---|---|
-| `siteId` | tous les sites visibles | un site ; `403` s'il n'est pas visible par l'utilisateur |
-| `severity` | toutes | `low`, `medium`, `high`, `critical`, plusieurs valeurs possibles ; `400` si la valeur est inconnue |
+| `siteId` | tous les sites visibles | un site ; `404` s'il n'existe pas ou n'est pas visible par l'utilisateur, comme `GET /api/v1/sites/{siteId}` |
+| `severity` | toutes | `low`, `medium`, `high`, `critical`, plusieurs valeurs possibles (`severity=high,critical`) ; `400` si la valeur est inconnue |
 | `type` | tous | `spike`, `threshold`, `anomaly`, `outage`, `sensor`, plusieurs valeurs possibles ; `400` si la valeur est inconnue |
-| `from` / `to` | dernière heure / maintenant | intervalle sur `timestamp` |
-| `page` / `size` | `0` / `50` | pagination Spring Data, `size` limité à 200 |
+| `from` / `to` | une heure avant `to` / maintenant | intervalle sur `timestamp`, bornes incluses, en ISO 8601 (`2026-10-22T08:00:00Z`) ; `400` si `from` est après `to` |
+| `page` / `size` | `0` / `50` | pagination, `size` entre 1 et 200 (`400` sinon) |
 
 ```json
 {
@@ -104,13 +104,13 @@ Liste paginée, triée par `timestamp` décroissant.
 }
 ```
 
-`recent` vaut `true` si `timestamp` date de moins d'une heure.
+`recent` vaut `true` si `timestamp` date de moins d'une heure. `severity` et `type` sont renvoyés tels qu'ils sont en base : une valeur inattendue apparaît telle quelle au lieu de faire échouer la liste. `value` peut être `null`.
 
 Couvre #45 (alertes d'un site triées), #51 (sévérité) et #50 (type).
 
 ### `GET /api/v1/alerts/summary`
 
-Nombre d'alertes récentes (dernière heure) par sévérité, pour le badge du menu et la vue d'ensemble. Accepte `siteId`.
+Nombre d'alertes récentes (dernière heure) par sévérité, pour le badge du menu et la vue d'ensemble. Accepte `siteId` (`404` s'il n'est pas visible). Les quatre sévérités sont toujours présentes, à `0` si besoin ; `total` compte aussi les alertes de sévérité inconnue.
 
 ```json
 {
@@ -125,10 +125,11 @@ Couvre #46 avec l'interrogation régulière du front.
 ## Points d'implémentation
 
 - La colonne s'appelle `timestamp`, un mot réservé : `@Column(name = "\"timestamp\"")`.
-- `severity` et `type` sont du `TEXT` sans contrainte `CHECK`. Une valeur inconnue en base ne doit pas faire échouer toute la liste : convertisseur tolérant (valeur `unknown`) ou `String` dans l'entité, enum dans le DTO.
-- Tri par sévérité : enum ordonné `LOW < MEDIUM < HIGH < CRITICAL`.
+- `severity` et `type` sont du `TEXT` sans contrainte `CHECK` : l'entité les garde en `String`. Les enums `AlertSeverity` et `AlertType` ne servent qu'à valider les filtres de la requête (`AlertWebConfig` convertit les codes en minuscules).
+- Filtres combinés avec une `Specification` JPA (`AlertSpecifications`) ; comptage par sévérité en JPQL (`AlertRepository.countBySeveritySince`).
+- L'heure courante vient du bean `Clock` (`bootstrap`, `ClockConfig`) : les tests la fixent.
 - L'index `(site_id, "timestamp" DESC)` du changeset `002` couvre les requêtes par site et par période.
-- `siteName` : obtenu avec `SiteService.getSites(currentUser)`, qui fournit aussi la liste des sites visibles.
+- `siteName` : obtenu avec `SiteService.getSites(currentUser)`, qui fournit aussi la liste des sites visibles. Un utilisateur sans site reçoit une liste vide, sans requête en base.
 - Structure du module selon `.claude/skills/java-conventions` : controller, interface de service, implémentation package-private dans `service.implementation`, `@Transactional(readOnly = true)`.
 
 ## À faire en dehors du module
