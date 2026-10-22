@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 from etl_worker.bronze import write_readings_bronze
 
-
 READINGS = [
     {"site_id": "SITE001", "timestamp": "2026-10-21T10:08:00+02:00", "consumption_kw": None},
     {"site_id": "SITE002", "timestamp": "2026-10-21T10:08:00+02:00", "consumption_kw": 12.5},
@@ -34,9 +33,10 @@ class BronzeTests(unittest.TestCase):
         client.put_object.assert_not_called()
 
     def test_mixed_minutes_are_rejected(self):
-        readings = [READINGS[0], {**READINGS[1], "timestamp": "2026-10-21T10:09:00+02:00"}]
-        with self.assertRaisesRegex(ValueError, "même timestamp"):
-            write_readings_bronze(readings, "lake", client=MagicMock())
+            readings = [READINGS[0], {**READINGS[1], "timestamp": "2026-10-21T10:09:00+02:00"}]
+            mock_client = MagicMock()
+            with self.assertRaisesRegex(ValueError, "même timestamp"):
+                write_readings_bronze(readings, "lake", client=mock_client)
 
 
 if __name__ == "__main__":

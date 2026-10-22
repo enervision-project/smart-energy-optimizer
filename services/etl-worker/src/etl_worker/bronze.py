@@ -1,9 +1,9 @@
 """Bronze : archivage S3 des mesures telles que reçues de l'API énergie."""
 
-from collections.abc import Mapping, Sequence
-from datetime import datetime, timezone
 import json
 import os
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 import boto3
@@ -29,7 +29,7 @@ def write_readings_bronze(
     timestamps = {reading["timestamp"] for reading in readings}
     if len(timestamps) != 1:
         raise ValueError("Les mesures d'un lot bronze doivent porter le même timestamp.")
-    minute = datetime.fromisoformat(timestamps.pop()).astimezone(timezone.utc)
+    minute = datetime.fromisoformat(timestamps.pop()).astimezone(UTC)
 
     key = (
         f"bronze/readings/minutes/date={minute:%Y-%m-%d}/hour={minute:%H}/"

@@ -2,7 +2,7 @@
 
 import os
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import patch
 from uuid import uuid4
@@ -15,8 +15,7 @@ from psycopg.rows import dict_row
 from etl_worker.load import load_readings, load_sites
 from etl_worker.transform import aggregate_hour
 
-
-START = datetime(2026, 10, 20, 11, tzinfo=timezone.utc)
+START = datetime(2026, 10, 20, 11, tzinfo=UTC)
 END = START + timedelta(hours=1, minutes=2)
 METRICS = (
     "consumption_kwh", "voltage_v", "current_a", "power_factor",
@@ -33,10 +32,11 @@ class AggregateHourConfigurationTests(unittest.TestCase):
         connect.assert_not_called()
 
     @patch("etl_worker.transform.psycopg.connect")
-    def test_rejects_naive_time_before_connecting(self, connect):
-        with self.assertRaisesRegex(ValueError, "fuseau"):
-            aggregate_hour("postgresql://test", end_time=END.replace(tzinfo=None))
-        connect.assert_not_called()
+        def test_rejects_naive_time_before_connecting(self, connect):
+            naive_end_time = END.replace(tzinfo=None)
+            with self.assertRaisesRegex(ValueError, "fuseau"):
+                aggregate_hour("postgresql://test", end_time=naive_end_time)
+            connect.assert_not_called()
 
     @patch.dict(os.environ, {"DATABASE_URL": "postgresql://configured-db/test"})
     @patch("etl_worker.transform.psycopg.connect")
@@ -57,7 +57,7 @@ class AggregateHourConfigurationTests(unittest.TestCase):
 
         self.assertEqual(aggregate_hour("postgresql://test"), 2)
 
-        clock.now.assert_called_once_with(timezone.utc)
+        clock.now.assert_called_once_with(UTC)
         self.assertEqual(
             cursor.execute.call_args.args[1],
             {"start": START, "end": START + timedelta(hours=1)},
@@ -316,7 +316,7 @@ class AggregateHourPostgresTests(unittest.TestCase):
         self.assertAlmostEqual(row["consumption_kwh"], 120.0)
 
     def test_repeated_paris_hour_at_dst_change_keeps_two_distinct_rows(self):
-        self.start = datetime(2026, 10, 25, 0, tzinfo=timezone.utc)
+        self.start = datetime(2026, 10, 25, 0, tzinfo=UTC)
         load_readings(self.readings(), self.database_url)
         self.start += timedelta(hours=1)
         load_readings(self.readings(), self.database_url)
@@ -327,7 +327,7 @@ class AggregateHourPostgresTests(unittest.TestCase):
             )
 
         rows = self.stored_hours()
-        self.assertEqual([row["ts"].astimezone(timezone.utc).hour for row in rows], [0, 1])
+        self.assertEqual([row["ts"].astimezone(UTC).hour for row in rows], [0, 1])
         self.assertTrue(all(row["consumption_kwh"] == Decimal("120.00") for row in rows))
 
     def test_failure_rolls_back_all_sites(self):
@@ -377,7 +377,7 @@ class AggregateHourPostgresTests(unittest.TestCase):
     def test_paris_display_changes_with_season_without_moving_instants(self):
         self.connection.execute("SET TIME ZONE 'Europe/Paris'")
         cases = (
-            (datetime(2026, 1, 20, 11, tzinfo=timezone.utc), "2026-01-20 12:00:00+01"),
+            (datetime(2026, 1, 20, 11, tzinfo=UTC), "2026-01-20 12:00:00+01"),
             (START, "2026-10-20 13:00:00+02"),
         )
         for start, displayed_time in cases:

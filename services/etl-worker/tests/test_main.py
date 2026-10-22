@@ -185,9 +185,8 @@ class WorkerCommandTests(unittest.TestCase):
     def test_hourly_command_accepts_an_explicit_reference_for_replay(self):
         self.aggregate_hour.return_value = 1
         reference = "2026-10-20T14:00:00+02:00"
-        with patch("sys.argv", ["etl-worker", "sync-hours", "--end-time", reference]):
-            with redirect_stdout(io.StringIO()):
-                main()
+        with patch("sys.argv", ["etl-worker", "sync-hours", "--end-time", reference]), redirect_stdout(io.StringIO()):
+            main()
 
         self.assertEqual(
             self.aggregate_hour.call_args.kwargs["end_time"].isoformat(), reference

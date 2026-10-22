@@ -1,11 +1,11 @@
 """Tests du load des alertes dans PostgreSQL, via un schéma temporaire isolé."""
 
-from copy import deepcopy
-from contextlib import redirect_stdout
-from datetime import datetime, timezone
 import io
 import os
 import unittest
+from contextlib import redirect_stdout
+from copy import deepcopy
+from datetime import UTC, datetime
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -15,7 +15,6 @@ from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 
 from etl_worker.load import alerts_main, load_alerts
-
 
 ALERT = {
     "alert_id": "ALR-SITE001-1792569147",
@@ -45,9 +44,8 @@ class LoadAlertsConfigurationTests(unittest.TestCase):
     @patch("etl_worker.load.psycopg.connect")
     def test_invalid_timestamp_fails_before_connecting(self, connect):
         for timestamp in (None, "", "not-a-date"):
-            with self.subTest(timestamp=timestamp):
-                with self.assertRaisesRegex(ValueError, "Timestamp"):
-                    load_alerts([ALERT | {"timestamp": timestamp}], "postgresql://test")
+            with self.subTest(timestamp=timestamp), self.assertRaisesRegex(ValueError, "Timestamp"):
+                load_alerts([ALERT | {"timestamp": timestamp}], "postgresql://test")
         connect.assert_not_called()
 
     @patch("etl_worker.load.psycopg.connect")
@@ -86,9 +84,8 @@ class SyncAlertsCommandTests(unittest.TestCase):
     @patch("etl_worker.load.load_alerts")
     @patch("etl_worker.load.extract_alerts", side_effect=RuntimeError("API unavailable"))
     def test_failed_extract_cannot_reach_load(self, extract, load):
-        with redirect_stdout(io.StringIO()) as output:
-            with self.assertRaises(RuntimeError):
-                alerts_main()
+        with redirect_stdout(io.StringIO()) as output, self.assertRaises(RuntimeError):
+            alerts_main()
         load.assert_not_called()
         self.assertEqual(output.getvalue(), "")
 
@@ -96,9 +93,8 @@ class SyncAlertsCommandTests(unittest.TestCase):
     @patch("etl_worker.load.load_alerts", side_effect=psycopg.OperationalError("DB unavailable"))
     @patch("etl_worker.load.extract_alerts", return_value=[ALERT])
     def test_failed_load_does_not_print_success(self, extract, load):
-        with redirect_stdout(io.StringIO()) as output:
-            with self.assertRaises(psycopg.OperationalError):
-                alerts_main()
+        with redirect_stdout(io.StringIO()) as output, self.assertRaises(psycopg.OperationalError):
+            alerts_main()
         self.assertEqual(output.getvalue(), "")
 
 
@@ -141,7 +137,7 @@ class LoadAlertsPostgresTests(unittest.TestCase):
         self.assertEqual(load_alerts(alerts, self.database_url), 1)
 
         expected = ALERT | {
-            "timestamp": datetime.fromisoformat(ALERT["timestamp"]).replace(tzinfo=timezone.utc)
+            "timestamp": datetime.fromisoformat(ALERT["timestamp"]).replace(tzinfo=UTC)
         }
         row = self.rows()[0]
         self.assertEqual({key: row[key] for key in ALERT}, expected)
@@ -183,7 +179,7 @@ class LoadAlertsPostgresTests(unittest.TestCase):
         load_alerts([ALERT], self.database_url)
         self.connection.execute(
             "UPDATE alerts SET loaded_at = %s",
-            (datetime(2000, 1, 1, tzinfo=timezone.utc),),
+            (datetime(2000, 1, 1, tzinfo=UTC),),
         )
         before = self.rows()
         modified = ALERT | {"message": "Nouvelle version", "value": None}
