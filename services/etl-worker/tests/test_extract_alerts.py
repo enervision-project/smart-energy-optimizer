@@ -10,7 +10,6 @@ from urllib.error import HTTPError, URLError
 
 from etl_worker.extract import alerts_main, extract_alerts
 
-
 ALERT = {
     "alert_id": "ALR-SITE004-1792566802",
     "timestamp": "2026-10-21T07:06:22.042656",
@@ -70,9 +69,8 @@ class ExtractAlertsTests(unittest.TestCase):
     @patch("etl_worker.extract.urlopen")
     def test_missing_or_blank_configuration_fails_before_request(self, urlopen):
         for base_url in (None, "", "   "):
-            with self.subTest(base_url=base_url):
-                with self.assertRaisesRegex(ValueError, "ENERGY_API_BASE_URL"):
-                    extract_alerts(base_url)
+            with self.subTest(base_url=base_url), self.assertRaisesRegex(ValueError, "ENERGY_API_BASE_URL"):
+                extract_alerts(base_url)
         urlopen.assert_not_called()
 
     @patch("etl_worker.extract.urlopen")
@@ -129,7 +127,6 @@ class ExtractAlertsTests(unittest.TestCase):
     @patch("sys.argv", ["etl-extract-alerts"])
     @patch("etl_worker.extract.extract_alerts", side_effect=RuntimeError("API unavailable"))
     def test_command_propagates_failure_without_success_output(self, extract):
-        with redirect_stdout(io.StringIO()) as output:
-            with self.assertRaisesRegex(RuntimeError, "API unavailable"):
-                alerts_main()
+        with redirect_stdout(io.StringIO()) as output, self.assertRaisesRegex(RuntimeError, "API unavailable"):
+            alerts_main()
         self.assertEqual(output.getvalue(), "")

@@ -1,10 +1,9 @@
 """Calcul et chargement des agrégats horaires depuis les seules données brutes."""
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import psycopg
-
 
 _UPSERT_HOUR = """
     INSERT INTO readings_hours (
@@ -58,10 +57,10 @@ def aggregate_hour(
     Un site sans mesure reçoit une ligne dont tous les indicateurs sont NULL.
     Le lot est validé en une transaction et les lignes existantes sont recalculées.
     """
-    reference = end_time if end_time is not None else datetime.now(timezone.utc)
+    reference = end_time if end_time is not None else datetime.now(UTC)
     if reference.utcoffset() is None:
         raise ValueError("end_time doit comporter un fuseau horaire.")
-    window_end = reference.astimezone(timezone.utc).replace(
+    window_end = reference.astimezone(UTC).replace(
         minute=0, second=0, microsecond=0
     )
     window_start = window_end - timedelta(hours=1)
@@ -72,7 +71,6 @@ def aggregate_hour(
     if not connection_url:
         raise ValueError("Renseigner DATABASE_URL ou passer une URL à aggregate_hour.")
 
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(_UPSERT_HOUR, {"start": window_start, "end": window_end})
-            return cursor.rowcount
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+        cursor.execute(_UPSERT_HOUR, {"start": window_start, "end": window_end})
+        return cursor.rowcount

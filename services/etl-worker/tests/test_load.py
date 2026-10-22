@@ -6,7 +6,7 @@ Ils sont ignorés si cette variable n'est pas définie.
 
 import os
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -16,7 +16,6 @@ from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 
 from etl_worker.load import load_sites, read_site_ids
-
 
 SITE = {
     "site_id": "SITE001",
@@ -115,7 +114,7 @@ class LoadSitesPostgresTests(unittest.TestCase):
         load_sites([SITE], self.database_url)
         self.connection.execute(
             "UPDATE sites SET updated_at = %s",
-            (datetime(2000, 1, 1, tzinfo=timezone.utc),),
+            (datetime(2000, 1, 1, tzinfo=UTC),),
         )
         before = self.stored_sites()
 
@@ -131,7 +130,7 @@ class LoadSitesPostgresTests(unittest.TestCase):
             "capacity_kw": 250.0,
             "status": "inactive",
         }
-        old_timestamp = datetime(2000, 1, 1, tzinfo=timezone.utc)
+        old_timestamp = datetime(2000, 1, 1, tzinfo=UTC)
         for field, value in changes.items():
             with self.subTest(field=field):
                 load_sites([SITE], self.database_url)

@@ -1,13 +1,12 @@
 import argparse
 import os
-from datetime import datetime, timezone
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 import psycopg
 
 from etl_worker.extract import extract_alerts
-
 
 _UPSERT_SITE = """
     INSERT INTO sites (site_id, site_name, site_type, location, capacity_kw, status)
@@ -58,11 +57,9 @@ def load_sites(
         for site in sites
     ]
 
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection:
-        with connection.cursor() as cursor:
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
             cursor.executemany(_UPSERT_SITE, rows)
             return cursor.rowcount
-
 
 _INSERT_READING = """
     INSERT INTO readings_raws (
@@ -117,10 +114,9 @@ def load_readings(
         for reading in readings
     ]
 
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection:
-        with connection.cursor() as cursor:
-            cursor.executemany(_INSERT_READING, rows)
-            return cursor.rowcount
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+        cursor.executemany(_INSERT_READING, rows)
+        return cursor.rowcount
 
 
 def read_site_ids(
@@ -133,10 +129,9 @@ def read_site_ids(
     if not connection_url:
         raise ValueError("Renseigner DATABASE_URL ou passer une URL à read_site_ids.")
 
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT site_id FROM sites ORDER BY site_id")
-            return [row[0] for row in cursor.fetchall()]
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT site_id FROM sites ORDER BY site_id")
+        return [row[0] for row in cursor.fetchall()]
 
 
 # Un profil dont le site n'existe pas (encore) en base est ignoré plutôt que de faire échouer le lot.
@@ -237,8 +232,8 @@ def _alert_timestamp(value: str) -> datetime:
 
     if timestamp.utcoffset() is None:
         # Vérifié avec /health et l'en-tête HTTP Date : cette API utilise UTC.
-        timestamp = timestamp.replace(tzinfo=timezone.utc)
-    return timestamp.astimezone(timezone.utc)
+        timestamp = timestamp.replace(tzinfo=UTC)
+    return timestamp.astimezone(UTC)
 
 #Insère les nouvelles alertes et retourne le nombre de lignes insérées
 #Les huit champs API sont conservés, sans arrondir les nombres.
@@ -274,10 +269,9 @@ def load_alerts(
         )
         for alert in alerts
     ]
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection:
-        with connection.cursor() as cursor:
-            cursor.executemany(_INSERT_ALERT, rows)
-            return cursor.rowcount
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+        cursor.executemany(_INSERT_ALERT, rows)
+        return cursor.rowcount
 
 
 def alerts_main() -> None:
