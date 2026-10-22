@@ -127,15 +127,14 @@
 		<!-- Quality checks run by verify in every module (and in CI) -->
 		<plugins>
 
-			<!-- Integration tests (*IT, e.g. Testcontainers): executions configured by the Spring Boot parent.
+			<!-- Integration tests : executions configured by the Spring Boot parent.
 			     Unit tests (*Test) stay with surefire. -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>
 			</plugin>
 
-			<!-- Coverage: agent for unit and integration tests, then report read by Sonar
-			     (minimum coverage enforced by the Sonar quality gate, not by the build) -->
+			<!-- Coverage: agent for unit and integration tests, then report read by Sonar -->
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -168,7 +167,7 @@
 				</executions>
 			</plugin>
 
-			<!-- Formatting: Eclipse formatter (tabs). spotless:check fails verify, ./mvnw spotless:apply fixes it -->
+			<!-- Formatting: Eclipse formatter -->
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>
 				<artifactId>spotless-maven-plugin</artifactId>
