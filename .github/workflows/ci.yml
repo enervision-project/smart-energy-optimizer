@@ -93,7 +93,7 @@ jobs:
   # Single check to require in the main ruleset: the call-* jobs only
   # exist when their paths changed.
   mr-ok:
-    needs: [changes, call-frontend, call-terraform, call-images]
+    needs: [changes, call-frontend, call-terraform, call-images, call-etl-worker]
     # Uniquement sur les Pull Requests
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
