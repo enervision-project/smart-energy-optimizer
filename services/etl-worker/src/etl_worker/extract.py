@@ -4,6 +4,7 @@ import argparse
 import base64
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
+from importlib.resources import files
 import json
 import os
 from typing import Any
@@ -47,6 +48,17 @@ def extract_sites(
         )
 
     return sites
+
+
+#Lit les profils de référence des sites, livrés avec le paquet (data/site_profiles.json).
+#Source : clé « profile » des fichiers *_metadata.json du jeu de données (pas d'endpoint API).
+#Le format source est conservé (jours 0 = lundi, working_hours [début, fin]) ; load les convertit.
+def read_site_profiles() -> list[dict[str, Any]]:
+    content = files("etl_worker").joinpath("data/site_profiles.json").read_text(encoding="utf-8")
+    profiles = json.loads(content)
+    if not isinstance(profiles, list) or not all(isinstance(profile, dict) for profile in profiles):
+        raise ValueError("site_profiles.json doit être une liste d'objets JSON.")
+    return profiles
 
 
 # Extrait la dernière minute terminée, avec la même fenêtre pour tous les sites.

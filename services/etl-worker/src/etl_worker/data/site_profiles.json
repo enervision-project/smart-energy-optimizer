@@ -1,0 +1,68 @@
+[
+  {
+    "site_id": "SITE001",
+    "base_consumption": 50,
+    "peak_consumption": 150,
+    "working_hours": [8, 19],
+    "working_days": [0, 1, 2, 3, 4],
+    "seasonal_variation": 0.3,
+    "noise_level": 0.05
+  },
+  {
+    "site_id": "SITE002",
+    "base_consumption": 200,
+    "peak_consumption": 800,
+    "working_hours": [6, 22],
+    "working_days": [0, 1, 2, 3, 4],
+    "seasonal_variation": 0.2,
+    "noise_level": 0.1,
+    "shift_pattern": true
+  },
+  {
+    "site_id": "SITE003",
+    "base_consumption": 500,
+    "peak_consumption": 700,
+    "working_hours": [0, 24],
+    "working_days": [0, 1, 2, 3, 4, 5, 6],
+    "seasonal_variation": 0.15,
+    "noise_level": 0.03
+  },
+  {
+    "site_id": "SITE004",
+    "base_consumption": 100,
+    "peak_consumption": 300,
+    "working_hours": [9, 21],
+    "working_days": [0, 1, 2, 3, 4, 5, 6],
+    "seasonal_variation": 0.4,
+    "noise_level": 0.08,
+    "weekend_factor": 1.2
+  },
+  {
+    "site_id": "SITE005",
+    "base_consumption": 300,
+    "peak_consumption": 450,
+    "working_hours": [0, 24],
+    "working_days": [0, 1, 2, 3, 4, 5, 6],
+    "seasonal_variation": 0.1,
+    "noise_level": 0.04
+  },
+  {
+    "site_id": "SITE006",
+    "base_consumption": 50,
+    "peak_consumption": 150,
+    "working_hours": [8, 19],
+    "working_days": [0, 1, 2, 3, 4],
+    "seasonal_variation": 0.3,
+    "noise_level": 0.05
+  },
+  {
+    "site_id": "SITE007",
+    "base_consumption": 200,
+    "peak_consumption": 800,
+    "working_hours": [6, 22],
+    "working_days": [0, 1, 2, 3, 4],
+    "seasonal_variation": 0.2,
+    "noise_level": 0.1,
+    "shift_pattern": true
+  }
+]

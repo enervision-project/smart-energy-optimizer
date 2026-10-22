@@ -5,8 +5,8 @@ from datetime import datetime
 import json
 
 from etl_worker.bronze import write_readings_bronze
-from etl_worker.extract import extract_readings, extract_sites
-from etl_worker.load import load_readings, load_sites, read_site_ids
+from etl_worker.extract import extract_readings, extract_sites, read_site_profiles
+from etl_worker.load import load_readings, load_site_profiles, load_sites, read_site_ids
 from etl_worker.transform import aggregate_hour
 
 
@@ -16,7 +16,10 @@ def main() -> None:
         "command",
         nargs="?",
         default="sync-sites",
-        choices=("init-sites", "sync-sites", "extract-readings", "sync-readings", "sync-hours"),
+        choices=(
+            "init-sites", "sync-sites", "sync-site-profiles",
+            "extract-readings", "sync-readings", "sync-hours",
+        ),
     )
     parser.add_argument(
         "--end-time",
@@ -30,6 +33,11 @@ def main() -> None:
     if args.command == "sync-hours":
         updated = aggregate_hour(end_time=args.end_time)
         print(f"Lignes horaires calculées dans readings_hours : {updated}.")
+    elif args.command == "sync-site-profiles":
+        # Fichier livré avec l'image ; un profil dont le site n'est pas encore en base est ignoré.
+        profiles = read_site_profiles()
+        changed = load_site_profiles(profiles)
+        print(f"Profils de référence : {len(profiles)} ; insérés ou mis à jour : {changed}.")
     elif args.command in ("init-sites", "sync-sites"):
         if args.command == "init-sites" and read_site_ids():
             print("Sites déjà présents en base ; prochaine synchronisation à 16 h.")
