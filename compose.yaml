@@ -51,7 +51,7 @@ services:
   migrate:
     # Applique les changesets Liquibase manquants (infra/db/changelog) puis s'arrête.
     # Relancé à chaque « up » : sans nouveau changeset, il ne fait rien.
-    image: docker.io/liquibase/liquibase:4.31.1
+    image: docker.io/liquibase/liquibase:4.33.0
     command: ["--search-path=/liquibase/changelog", "--changelog-file=changelog.yaml", "update"]
     environment:
       LIQUIBASE_COMMAND_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
@@ -66,7 +66,7 @@ services:
   db:
     restart: unless-stopped
     # PostgreSQL 16 + extension TimescaleDB
-    image: docker.io/timescale/timescaledb:2.17.2-pg16
+    image: docker.io/timescale/timescaledb:2.30.2-pg16
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
