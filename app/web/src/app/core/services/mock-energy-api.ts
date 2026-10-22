@@ -1,10 +1,20 @@
 import { Service } from '@angular/core';
 import { Observable, of, throwError } from 'rxjs';
+import {
+  ALERT_SEVERITIES,
+  Alert,
+  AlertFilters,
+  AlertSeverity,
+  AlertSummary,
+  AlertType,
+  Page,
+} from '../models/alert';
 import { DataQuality, Reading } from '../models/reading';
 import { Site } from '../models/site';
 import { EnergyApi } from './energy-api';
 
 const HOUR_MS = 3_600_000;
+const MINUTE_MS = 60_000;
 
 /** Réponse réelle de GET /api/v1/sites de l'API Mock de l'école. */
 const SITES: Site[] = [
@@ -18,7 +28,7 @@ const SITES: Site[] = [
 ];
 
 /**
- * Profils de charge par type, en fraction de `capacity_kw`, inspirés des profils du jeu de données
+ * Profils de charge par type, en fraction de `capacityKw`, inspirés des profils du jeu de données
  * fourni (talon, pic, heures et jours d'activité).
  */
 const PROFILES: Record<
@@ -37,6 +47,39 @@ const NETWORK_LOSS_SITE_ID = 'SITE003';
 /** Site avec une panne des capteurs de consommation (`degraded`) puis de température (`partial`). */
 const SENSOR_FAILURE_SITE_ID = 'SITE002';
 
+/** Seuils fixes par site observés sur GET /api/v1/alerts de l'API Mock. */
+const ALERT_THRESHOLDS: Record<string, number> = {
+  SITE001: 135,
+  SITE002: 720,
+  SITE003: 630,
+  SITE004: 270,
+  SITE005: 405,
+  SITE006: 117,
+  SITE007: 675,
+};
+
+/** Début des messages de l'API Mock, suivi du nom du site. */
+const ALERT_MESSAGES: Record<AlertType, string> = {
+  spike: 'Pic de consommation détecté sur',
+  threshold: 'Seuil de consommation dépassé sur',
+  anomaly: 'Comportement anormal détecté sur',
+  outage: 'Risque de surcharge sur',
+  sensor: 'Défaillance capteur détectée sur',
+};
+
+/** Alertes du mock : [site, il y a N minutes, sévérité, type, dépassement du seuil]. Les deux dernières ont plus d'une heure. */
+const ALERTS: [string, number, AlertSeverity, AlertType, number][] = [
+  ['SITE003', 4, 'critical', 'outage', 1.31],
+  ['SITE002', 12, 'high', 'spike', 1.27],
+  ['SITE001', 19, 'medium', 'threshold', 1.22],
+  ['SITE005', 26, 'medium', 'anomaly', 1.36],
+  ['SITE007', 33, 'critical', 'outage', 1.34],
+  ['SITE006', 41, 'low', 'sensor', 1.26],
+  ['SITE002', 52, 'medium', 'threshold', 1.14],
+  ['SITE004', 95, 'high', 'spike', 1.25],
+  ['SITE001', 180, 'low', 'anomaly', 1.18],
+];
+
 /** Données factices pour développer sans back-end (voir `environment.development.ts`). */
 @Service()
 export class MockEnergyApi extends EnergyApi {
@@ -45,12 +88,12 @@ export class MockEnergyApi extends EnergyApi {
   }
 
   getSite(siteId: string): Observable<Site> {
-    const found = SITES.find((s) => s.site_id === siteId);
+    const found = SITES.find((s) => s.siteId === siteId);
     return found ? of(found) : throwError(() => new Error(`Site inconnu : ${siteId}`));
   }
 
   getReadings(siteId: string, from: Date, to: Date): Observable<Reading[]> {
-    const found = SITES.find((s) => s.site_id === siteId);
+    const found = SITES.find((s) => s.siteId === siteId);
     if (!found) {
       return throwError(() => new Error(`Site inconnu : ${siteId}`));
     }
@@ -61,16 +104,72 @@ export class MockEnergyApi extends EnergyApi {
     }
     return of(readings);
   }
+
+  getAlerts(filters: AlertFilters, page: number, size: number): Observable<Page<Alert>> {
+    if (filters.siteId && !SITES.some((s) => s.siteId === filters.siteId)) {
+      return throwError(() => new Error(`Site inconnu : ${filters.siteId}`));
+    }
+    const to = filters.to ?? new Date();
+    const from = filters.from ?? new Date(to.getTime() - HOUR_MS);
+    const matching = mockAlerts().filter(
+      (a) =>
+        (!filters.siteId || a.siteId === filters.siteId) &&
+        (!filters.severity?.length || filters.severity.includes(a.severity as AlertSeverity)) &&
+        (!filters.type?.length || filters.type.includes(a.type as AlertType)) &&
+        new Date(a.timestamp) >= from &&
+        new Date(a.timestamp) <= to,
+    );
+    return of({
+      content: matching.slice(page * size, (page + 1) * size),
+      page: {
+        size,
+        number: page,
+        totalElements: matching.length,
+        totalPages: Math.ceil(matching.length / size),
+      },
+    });
+  }
+
+  getAlertSummary(siteId?: string): Observable<AlertSummary> {
+    const since = new Date(Date.now() - HOUR_MS);
+    const recent = mockAlerts().filter((a) => a.recent && (!siteId || a.siteId === siteId));
+    const bySeverity = Object.fromEntries(
+      ALERT_SEVERITIES.map((sev) => [sev, recent.filter((a) => a.severity === sev).length]),
+    ) as Record<AlertSeverity, number>;
+    return of({ since: since.toISOString(), total: recent.length, bySeverity });
+  }
+}
+
+/** Alertes datées par rapport à maintenant, de la plus récente à la plus ancienne. */
+function mockAlerts(): Alert[] {
+  const now = Date.now();
+  return ALERTS.map(([siteId, minutesAgo, severity, type, ratio]) => {
+    const s = SITES.find((x) => x.siteId === siteId)!;
+    const timestamp = new Date(now - minutesAgo * MINUTE_MS);
+    const threshold = ALERT_THRESHOLDS[siteId];
+    return {
+      alertId: `ALR-${siteId}-${Math.floor(timestamp.getTime() / 1000)}`,
+      siteId,
+      siteName: s.siteName,
+      timestamp: timestamp.toISOString(),
+      severity,
+      type,
+      message: `${ALERT_MESSAGES[type]} ${s.siteName}`,
+      value: round(threshold * ratio, 2),
+      threshold,
+      recent: minutesAgo < 60,
+    };
+  });
 }
 
 function site(
-  site_id: string,
-  site_type: string,
-  site_name: string,
+  siteId: string,
+  siteType: string,
+  siteName: string,
   location: string,
-  capacity_kw: number,
+  capacityKw: number,
 ): Site {
-  return { site_id, site_type, site_name, location, capacity_kw, status: 'active' };
+  return { siteId, siteType, siteName, location, capacityKw, status: 'active' };
 }
 
 function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Reading {
@@ -78,7 +177,7 @@ function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Rea
   const voltage = round(400 + 3 * noise(index, 1));
   const powerFactor = round(0.93 + 0.02 * noise(index, 2), 3);
   const full: Reading = {
-    site_id: s.site_id,
+    site_id: s.siteId,
     ts: date.toISOString(),
     consumption_kw: kw,
     consumption_kwh: kw,
@@ -90,7 +189,7 @@ function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Rea
     data_quality: 'good',
   };
 
-  if (s.site_id === NETWORK_LOSS_SITE_ID && inLossWindow) {
+  if (s.siteId === NETWORK_LOSS_SITE_ID && inLossWindow) {
     return withNulls(full, 'critical', [
       'consumption_kw',
       'consumption_kwh',
@@ -101,7 +200,7 @@ function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Rea
       'humidity_percent',
     ]);
   }
-  if (s.site_id === SENSOR_FAILURE_SITE_ID && index >= 8 && index < 11) {
+  if (s.siteId === SENSOR_FAILURE_SITE_ID && index >= 8 && index < 11) {
     return withNulls(full, 'degraded', [
       'consumption_kw',
       'consumption_kwh',
@@ -110,7 +209,7 @@ function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Rea
       'power_factor',
     ]);
   }
-  if (s.site_id === SENSOR_FAILURE_SITE_ID && index >= 30 && index < 34) {
+  if (s.siteId === SENSOR_FAILURE_SITE_ID && index >= 30 && index < 34) {
     return withNulls(full, 'partial', ['temperature_celsius']);
   }
   return full;
@@ -126,16 +225,16 @@ function withNulls(r: Reading, quality: DataQuality, fields: (keyof Reading)[]):
 
 /** Courbe déterministe : talon + activité selon le profil du type de site + bruit, avec une pointe en fin de matinée pour les usines. */
 function consumption(s: Site, date: Date, index: number): number {
-  const p = PROFILES[s.site_type] ?? PROFILES['office'];
+  const p = PROFILES[s.siteType] ?? PROFILES['office'];
   const hour = date.getHours();
   const day = date.getDay();
   const working =
     hour >= p.hours[0] && hour < p.hours[1] && (!p.weekdaysOnly || (day >= 1 && day <= 5));
   let ratio = working ? p.peak : p.base;
-  if (s.site_type === 'factory' && working && hour >= 10 && hour <= 12) {
+  if (s.siteType === 'factory' && working && hour >= 10 && hour <= 12) {
     ratio = 0.92;
   }
-  return round(s.capacity_kw * (ratio + 0.03 * noise(index, s.capacity_kw)));
+  return round(s.capacityKw * (ratio + 0.03 * noise(index, s.capacityKw)));
 }
 
 function noise(index: number, seed: number): number {

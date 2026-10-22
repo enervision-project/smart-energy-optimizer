@@ -8,7 +8,18 @@
     <a routerLink="/parc" routerLinkActive="active">Vue du parc</a>
     <a routerLink="/sites" routerLinkActive="active">Sites</a>
     <a routerLink="/previsions" routerLinkActive="active">Prévisions</a>
-    <a routerLink="/alertes" routerLinkActive="active">Alertes</a>
+    <a routerLink="/alertes" routerLinkActive="active">
+      Alertes
+      @if (alertBadge(); as badge) {
+        <span
+          class="badge"
+          [class.critical]="badge.critical"
+          [attr.aria-label]="badge.total + ' alertes dans la dernière heure'"
+          data-testid="alert-badge"
+          >{{ badge.total }}</span
+        >
+      }
+    </a>
   </nav>
 
   <main class="content">

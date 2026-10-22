@@ -4,8 +4,8 @@
     <span>Site</span>
     <select (change)="selectSite($event)">
       <option value="" disabled [selected]="!id()">Choisir un site…</option>
-      @for (s of siteOptions(); track s.site_id) {
-        <option [value]="s.site_id" [selected]="s.site_id === id()">{{ s.site_name }}</option>
+      @for (s of siteOptions(); track s.siteId) {
+        <option [value]="s.siteId" [selected]="s.siteId === id()">{{ s.siteName }}</option>
       }
     </select>
   </label>
@@ -17,7 +17,7 @@
   <p class="error" role="alert">Site introuvable ou API indisponible.</p>
 } @else {
   @if (profile(); as s) {
-    <p class="meta">{{ siteTypeLabel() }} · {{ s.location }} · capacité {{ s.capacity_kw }} kW</p>
+    <p class="meta">{{ siteTypeLabel() }} · {{ s.location }} · capacité {{ s.capacityKw }} kW</p>
   }
 
   <div class="grid">

@@ -75,7 +75,7 @@ export class Site {
   }
 
   protected readonly siteTypeLabel = computed(() => {
-    const type = this.profile()?.site_type ?? '';
+    const type = this.profile()?.siteType ?? '';
     return SITE_TYPE_LABELS[type] ?? type;
   });
 
@@ -92,12 +92,12 @@ export class Site {
   });
 
   /**
-   * Deux séries : consommation horaire (kW) et capacité du site (`capacity_kw`).
+   * Deux séries : consommation horaire (kW) et capacité du site (`capacityKw`).
    * Les heures sans mesure (`null`) restent des trous (`spanGaps: false`).
    */
   protected readonly chartData = computed<ChartData<'line', (number | null)[], string>>(() => {
     const readings = this.readings();
-    const capacity = this.profile()?.capacity_kw ?? null;
+    const capacity = this.profile()?.capacityKw ?? null;
 
     return {
       labels: readings.map((r) => dateTime.format(new Date(r.ts))),

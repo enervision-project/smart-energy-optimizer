@@ -1,4 +1,5 @@
 import { Observable } from 'rxjs';
+import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
 import { Reading } from '../models/reading';
 import { Site } from '../models/site';
 
@@ -8,4 +9,8 @@ export abstract class EnergyApi {
   abstract getSite(siteId: string): Observable<Site>;
   /** Mesures horaires de `from` (inclus) à `to` (exclu). */
   abstract getReadings(siteId: string, from: Date, to: Date): Observable<Reading[]>;
+  /** Alertes des sites visibles, de la plus récente à la plus ancienne (`page` commence à 0). */
+  abstract getAlerts(filters: AlertFilters, page: number, size: number): Observable<Page<Alert>>;
+  /** Nombre d'alertes de la dernière heure par sévérité, pour tous les sites visibles ou un seul. */
+  abstract getAlertSummary(siteId?: string): Observable<AlertSummary>;
 }
