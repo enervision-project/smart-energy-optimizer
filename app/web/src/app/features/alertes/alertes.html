@@ -1,1 +1,132 @@
-<p>alertes works!</p>
+<header class="page-header">
+  <h1>Alertes</h1>
+  <div class="filters">
+    <label class="picker">
+      <span>Site</span>
+      <select (change)="selectSite($event)" data-testid="site">
+        <option value="">Tous les sites</option>
+        @for (s of siteOptions(); track s.siteId) {
+          <option [value]="s.siteId">{{ s.siteName }}</option>
+        }
+      </select>
+    </label>
+    <label class="picker">
+      <span>Sévérité</span>
+      <select (change)="selectSeverity($event)" data-testid="severity">
+        <option value="" [selected]="severity() === ''">Toutes</option>
+        @for (sev of severities; track sev) {
+          <option [value]="sev" [selected]="severity() === sev">{{ severityLabel(sev) }}</option>
+        }
+      </select>
+    </label>
+    <label class="picker">
+      <span>Type</span>
+      <select (change)="selectType($event)" data-testid="type">
+        <option value="">Tous</option>
+        @for (t of types; track t) {
+          <option [value]="t">{{ typeLabel(t) }}</option>
+        }
+      </select>
+    </label>
+    <label class="picker">
+      <span>Période</span>
+      <select (change)="selectPeriod($event)" data-testid="period">
+        @for (p of periods; track p.hours) {
+          <option [value]="p.hours" [selected]="p.hours === periodHours()">{{ p.label }}</option>
+        }
+      </select>
+    </label>
+  </div>
+</header>
+
+<p class="meta">
+  Mise à jour automatique toutes les 30 s · dernière à
+  <span data-testid="last-update">{{ lastUpdateLabel() }}</span>
+</p>
+
+<section class="counters" aria-label="Alertes de la dernière heure par sévérité">
+  @for (sev of severities; track sev) {
+    <button
+      type="button"
+      class="counter"
+      [class]="sev"
+      [class.selected]="severity() === sev"
+      [attr.aria-pressed]="severity() === sev"
+      (click)="toggleSeverity(sev)"
+      [attr.data-testid]="'count-' + sev"
+    >
+      <span class="count">{{ counts()?.bySeverity?.[sev] ?? '—' }}</span>
+      <span class="label">{{ severityLabel(sev) }}</span>
+    </button>
+  }
+  <p class="hint">Dernière heure. Cliquer sur une sévérité filtre la liste.</p>
+</section>
+
+<section class="card" aria-labelledby="alerts-title">
+  <h2 id="alerts-title">
+    Alertes
+    @if (alertPage(); as p) {
+      <span class="total">({{ p.page.totalElements }})</span>
+    }
+  </h2>
+
+  @if (alerts.error()) {
+    <p class="error" role="alert">Alertes indisponibles : site introuvable ou API injoignable.</p>
+  } @else if (alertPage(); as p) {
+    @if (p.content.length === 0) {
+      <p class="empty">Aucune alerte sur la période.</p>
+    } @else {
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Site</th>
+              <th scope="col">Sévérité</th>
+              <th scope="col">Type</th>
+              <th scope="col">Message</th>
+              <th scope="col" class="num">Valeur</th>
+              <th scope="col" class="num">Seuil</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of p.content; track a.alertId) {
+              <tr [class.old]="!a.recent" data-testid="alert-row">
+                <td>{{ formatDate(a.timestamp) }}</td>
+                <td>
+                  <a [routerLink]="['/sites', a.siteId]">{{ a.siteName }}</a>
+                </td>
+                <td>
+                  <span class="badge" [class]="a.severity">{{ severityLabel(a.severity) }}</span>
+                </td>
+                <td>{{ typeLabel(a.type) }}</td>
+                <td>{{ a.message }}</td>
+                <td class="num">{{ formatNumber(a.value) }}</td>
+                <td class="num">{{ formatNumber(a.threshold) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">Les alertes de plus d'une heure sont grisées.</p>
+
+      @if (p.page.totalPages > 1) {
+        <nav class="pager" aria-label="Pagination des alertes">
+          <button type="button" (click)="previousPage()" [disabled]="p.page.number === 0">
+            Précédent
+          </button>
+          <span>Page {{ p.page.number + 1 }} sur {{ p.page.totalPages }}</span>
+          <button
+            type="button"
+            (click)="nextPage()"
+            [disabled]="p.page.number + 1 >= p.page.totalPages"
+          >
+            Suivant
+          </button>
+        </nav>
+      }
+    }
+  } @else {
+    <p class="empty">Chargement…</p>
+  }
+</section>

@@ -159,7 +159,7 @@ Les appels authentifiés envoient l'en-tête `Authorization: Bearer <accessToken
 ```java
 @AdminOnly
 @GetMapping
-public List<SiteResponse> getSites() { … }
+public List<SiteResponse> getSites() {  }
 ```
 
 Une route publique se déclare dans `SecurityConfig` (module `bootstrap`).

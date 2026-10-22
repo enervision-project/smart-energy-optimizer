@@ -132,9 +132,35 @@ Couvre #46 avec l'interrogation régulière du front.
 - `siteName` : obtenu avec `SiteService.getSites(currentUser)`, qui fournit aussi la liste des sites visibles. Un utilisateur sans site reçoit une liste vide, sans requête en base.
 - Structure du module selon `.claude/skills/java-conventions` : controller, interface de service, implémentation package-private dans `service.implementation`, `@Transactional(readOnly = true)`.
 
+## Tester en local avec les vraies données
+
+Le login front n'existe pas encore : le proxy du serveur de développement ajoute lui-même le jeton.
+
+1. Base, migrations, ETL planifié (alertes chaque minute) et core-api. `JWT_SECRET` doit faire au moins 32 octets une fois décodé (`openssl rand -base64 32`) :
+    ```bash
+    docker compose up -d scheduler core-api
+    ```
+2. Un compte (créé à la main en base, mot de passe haché en BCrypt avec le préfixe `{bcrypt}`), puis son jeton :
+    ```bash
+    curl -s localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' \
+      -d '{"email":"<email>","password":"<mot de passe>"}'
+    ```
+3. Un fichier de proxy **hors du dépôt** (le jeton ne doit pas être commité), par exemple `/tmp/proxy.local.json` :
+    ```json
+    { "/api": { "target": "http://localhost:8080", "headers": { "Authorization": "Bearer <accessToken>" } } }
+    ```
+4. Le front en mode HTTP (configuration `production`, sans le mock) :
+    ```bash
+    cd app/web
+    npx ng serve --configuration production --proxy-config /tmp/proxy.local.json
+    ```
+    puis http://localhost:4200/alertes.
+
+Le jeton expire au bout d'une heure (`JWT_EXPIRATION`) : en refaire un et relancer `ng serve`.
+
 ## À faire en dehors du module
 
 - **PO** : fermer ou réécrire #49, fermer #47 (doublon de #51), préciser #19 ou le rattacher à #51.
-- **Front** : `core/models/alert.ts` passe en camelCase (`alertType` devient `type`, `site_id` devient `siteId`). `viewed_at` disparaît, remplacé par `recent`.
+- **Front** : fait dans la même branche. Page `/alertes` (filtres site, sévérité, type et période, compteurs par sévérité, pagination, relecture toutes les 30 s) et badge dans le menu avec le nombre d'alertes de la dernière heure. Le modèle `Site` du front est aligné sur `GET /api/v1/sites` de core-api (camelCase). Le login front et l'envoi du jeton (`auth-interceptor`) restent à faire : sans eux, `HttpEnergyApi` reçoit des `401` de core-api (voir « Tester en local » pour contourner).
 - **ETL** : préciser dans la doc de `sync-alerts` que l'API Mock renvoie un échantillon aléatoire et non des alertes persistantes.
 - **Prod** : core-api n'est pas encore déployé (`services.json`, `compose.prod.yaml`, route `/api` dans Caddy).

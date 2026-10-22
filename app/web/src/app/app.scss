@@ -20,8 +20,13 @@
   border-bottom: 1px solid #dde2da;
   color: #3f4a5a;
 
-  .brand { height: 32px; width: auto; }
-  .subtitle { font-size: 0.9rem; }
+  .brand {
+    height: 32px;
+    width: auto;
+  }
+  .subtitle {
+    font-size: 0.9rem;
+  }
 }
 
 .sidebar {
@@ -37,9 +42,33 @@
     border-radius: 8px;
     color: #3f4a5a;
     text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 
-    &:hover { background: #e9ece6; }
-    &.active { background: #1f7a63; color: #fff; }
+    &:hover {
+      background: #e9ece6;
+    }
+    &.active {
+      background: #1f7a63;
+      color: #fff;
+    }
+  }
+
+  .badge {
+    min-width: 22px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #fde8d7;
+    color: #a24a0b;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+
+    &.critical {
+      background: #b23a48;
+      color: #fff;
+    }
   }
 }
 

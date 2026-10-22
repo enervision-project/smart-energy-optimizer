@@ -1,9 +1,9 @@
-/** Site suivi (table `sites`, même forme que GET /api/v1/sites de l'API Mock). */
+/** Site suivi (table `sites`), tel que renvoyé par GET /api/v1/sites de core-api. */
 export interface Site {
-  site_id: string; // SITE001 … SITE007
-  site_name: string;
-  site_type: string; // office, factory, datacenter, retail, hospital
+  siteId: string; // SITE001 … SITE007
+  siteName: string;
+  siteType: string; // office, factory, datacenter, retail, hospital
   location: string | null;
-  capacity_kw: number;
+  capacityKw: number;
   status: string;
 }
