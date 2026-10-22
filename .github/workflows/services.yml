@@ -164,7 +164,7 @@ jobs:
         run: |
           [[ -n "$ENERGY_API_USERNAME" && -n "$ENERGY_API_PASSWORD" ]] \
             || { echo "::error::secrets ENERGY_API_USERNAME / ENERGY_API_PASSWORD vides"; exit 1; }
-          aws ssm put-parameter --name /enervision/prod/env/ENERGY_API_USERNAME --type String \
+          aws ssm put-parameter --name /enervision/prod/env/ENERGY_API_USERNAME --type SecureString \
             --value "$ENERGY_API_USERNAME" --overwrite >/dev/null
           aws ssm put-parameter --name /enervision/prod/env/ENERGY_API_PASSWORD --type SecureString \
             --value "$ENERGY_API_PASSWORD" --overwrite >/dev/null
