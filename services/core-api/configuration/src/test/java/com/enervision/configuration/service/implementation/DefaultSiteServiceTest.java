@@ -90,7 +90,7 @@ class DefaultSiteServiceTest {
 		profile.setPeakConsumption(new BigDecimal("150.00"));
 		profile.setWorkingHourStart((short) 8);
 		profile.setWorkingHourEnd((short) 19);
-		profile.setWorkingDays(new Short[] {5, 1, 2, 3, 4});
+		profile.setWorkingDays(new Short[]{5, 1, 2, 3, 4});
 		profile.setWeekendFactor(new BigDecimal("1.2000"));
 		when(siteRepository.findById("SITE001")).thenReturn(Optional.of(site("SITE001")));
 		when(siteProfileRepository.findById("SITE001")).thenReturn(Optional.of(profile));
