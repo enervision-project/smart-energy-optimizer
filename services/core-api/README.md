@@ -74,8 +74,10 @@ core-api ne fait que **lire** ces tables (entités `@Immutable`) ; aucun endpoin
 | Table | Rempli par | Contenu |
 |---|---|---|
 | `sites` | ETL worker (API énergie) | Sites suivis, clé `site_id` (`SITE001`…) |
-| `site_profiles` | ETL worker (à venir) | Profil de référence, au plus un par site (clé = `site_id`) |
+| `site_profiles` | ETL worker (`sync-site-profiles` : à chaque démarrage et à 16 h 01) | Profil de référence, au plus un par site (clé = `site_id`) |
 | `users_sites` | Seed (à venir) | Sites visibles par chaque `USER` ; un `ADMIN` n'y a aucune ligne |
+
+Les profils viennent de la clé `profile` des fichiers `*_metadata.json` du jeu de données (pas d'endpoint dans l'API énergie). Ils sont versionnés dans [`services/etl-worker/src/etl_worker/data/site_profiles.json`](../etl-worker/src/etl_worker/data/site_profiles.json), au format source (jours `0` = lundi, `working_hours: [début, fin]`), et convertis par l'ETL au chargement. Pour modifier un profil, éditer ce fichier : le prochain démarrage de l'ETL met la base à jour (ou à la main : `docker compose run --rm etl-worker sync-site-profiles`). Un échec de chargement est signalé dans les logs sans bloquer la collecte.
 
 Conventions de `site_profiles`, contrôlées par des `CHECK` :
 - `base_consumption` / `peak_consumption` en kW, avec `peak_consumption >= base_consumption`.

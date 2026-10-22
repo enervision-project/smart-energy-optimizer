@@ -3,7 +3,7 @@ set -eu
 . /run/etl-worker.env
 
 case "${1:-}" in
-    sync-readings|sync-sites|sync-hours|sync-alerts) ;;
+    sync-readings|sync-sites|sync-site-profiles|sync-hours|sync-alerts) ;;
     *) echo "Commande cron inconnue." >&2; exit 2 ;;
 esac
 
