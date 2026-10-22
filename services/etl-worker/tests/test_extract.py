@@ -1,110 +1,129 @@
-"""Tests de l'extraction des sites, sans accès réseau."""
+"""Tests de l'extraction des mesures, sans accès réseau."""
 
 import io
 import json
 import os
 import unittest
+from datetime import UTC, datetime, timedelta, timezone
 from unittest.mock import patch
-from urllib.error import HTTPError, URLError
+from urllib.parse import parse_qs, urlsplit
 
-from etl_worker.extract import extract_sites
+from etl_worker.extract import extract_readings
+
+END_TIME = datetime(2026, 10, 21, 8, 9, 42, 123456, tzinfo=UTC)
+WINDOW_START = "2026-10-21T08:08:00+00:00"
 
 
-class ExtractSitesTests(unittest.TestCase):
+def response(payload):
+    return io.BytesIO(json.dumps(payload).encode("utf-8"))
+
+
+def reading(site_id, timestamp=WINDOW_START, **extra):
+    return {"site_id": site_id, "timestamp": timestamp, **extra}
+
+
+class ExtractReadingsTests(unittest.TestCase):
     @patch("etl_worker.extract.urlopen")
-    def test_preserves_all_fields_and_configures_request(self, mock_urlopen):
-        sites = [
-            {
-                "site_id": "SITE001",
-                "site_name": "Bureau Paris La Défense",
-                "site_type": "office",
-                "location": None,
-                "capacity_kw": 200.0,
-                "status": "active",
-                "extra": {"tags": ["test"], "enabled": False},
-            }
-        ]
-        mock_urlopen.return_value = io.BytesIO(json.dumps(sites).encode("utf-8"))
+    def test_empty_site_list_does_not_call_the_api(self, mock_urlopen):
+        self.assertEqual(extract_readings([], "http://energy-api.test"), [])
+        mock_urlopen.assert_not_called()
 
-        result = extract_sites("http://energy-api.test:8000/", timeout=3.0)
+    @patch("etl_worker.extract.urlopen")
+    def test_returns_one_reading_per_site_for_the_same_window(self, mock_urlopen):
+        readings = [reading("SITE001", consumption_kw=None), reading("SITE002", consumption_kw=1.5)]
+        mock_urlopen.side_effect = [response([item]) for item in readings]
 
-        self.assertEqual(result, sites)
-        mock_urlopen.assert_called_once()
-        request = mock_urlopen.call_args.args[0]
-        self.assertEqual(request.full_url, "http://energy-api.test:8000/api/v1/sites")
-        self.assertEqual(request.get_method(), "GET")
-        self.assertEqual(request.get_header("Accept"), "application/json")
-        self.assertEqual(mock_urlopen.call_args.kwargs, {"timeout": 3.0})
+        result = extract_readings(
+            ["SITE001", "SITE002"], " http://energy-api.test/ ", end_time=END_TIME, timeout=4
+        )
+
+        self.assertEqual(result, readings)
+        for call, site_id in zip(mock_urlopen.call_args_list, ["SITE001", "SITE002"]):
+            url = urlsplit(call.args[0].full_url)
+            self.assertEqual(url.path, "/api/v1/readings")
+            self.assertEqual(
+                parse_qs(url.query),
+                {
+                    "site_id": [site_id],
+                    "start_time": [WINDOW_START],
+                    "end_time": ["2026-10-21T08:09:00+00:00"],
+                    "limit": ["1"],
+                },
+            )
+            self.assertEqual(call.kwargs, {"timeout": 4})
+
+    @patch("etl_worker.extract.urlopen")
+    def test_end_time_in_another_timezone_is_converted_to_utc(self, mock_urlopen):
+        mock_urlopen.return_value = response([reading("SITE001", "2026-10-21T10:08:00+02:00")])
+        paris = timezone(timedelta(hours=2))
+
+        result = extract_readings(
+            ["SITE001"], "http://energy-api.test", end_time=END_TIME.astimezone(paris)
+        )
+
+        self.assertEqual(result[0]["timestamp"], "2026-10-21T10:08:00+02:00")
 
     @patch.dict(os.environ, {"ENERGY_API_BASE_URL": "http://configured-api.test"})
+    @patch("etl_worker.extract.datetime")
     @patch("etl_worker.extract.urlopen")
-    def test_reads_base_url_from_environment(self, mock_urlopen):
-        mock_urlopen.return_value = io.BytesIO(b"[]")
+    def test_defaults_to_environment_url_and_current_time(self, mock_urlopen, mock_datetime):
+        mock_datetime.now.return_value = END_TIME
+        mock_datetime.fromisoformat = datetime.fromisoformat
+        mock_urlopen.return_value = response([reading("SITE001")])
 
-        self.assertEqual(extract_sites(), [])
+        extract_readings(["SITE001"])
 
-        request = mock_urlopen.call_args.args[0]
-        self.assertEqual(request.full_url, "http://configured-api.test/api/v1/sites")
+        mock_datetime.now.assert_called_once_with(UTC)
+        self.assertTrue(
+            mock_urlopen.call_args.args[0].full_url.startswith(
+                "http://configured-api.test/api/v1/readings?"
+            )
+        )
 
     @patch.dict(os.environ, {}, clear=True)
     @patch("etl_worker.extract.urlopen")
     def test_missing_configuration_fails_before_request(self, mock_urlopen):
-        with self.assertRaisesRegex(ValueError, "ENERGY_API_BASE_URL"):
-            extract_sites()
+        for base_url in (None, "", "   "):
+            with self.subTest(base_url=base_url), self.assertRaisesRegex(
+                ValueError, "ENERGY_API_BASE_URL"
+            ):
+                extract_readings(["SITE001"], base_url, end_time=END_TIME)
+        mock_urlopen.assert_not_called()
+
+    @patch("etl_worker.extract.urlopen")
+    def test_naive_end_time_is_rejected_before_request(self, mock_urlopen):
+        naive_end_time = datetime(2026, 10, 21, 8, 9)
+
+        with self.assertRaisesRegex(ValueError, "fuseau horaire"):
+            extract_readings(
+                ["SITE001"], "http://energy-api.test", end_time=naive_end_time
+            )
 
         mock_urlopen.assert_not_called()
 
     @patch("etl_worker.extract.urlopen")
-    def test_rejects_unexpected_response_shapes(self, mock_urlopen):
-        for payload in ({"sites": []}, [None], ["SITE001"]):
-            with self.subTest(payload=payload):
-                mock_urlopen.return_value = io.BytesIO(json.dumps(payload).encode())
-
-                with self.assertRaisesRegex(ValueError, "liste d'objets JSON"):
-                    extract_sites("http://energy-api.test")
-
-    @patch("etl_worker.extract.urlopen")
-    def test_invalid_json_is_not_treated_as_an_empty_list(self, mock_urlopen):
-        mock_urlopen.return_value = io.BytesIO(b"not json")
-
-        with self.assertRaises(json.JSONDecodeError):
-            extract_sites("http://energy-api.test")
-
-    @patch("etl_worker.extract.urlopen")
-    def test_request_failures_are_propagated(self, mock_urlopen):
-        http_error = HTTPError(
-            "http://energy-api.test", 503, "Service unavailable", {}, None
-        )
-        self.addCleanup(http_error.close)
-        errors = (
-            http_error,
-            URLError("Connection refused"),
-            TimeoutError("Request timed out"),
-        )
-        for error in errors:
-            with self.subTest(error=type(error).__name__):
-                mock_urlopen.side_effect = error
-
-                with self.assertRaises(type(error)) as caught:
-                    extract_sites("http://energy-api.test")
-
-                self.assertIs(caught.exception, error)
+    def test_rejects_invalid_payloads(self, mock_urlopen):
+        cases = {
+            "Une seule mesure": [None, {}, [], [reading("SITE001")] * 2, ["SITE001"]],
+            "ne correspond pas": [[reading("SITE002")]],
+            "Timestamp invalide": [
+                [reading("SITE001", None)],
+                [reading("SITE001", "not a date")],
+            ],
+            "Timestamp inattendu": [
+                [reading("SITE001", "2026-10-21T08:08:00")],
+                [reading("SITE001", "2026-10-21T08:07:00+00:00")],
+            ],
+        }
+        for message, payloads in cases.items():
+            for payload in payloads:
+                with self.subTest(payload=payload):
+                    mock_urlopen.return_value = response(payload)
+                    with self.assertRaisesRegex(ValueError, message):
+                        extract_readings(
+                            ["SITE001"], "http://energy-api.test", end_time=END_TIME
+                        )
 
 
-class ApiAuthenticationTests(unittest.TestCase):
-    @patch("etl_worker.extract.urlopen")
-    def test_basic_auth_is_sent_when_credentials_are_configured(self, mock_urlopen):
-        mock_urlopen.return_value = io.BytesIO(b"[]")
-        with patch.dict(os.environ, {"ENERGY_API_USERNAME": "user", "ENERGY_API_PASSWORD": "secret"}):
-            extract_sites("http://energy-api.test")
-
-        request = mock_urlopen.call_args.args[0]
-        self.assertEqual(request.get_header("Authorization"), "Basic dXNlcjpzZWNyZXQ=")
-
-    @patch("etl_worker.extract.urlopen")
-    def test_no_auth_header_without_credentials(self, mock_urlopen):
-        mock_urlopen.return_value = io.BytesIO(b"[]")
-        with patch.dict(os.environ, {"ENERGY_API_USERNAME": ""}):
-            extract_sites("http://energy-api.test")
-
-        self.assertIsNone(mock_urlopen.call_args.args[0].get_header("Authorization"))
+if __name__ == "__main__":
+    unittest.main()
