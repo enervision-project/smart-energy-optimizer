@@ -2,7 +2,16 @@
 # Certificats Let's Encrypt obtenus et renouvelés automatiquement par Caddy.
 {$DOMAIN} {
 	encode zstd gzip
-	reverse_proxy web:80
+
+	# API (core-api), même domaine que le front : pas de CORS
+	handle /api/* {
+		reverse_proxy core-api:8080
+	}
+
+	# tout le reste : front Angular
+	handle {
+		reverse_proxy web:80
+	}
 }
 
 www.{$DOMAIN} {

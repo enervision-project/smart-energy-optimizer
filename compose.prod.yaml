@@ -36,6 +36,20 @@ services:
     ports: !reset []
     restart: unless-stopped
 
+  core-api:
+    build: !reset null
+    image: ${ECR_REGISTRY}/enervision/core-api:${CORE_API_TAG:-latest}
+    # joignable uniquement via proxy (/api/*)
+    ports: !reset []
+    # EC2 de 2 Go partagée : JVM limitée à 75 % du conteneur
+    mem_limit: 512m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
+      # pas de documentation OpenAPI / Swagger UI en production
+      SPRINGDOC_API_DOCS_ENABLED: "false"
+      SPRINGDOC_SWAGGER_UI_ENABLED: "false"
+    restart: unless-stopped
+
   etl-worker:
     build: !reset null
     image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
