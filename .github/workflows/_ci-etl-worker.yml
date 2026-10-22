@@ -18,7 +18,7 @@ jobs:
         working-directory: services/etl-worker
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -31,7 +31,7 @@ jobs:
           cache-dependency-path: services/etl-worker/pyproject.toml
 
       - name: Cache des paquets SonarQube
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -54,7 +54,7 @@ jobs:
         run: python -m build
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v8
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8
         with:
           projectBaseDir: services/etl-worker
         env:
