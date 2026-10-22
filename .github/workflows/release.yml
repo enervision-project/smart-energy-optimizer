@@ -22,7 +22,7 @@ jobs:
       issues: write         # commenter les issues résolues
       pull-requests: write  # commenter les PR incluses
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0    # semantic-release a besoin de tout l'historique et des tags
           persist-credentials: false
