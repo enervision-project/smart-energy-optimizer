@@ -17,7 +17,7 @@ permissions: {}
 
 jobs:
   commits:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read        # checkout du dépôt
     steps:
@@ -41,7 +41,7 @@ jobs:
           commitlint --from "$FROM" --to "$TO" --verbose
 
   branch-name:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions: {}         # lit seulement le nom de branche de l'événement
     steps:
       - name: Nom de branche feature/…, fix/… ou renovate/…
