@@ -32,11 +32,11 @@ class AggregateHourConfigurationTests(unittest.TestCase):
         connect.assert_not_called()
 
     @patch("etl_worker.transform.psycopg.connect")
-        def test_rejects_naive_time_before_connecting(self, connect):
-            naive_end_time = END.replace(tzinfo=None)
-            with self.assertRaisesRegex(ValueError, "fuseau"):
-                aggregate_hour("postgresql://test", end_time=naive_end_time)
-            connect.assert_not_called()
+    def test_rejects_naive_time_before_connecting(self, connect):
+        naive_end_time = END.replace(tzinfo=None)
+        with self.assertRaisesRegex(ValueError, "fuseau"):
+            aggregate_hour("postgresql://test", end_time=naive_end_time)
+        connect.assert_not_called()
 
     @patch.dict(os.environ, {"DATABASE_URL": "postgresql://configured-db/test"})
     @patch("etl_worker.transform.psycopg.connect")
