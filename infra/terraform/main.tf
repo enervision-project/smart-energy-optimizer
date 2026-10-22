@@ -4,7 +4,7 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  name = "enervision"
+  name                    = "enervision"
   mlflow_artifacts_prefix = "mlflow/artifacts"
   # services avec une image à construire : un dépôt ECR chacun
   services = jsondecode(file("${path.module}/../../.github/services.json")).services
