@@ -22,5 +22,7 @@ PY
 
 # Remplir la table au premier démarrage ; une table déjà remplie attendra 16 h.
 etl-worker init-sites
-printf '%s Cron démarré : consommations et alertes chaque minute ; agrégats à H+2 min ; sites à 16 h (Europe/Paris).\n' "$(date -Iseconds)"
+# Profils de référence à chaque démarrage (fichier livré avec l'image) ; un échec ne bloque pas la collecte.
+etl-worker sync-site-profiles || echo "Profils de référence non chargés ; la collecte continue." >&2
+printf '%s Cron démarré : consommations et alertes chaque minute ; agrégats à H+2 min ; sites à 16 h, profils à 16 h 01 (Europe/Paris).\n' "$(date -Iseconds)"
 exec cron -f

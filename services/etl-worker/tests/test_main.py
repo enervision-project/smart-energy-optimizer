@@ -9,11 +9,18 @@ from unittest.mock import patch
 from etl_worker.__main__ import main
 
 
+PROFILES = [{"site_id": "SITE001"}]
+
+
 class WorkerCommandTests(unittest.TestCase):
     def setUp(self):
         self.read_ids = self.patch("read_site_ids")
         self.extract_sites = self.patch("extract_sites")
         self.load_sites = self.patch("load_sites")
+        self.read_profiles = self.patch("read_site_profiles")
+        self.read_profiles.return_value = PROFILES
+        self.load_profiles = self.patch("load_site_profiles")
+        self.load_profiles.return_value = 0
         self.extract_readings = self.patch("extract_readings")
         self.load_readings = self.patch("load_readings")
         self.write_bronze = self.patch("write_readings_bronze")
@@ -77,6 +84,35 @@ class WorkerCommandTests(unittest.TestCase):
         self.extract_sites.assert_called_once_with()
         self.load_sites.assert_called_once_with(sites)
 
+    def test_site_commands_do_not_touch_profiles(self):
+        self.extract_sites.return_value = [{"site_id": "SITE001"}]
+        for command, existing_ids in (("init-sites", []), ("init-sites", ["SITE001"]), ("sync-sites", [])):
+            with self.subTest(command=command, existing_ids=existing_ids):
+                self.read_ids.return_value = existing_ids
+
+                self.run_command(command)
+
+                self.read_profiles.assert_not_called()
+                self.load_profiles.assert_not_called()
+
+    def test_profile_command_loads_shipped_file_without_sites_api(self):
+        self.load_profiles.return_value = 1
+
+        output = self.run_command("sync-site-profiles")
+
+        self.read_profiles.assert_called_once_with()
+        self.load_profiles.assert_called_once_with(PROFILES)
+        self.read_ids.assert_not_called()
+        self.extract_sites.assert_not_called()
+        self.load_sites.assert_not_called()
+        self.assertIn("Profils de référence : 1 ; insérés ou mis à jour : 1", output)
+
+    def test_profile_command_fails_visibly(self):
+        self.load_profiles.side_effect = RuntimeError("check violation")
+
+        with self.assertRaisesRegex(RuntimeError, "check violation"):
+            self.run_command("sync-site-profiles")
+
     def test_readings_use_database_sites_without_sites_api(self):
         self.read_ids.return_value = ["SITE001", "SITE002"]
         readings = [{"site_id": "SITE001"}, {"site_id": "SITE002"}]
@@ -88,6 +124,7 @@ class WorkerCommandTests(unittest.TestCase):
         self.extract_sites.assert_not_called()
         self.extract_readings.assert_called_once_with(["SITE001", "SITE002"])
         self.load_readings.assert_called_once_with(readings)
+        self.load_profiles.assert_not_called()
         self.assertIn("insérées : 1 ; déjà présentes : 1", output)
 
     def test_readings_are_archived_in_bronze_before_loading(self):

@@ -139,6 +139,87 @@ def read_site_ids(
             return [row[0] for row in cursor.fetchall()]
 
 
+# Un profil dont le site n'existe pas (encore) en base est ignoré plutôt que de faire échouer le lot.
+_UPSERT_SITE_PROFILE = """
+    INSERT INTO site_profiles (
+        site_id, base_consumption, peak_consumption, working_hour_start, working_hour_end,
+        working_days, seasonal_variation, noise_level, weekend_factor, shift_pattern
+    )
+    SELECT %s, %s, %s, %s, %s, %s::smallint[], %s, %s, %s, %s
+    WHERE EXISTS (SELECT 1 FROM sites WHERE sites.site_id = %s)
+    ON CONFLICT (site_id) DO UPDATE SET
+        base_consumption = EXCLUDED.base_consumption,
+        peak_consumption = EXCLUDED.peak_consumption,
+        working_hour_start = EXCLUDED.working_hour_start,
+        working_hour_end = EXCLUDED.working_hour_end,
+        working_days = EXCLUDED.working_days,
+        seasonal_variation = EXCLUDED.seasonal_variation,
+        noise_level = EXCLUDED.noise_level,
+        weekend_factor = EXCLUDED.weekend_factor,
+        shift_pattern = EXCLUDED.shift_pattern
+    WHERE (
+        site_profiles.base_consumption, site_profiles.peak_consumption,
+        site_profiles.working_hour_start, site_profiles.working_hour_end,
+        site_profiles.working_days, site_profiles.seasonal_variation,
+        site_profiles.noise_level, site_profiles.weekend_factor, site_profiles.shift_pattern
+    ) IS DISTINCT FROM (
+        EXCLUDED.base_consumption, EXCLUDED.peak_consumption,
+        EXCLUDED.working_hour_start, EXCLUDED.working_hour_end,
+        EXCLUDED.working_days, EXCLUDED.seasonal_variation,
+        EXCLUDED.noise_level, EXCLUDED.weekend_factor, EXCLUDED.shift_pattern
+    )
+"""
+
+
+def _site_profile_row(profile: Mapping[str, Any]) -> tuple[Any, ...]:
+    """Convertit un profil du format source vers les colonnes de site_profiles.
+
+    Jours : 0 = lundi dans la source (weekday() Python), ISO 1 = lundi en base.
+    working_hours [début, fin] devient deux colonnes. shift_pattern absent vaut
+    false, weekend_factor absent vaut NULL.
+    """
+    start, end = profile["working_hours"]
+    return (
+        profile["site_id"],
+        profile["base_consumption"],
+        profile["peak_consumption"],
+        start,
+        end,
+        [day + 1 for day in profile["working_days"]],
+        profile.get("seasonal_variation"),
+        profile.get("noise_level"),
+        profile.get("weekend_factor"),
+        profile.get("shift_pattern", False),
+        profile["site_id"],
+    )
+
+
+#Insère les nouveaux profils de référence et met à jour uniquement les profils modifiés.
+#Le résultat est le nombre de profils insérés ou modifiés ; identiques ou sans site en base : ignorés.
+#Le lot est validé en une transaction, annulée entièrement en cas d'erreur (ex. CHECK).
+def load_site_profiles(
+    profiles: Sequence[Mapping[str, Any]],
+    database_url: str | None = None,
+    *,
+    connect_timeout: int = 10,
+) -> int:
+    if not profiles:
+        return 0
+
+    connection_url = (
+        database_url if database_url is not None else os.environ.get("DATABASE_URL", "")
+    ).strip()
+    if not connection_url:
+        raise ValueError("Renseigner DATABASE_URL ou passer une URL à load_site_profiles.")
+
+    rows = [_site_profile_row(profile) for profile in profiles]
+
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection:
+        with connection.cursor() as cursor:
+            cursor.executemany(_UPSERT_SITE_PROFILE, rows)
+            return cursor.rowcount
+
+
 _INSERT_ALERT = """
     INSERT INTO alerts (
         alert_id, "timestamp", site_id, severity, type, message, value, threshold
