@@ -1,0 +1,63 @@
+name: ETL Worker CI
+
+on:
+  workflow_call:
+    secrets:
+      SONAR_TOKEN_ETL_WORKER:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Lint, test, build, Sonar
+    runs-on: ubuntu-26.04
+    defaults:
+      run:
+        working-directory: app/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Configuration Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: services/etl-worker/pyproject.toml
+
+      - name: Cache des paquets SonarQube
+        uses: actions/cache@v6
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Installation dépendances
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff pytest pytest-cov hatchling build
+          pip install -e .
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: |
+          python -m pytest --cov=src --cov-report=xml:coverage.xml --cov-report=term tests/
+
+      - name: Build
+        run: python -m build
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v8
+        with:
+          projectBaseDir: service/etl-worker
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_ETL_WORKER }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
