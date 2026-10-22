@@ -2,67 +2,126 @@
 
 import argparse
 import base64
-from collections.abc import Sequence
-from datetime import datetime, timedelta, timezone
-from importlib.resources import files
 import json
 import os
+from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
+from importlib.resources import files
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+_ALERT_FIELDS = frozenset({
+    "alert_id", "timestamp", "site_id", "severity",
+    "type", "message", "value", "threshold",
+})
 
-# En-têtes communs ; authentification Basic si ENERGY_API_USERNAME est renseigné.
+
+# --- Helpers communs -------------------------------------------------------
+
 def _api_headers() -> dict[str, str]:
+    """En-têtes communs ; authentification Basic si ENERGY_API_USERNAME est renseigné."""
     headers = {"Accept": "application/json"}
     username = os.environ.get("ENERGY_API_USERNAME", "")
     if username:
         password = os.environ.get("ENERGY_API_PASSWORD", "")
-        token = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+        token = base64.b64encode(f"{username}:{password}".encode()).decode("ascii")
         headers["Authorization"] = f"Basic {token}"
     return headers
 
-#Permet d'extraire les différents sites 
-#Les erreurs HTTP, réseau et de décodage JSON remontent à l'appelant
-#Une réponse qui n'est pas une liste d'objets JSON lève ValueError.
+
+def _resolve_base_url(base_url: str | None, caller: str) -> str:
+    url = base_url if base_url is not None else os.environ.get("ENERGY_API_BASE_URL", "")
+    url = url.strip().rstrip("/")
+    if not url:
+        raise ValueError(f"Renseigner ENERGY_API_BASE_URL ou passer une URL à {caller}.")
+    return url
+
+
+def _get_json(base_url: str, path: str, timeout: float, params: dict[str, Any] | None = None) -> Any:
+    """GET JSON ; les erreurs HTTP, réseau et de décodage remontent à l'appelant."""
+    url = f"{base_url}{path}"
+    if params:
+        url = f"{url}?{urlencode(params)}"
+    with urlopen(Request(url, headers=_api_headers()), timeout=timeout) as response:
+        return json.load(response)
+
+
+def _require_list_of_dicts(data: Any, message: str) -> list[dict[str, Any]]:
+    if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
+        raise ValueError(message)
+    return data
+
+
+# --- Sites et profils ------------------------------------------------------
+
 def extract_sites(
     base_url: str | None = None, *, timeout: float = 10.0
 ) -> list[dict[str, Any]]:
-    api_base_url = (
-        base_url if base_url is not None else os.environ.get("ENERGY_API_BASE_URL", "")
-    ).strip().rstrip("/")
-    if not api_base_url:
-        raise ValueError(
-            "Renseigner ENERGY_API_BASE_URL ou passer une URL à extract_sites."
-        )
-
-    request = Request(
-        f"{api_base_url}/api/v1/sites", headers=_api_headers()
+    """Récupère les sites. Une réponse qui n'est pas une liste d'objets JSON lève ValueError."""
+    api_base_url = _resolve_base_url(base_url, "extract_sites")
+    return _require_list_of_dicts(
+        _get_json(api_base_url, "/api/v1/sites", timeout),
+        "La réponse de /api/v1/sites doit être une liste d'objets JSON.",
     )
-    with urlopen(request, timeout=timeout) as response:
-        sites = json.load(response)
 
-    if not isinstance(sites, list) or not all(isinstance(site, dict) for site in sites):
+
+def read_site_profiles() -> list[dict[str, Any]]:
+    """Lit les profils de référence livrés avec le paquet (data/site_profiles.json).
+
+    Source : clé « profile » des fichiers *_metadata.json du jeu de données (pas d'endpoint API).
+    Le format source est conservé (jours 0 = lundi, working_hours [début, fin]) ; load les convertit.
+    """
+    content = files("etl_worker").joinpath("data/site_profiles.json").read_text(encoding="utf-8")
+    return _require_list_of_dicts(
+        json.loads(content), "site_profiles.json doit être une liste d'objets JSON."
+    )
+
+
+# --- Mesures ---------------------------------------------------------------
+
+def _reading_window(end_time: datetime | None) -> tuple[datetime, datetime]:
+    """Fenêtre d'une minute en UTC ; l'heure courante n'est lue qu'une fois pour le lot."""
+    reference = end_time if end_time is not None else datetime.now(UTC)
+    if reference.utcoffset() is None:
+        raise ValueError("end_time doit comporter un fuseau horaire.")
+    window_end = reference.astimezone(UTC).replace(second=0, microsecond=0)
+    return window_end - timedelta(minutes=1), window_end
+
+
+def _validate_reading(reading: dict[str, Any], site_id: str, window_start: datetime) -> None:
+    if reading.get("site_id") != site_id:
+        raise ValueError(f"La mesure reçue ne correspond pas au site {site_id}.")
+    try:
+        measured_at = datetime.fromisoformat(reading.get("timestamp"))
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"Timestamp invalide pour le site {site_id}.") from error
+    if measured_at.utcoffset() is None or measured_at != window_start:
         raise ValueError(
-            "La réponse de /api/v1/sites doit être une liste d'objets JSON."
+            f"Timestamp inattendu pour {site_id} : {window_start.isoformat()} attendu."
         )
 
-    return sites
+
+def _fetch_reading(
+    base_url: str, site_id: str, start: datetime, end: datetime, timeout: float
+) -> dict[str, Any]:
+    payload = _get_json(
+        base_url,
+        "/api/v1/readings",
+        timeout,
+        params={
+            "site_id": site_id,
+            "start_time": start.isoformat(),
+            "end_time": end.isoformat(),
+            "limit": 1,
+        },
+    )
+    if not isinstance(payload, list) or len(payload) != 1 or not isinstance(payload[0], dict):
+        raise ValueError(f"Une seule mesure est attendue pour le site {site_id}.")
+    _validate_reading(payload[0], site_id, start)
+    return payload[0]
 
 
-#Lit les profils de référence des sites, livrés avec le paquet (data/site_profiles.json).
-#Source : clé « profile » des fichiers *_metadata.json du jeu de données (pas d'endpoint API).
-#Le format source est conservé (jours 0 = lundi, working_hours [début, fin]) ; load les convertit.
-def read_site_profiles() -> list[dict[str, Any]]:
-    content = files("etl_worker").joinpath("data/site_profiles.json").read_text(encoding="utf-8")
-    profiles = json.loads(content)
-    if not isinstance(profiles, list) or not all(isinstance(profile, dict) for profile in profiles):
-        raise ValueError("site_profiles.json doit être une liste d'objets JSON.")
-    return profiles
-
-
-# Extrait la dernière minute terminée, avec la même fenêtre pour tous les sites.
-# Les mesures sont conservées telles quelles ; un lot incomplet ou mal aligné échoue.
 def extract_readings(
     site_ids: Sequence[str],
     base_url: str | None = None,
@@ -75,101 +134,36 @@ def extract_readings(
     end_time est arrondi au début de sa minute ; la fenêtre couvre la minute
     précédente. Sans end_time, l'heure UTC est lue une seule fois pour le lot.
     Un end_time explicite doit comporter un fuseau horaire.
+    Les mesures sont conservées telles quelles ; un lot incomplet ou mal aligné échoue.
     """
     if not site_ids:
         return []
 
-    api_base_url = (
-        base_url if base_url is not None else os.environ.get("ENERGY_API_BASE_URL", "")
-    ).strip().rstrip("/")
-    if not api_base_url:
-        raise ValueError(
-            "Renseigner ENERGY_API_BASE_URL ou passer une URL à extract_readings."
-        )
-
-    reference = end_time if end_time is not None else datetime.now(timezone.utc)
-    if reference.utcoffset() is None:
-        raise ValueError("end_time doit comporter un fuseau horaire.")
-    window_end = reference.astimezone(timezone.utc).replace(second=0, microsecond=0)
-    window_start = window_end - timedelta(minutes=1)
-
-    readings = []
-    for site_id in site_ids:
-        query = urlencode(
-            {
-                "site_id": site_id,
-                "start_time": window_start.isoformat(),
-                "end_time": window_end.isoformat(),
-                "limit": 1,
-            }
-        )
-        request = Request(
-            f"{api_base_url}/api/v1/readings?{query}",
-            headers=_api_headers(),
-        )
-        with urlopen(request, timeout=timeout) as response:
-            payload = json.load(response)
-
-        if (
-            not isinstance(payload, list)
-            or len(payload) != 1
-            or not isinstance(payload[0], dict)
-        ):
-            raise ValueError(f"Une seule mesure est attendue pour le site {site_id}.")
-
-        reading = payload[0]
-        if reading.get("site_id") != site_id:
-            raise ValueError(f"La mesure reçue ne correspond pas au site {site_id}.")
-        timestamp = reading.get("timestamp")
-        try:
-            measured_at = datetime.fromisoformat(timestamp)
-        except (TypeError, ValueError) as error:
-            raise ValueError(f"Timestamp invalide pour le site {site_id}.") from error
-        if measured_at.utcoffset() is None or measured_at != window_start:
-            raise ValueError(
-                f"Timestamp inattendu pour {site_id} : {window_start.isoformat()} attendu."
-            )
-
-        readings.append(reading)
-
-    return readings
+    api_base_url = _resolve_base_url(base_url, "extract_readings")
+    window_start, window_end = _reading_window(end_time)
+    return [
+        _fetch_reading(api_base_url, site_id, window_start, window_end, timeout)
+        for site_id in site_ids
+    ]
 
 
-_ALERT_FIELDS = frozenset({
-    "alert_id", "timestamp", "site_id", "severity",
-    "type", "message", "value", "threshold",
-})
+# --- Alertes ---------------------------------------------------------------
 
-#Récupère toutes les alertes actives
 def extract_alerts(
     base_url: str | None = None, *, timeout: float = 10.0
 ) -> list[dict[str, Any]]:
-
-    api_base_url = (
-        base_url if base_url is not None else os.environ.get("ENERGY_API_BASE_URL", "")
-    ).strip().rstrip("/")
-    if not api_base_url:
-        raise ValueError(
-            "Renseigner ENERGY_API_BASE_URL ou passer une URL à extract_alerts."
-        )
-
-    request = Request(
-        f"{api_base_url}/api/v1/alerts", headers=_api_headers()
+    """Récupère toutes les alertes actives."""
+    api_base_url = _resolve_base_url(base_url, "extract_alerts")
+    alerts = _require_list_of_dicts(
+        _get_json(api_base_url, "/api/v1/alerts", timeout),
+        "La réponse de /api/v1/alerts doit être une liste d'objets JSON.",
     )
-    with urlopen(request, timeout=timeout) as response:
-        alerts = json.load(response)
-
-    if not isinstance(alerts, list) or not all(isinstance(alert, dict) for alert in alerts):
-        raise ValueError(
-            "La réponse de /api/v1/alerts doit être une liste d'objets JSON."
-        )
     for alert in alerts:
         missing = _ALERT_FIELDS.difference(alert)
         if missing:
             raise ValueError(
                 f"Champs manquants dans une alerte : {', '.join(sorted(missing))}."
             )
-
     return alerts
 
 

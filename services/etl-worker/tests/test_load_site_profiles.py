@@ -18,7 +18,6 @@ from psycopg.rows import dict_row
 from etl_worker.extract import read_site_profiles
 from etl_worker.load import _site_profile_row, load_site_profiles
 
-
 # Format source : jours 0 = lundi, working_hours [début, fin].
 PROFILE = {
     "site_id": "SITE001",
@@ -89,11 +88,10 @@ class ShippedSiteProfilesTests(unittest.TestCase):
         )
 
     def test_every_profile_converts(self):
-        for profile in read_site_profiles():
-            with self.subTest(site_id=profile["site_id"]):
-                row = _site_profile_row(profile)
-                self.assertTrue(set(row[5]) <= set(range(1, 8)))
-
+            for profile in read_site_profiles():
+                with self.subTest(site_id=profile["site_id"]):
+                    row = _site_profile_row(profile)
+                    self.assertLessEqual(set(row[5]), set(range(1, 8)))
 
 class LoadSiteProfilesConfigurationTests(unittest.TestCase):
     @patch("etl_worker.load.psycopg.connect")
