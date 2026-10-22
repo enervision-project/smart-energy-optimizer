@@ -16,7 +16,7 @@ concurrency:
 jobs:
   release:
     name: Version and release notes
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write       # créer le tag et la release
       issues: write         # commenter les issues résolues
