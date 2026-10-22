@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 from etl_worker.__main__ import main
 
-
 PROFILES = [{"site_id": "SITE001"}]
 
 

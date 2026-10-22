@@ -209,10 +209,9 @@ def load_site_profiles(
 
     rows = [_site_profile_row(profile) for profile in profiles]
 
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection:
-        with connection.cursor() as cursor:
-            cursor.executemany(_UPSERT_SITE_PROFILE, rows)
-            return cursor.rowcount
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+        cursor.executemany(_UPSERT_SITE_PROFILE, rows)
+        return cursor.rowcount
 
 
 _INSERT_ALERT = """
