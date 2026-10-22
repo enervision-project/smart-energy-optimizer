@@ -218,15 +218,14 @@ Où vivent les valeurs selon l'environnement :
 | Tests unitaires | Surefire | Classes `*Test` |
 | Tests d'intégration | Failsafe | Classes `*IT` (Testcontainers : Docker requis) |
 | Formatage | Spotless (formateur Eclipse, profil [`eclipse-formatter.xml`](eclipse-formatter.xml)) | Tabulations, 120 colonnes, retours à la ligne écrits à la main conservés |
-| Couverture | JaCoCo | 70 % des lignes minimum **par module** (`jacoco.minimum.coverage`) |
 
 Le code sans logique à tester est exclu de la couverture : `Application`, `config/`, `*Config`, `*Properties`, `dto/`, `entity/`, `exception/`. La liste est en double dans le `pom.xml` (excludes JaCoCo et `sonar.coverage.exclusions`) : les garder identiques.
 
-Chaque module écrit son rapport de couverture dans `<module>/target/site/jacoco/` (HTML `index.html`, et `jacoco.xml` lu par Sonar). Seuls les tests d'un module comptent pour sa couverture.
+La couverture est mesurée par JaCoCo mais ne fait pas échouer `verify` : le minimum est imposé par la quality gate SonarCloud (80 % sur le nouveau code de chaque PR). Chaque module écrit son rapport dans `<module>/target/site/jacoco/` (HTML `index.html`, et `jacoco.xml` lu par Sonar). Seuls les tests d'un module comptent pour sa couverture.
 
 ### CI
 
-À chaque PR qui modifie `services/core-api/` ou `infra/db/changelog/`, le workflow [`_ci-core-api.yml`](../../.github/workflows/_ci-core-api.yml) (appelé par `ci.yml`) lance `./mvnw verify`, puis l'analyse SonarCloud (projet `enervision-project_smart-energy-optimizer_core_api`, quality gate sur le nouveau code). L'analyse Sonar est ignorée tant que le secret `SONAR_TOKEN_CORE_API` n'existe pas. En cas d'échec, les rapports de tests sont disponibles en artefact du run.
+À chaque PR qui modifie `services/core-api/` ou `infra/db/changelog/`, le workflow [`_ci-core-api.yml`](../../.github/workflows/_ci-core-api.yml) (appelé par `ci.yml`) lance `./mvnw verify`, puis l'analyse SonarCloud (projet `enervision-project_smart-energy-optimizer_core_api`, quality gate : 80 % de couverture sur le nouveau code). L'analyse Sonar est ignorée tant que le secret `SONAR_TOKEN_CORE_API` n'existe pas. En cas d'échec, les rapports de tests sont disponibles en artefact du run.
 
 ## Ajouter un module
 
