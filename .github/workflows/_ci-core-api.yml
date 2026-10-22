@@ -1,0 +1,81 @@
+name: Core API CI
+
+# Called by ci.yml when services/core-api/ or the Liquibase changelog (the schema Hibernate validates) changes.
+# ./mvnw verify runs the checks configured in services/core-api/pom.xml: unit (*Test) and
+# integration (*IT) tests, Spotless formatting, minimum line coverage per module (JaCoCo, 70%),
+# then SonarCloud analyses the code with each module's coverage report (quality gate on new code).
+
+on:
+  workflow_call:
+    secrets:
+      # optional: the Sonar analysis is skipped until the repository secret exists
+      SONAR_TOKEN_CORE_API:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Format, test, coverage, Sonar
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: services/core-api
+    env:
+      # 'true' or 'false' only: the token itself is passed to the Sonar step alone
+      SONAR_ENABLED: ${{ secrets.SONAR_TOKEN_CORE_API != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # Sonar needs the history (blame, new code)
+
+      - name: Configure Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: services/core-api/**/pom.xml
+
+      - name: Cache SonarQube packages
+        if: env.SONAR_ENABLED == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Format, tests and coverage
+        run: ./mvnw -B -ntp verify
+
+      # one line per module with tests (report written before the coverage check, so also when it fails)
+      - name: Coverage summary
+        if: always() && hashFiles('services/core-api/*/target/site/jacoco/jacoco.csv') != ''
+        run: |
+          echo "### core-api line coverage (minimum 70% per module)" >>"$GITHUB_STEP_SUMMARY"
+          for csv in */target/site/jacoco/jacoco.csv; do
+            awk -F, -v module="${csv%%/*}" 'NR > 1 { missed += $8; covered += $9 }
+              END { total = missed + covered
+                    printf "- %s: %.1f%% (%d/%d)\n", module, total ? 100 * covered / total : 0, covered, total }' "$csv"
+          done >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Test reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: core-api-test-reports
+          path: |
+            services/core-api/*/target/surefire-reports/
+            services/core-api/*/target/failsafe-reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # reuses the classes and reports built by verify (project key and exclusions in pom.xml)
+      - name: SonarQube analysis
+        if: env.SONAR_ENABLED == 'true'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_CORE_API }}
+        run: ./mvnw -B -ntp sonar:sonar

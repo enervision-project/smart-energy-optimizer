@@ -56,6 +56,16 @@
       "enabled": false
     },
     {
+      "groupName": "npm (non-major)",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "maven (non-major)",
+      "matchManagers": ["maven", "maven-wrapper"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
       "matchManagers": ["dockerfile", "docker-compose"],
       "groupName": "Docker (non-major)",
       "matchUpdateTypes": ["minor", "patch", "digest"]

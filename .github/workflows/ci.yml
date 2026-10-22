@@ -11,12 +11,18 @@ permissions:
   contents: read
   pull-requests: read
 
+# a new push on a pull request cancels its previous run; runs on main always finish
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   changes:
     name: Detect changes
     runs-on: ubuntu-24.04
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
+      core-api: ${{ steps.filter.outputs.core-api }}
       terraform: ${{ steps.filter.outputs.terraform }}
       images: ${{ steps.images.outputs.builds || '[]' }}
       etl-worker: ${{ steps.filter.outputs.etl-worker }}
@@ -33,6 +39,11 @@ jobs:
           filters: |
             frontend:
               - 'app/**'
+            # the changelog defines the schema that Hibernate validates
+            core-api:
+              - 'services/core-api/**'
+              - 'infra/db/changelog/**'
+              - '.github/workflows/_ci-core-api.yml'
             # services.json also drives the ECR repositories created by Terraform
             terraform:
               - 'infra/terraform/**'
@@ -56,6 +67,15 @@ jobs:
     uses: ./.github/workflows/_ci-frontend.yml
     secrets:
       SONAR_TOKEN_FRONTEND: ${{ secrets.SONAR_TOKEN_FRONTEND }}
+
+  call-core-api:
+    name: Core API
+    needs: changes
+    # runs when core-api files changed, or on a manual run (like call-frontend)
+    if: ${{ needs.changes.outputs.core-api == 'true' || github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/_ci-core-api.yml
+    secrets:
+      SONAR_TOKEN_CORE_API: ${{ secrets.SONAR_TOKEN_CORE_API }}
 
   call-etl-worker:
     name: ETL Worker
@@ -93,7 +113,7 @@ jobs:
   # Single check to require in the main ruleset: the call-* jobs only
   # exist when their paths changed.
   mr-ok:
-    needs: [changes, call-frontend, call-terraform, call-images, call-etl-worker]
+    needs: [changes, call-frontend, call-core-api, call-terraform, call-images, call-etl-worker]
     # Uniquement sur les Pull Requests
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04

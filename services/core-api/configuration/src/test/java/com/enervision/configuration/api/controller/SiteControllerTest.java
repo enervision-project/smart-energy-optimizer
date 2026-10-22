@@ -62,7 +62,8 @@ class SiteControllerTest {
 	void shouldPassCurrentUser_whenUserRole() throws Exception {
 		// given
 		when(siteService.getSite(new CurrentUser(UUID.fromString(USER_ID), Role.USER), "SITE001")).thenReturn(
-				new SiteResponse("SITE001", "Bureau Paris", "office", "Paris, France", 200, "active", Instant.EPOCH, null));
+				new SiteResponse("SITE001", "Bureau Paris", "office", "Paris, France", 200, "active", Instant.EPOCH,
+						null));
 
 		// when / then
 		mockMvc.perform(get("/api/v1/sites/SITE001"))

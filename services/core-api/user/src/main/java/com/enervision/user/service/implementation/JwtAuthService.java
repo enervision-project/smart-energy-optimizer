@@ -28,7 +28,8 @@ class JwtAuthService implements AuthService {
 	public TokenResponse login(LoginRequest request) {
 		String email = normalizeEmail(request.email());
 		// throws BadCredentialsException if the email or password is wrong
-		authenticationManager.authenticate(UsernamePasswordAuthenticationToken.unauthenticated(email, request.password()));
+		authenticationManager
+			.authenticate(UsernamePasswordAuthenticationToken.unauthenticated(email, request.password()));
 		User user = userRepository.findByEmail(email)
 			.orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 		return tokenService.generateToken(user);

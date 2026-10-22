@@ -30,8 +30,8 @@ class DefaultSiteService implements SiteService {
 	@Override
 	public List<SiteSummaryResponse> getSites(CurrentUser user) {
 		List<Site> sites = user.isAdmin()
-			? siteRepository.findAllByOrderBySiteIdAsc()
-			: siteRepository.findAllVisibleBy(user.id());
+				? siteRepository.findAllByOrderBySiteIdAsc()
+				: siteRepository.findAllVisibleBy(user.id());
 		return sites.stream()
 			.map(siteMapper::toSummaryResponse)
 			.toList();
