@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Eclipse formatter profile used by Spotless (pom.xml). Only the settings that differ
-     from the Eclipse defaults (tabs, 120 columns): keep the line breaks written by hand
-     (fluent chains, record components, enum constants) and leave comments untouched. -->
+<!-- Eclipse formatter profile used by Spotless -->
 <profiles version="23">
 	<profile kind="CodeFormatterProfile" name="enervision" version="23">
 		<setting id="org.eclipse.jdt.core.formatter.tabulation.char" value="tab"/>
@@ -10,7 +8,7 @@
 		<setting id="org.eclipse.jdt.core.formatter.continuation_indentation" value="2"/>
 		<!-- one enum constant per line -->
 		<setting id="org.eclipse.jdt.core.formatter.alignment_for_enum_constants" value="49"/>
-		<!-- fluent chains: one indentation, wrapped arguments and parameters: two (continuation) -->
+		<!-- fluent chains: one indentation, wrapped arguments and parameters -->
 		<setting id="org.eclipse.jdt.core.formatter.alignment_for_selector_in_method_invocation" value="20"/>
 		<setting id="org.eclipse.jdt.core.formatter.comment.format_javadoc_comments" value="false"/>
 		<setting id="org.eclipse.jdt.core.formatter.comment.format_block_comments" value="false"/>
