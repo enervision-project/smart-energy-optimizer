@@ -21,6 +21,13 @@
     },
     "db": {
       "paths": ["infra/db/"]
+    },
+    "mlflow": {
+      "paths": ["services/ml-service/mlflow/"],
+      "build": {
+        "context": "services/ml-service/mlflow",
+        "dockerfile": "services/ml-service/mlflow/Dockerfile"
+      }
     }
   }
 }

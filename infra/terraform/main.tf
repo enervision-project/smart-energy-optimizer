@@ -4,7 +4,8 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  name = "enervision"
+  name                    = "enervision"
+  mlflow_artifacts_prefix = "mlflow/artifacts"
   # services avec une image à construire : un dépôt ECR chacun
   services = jsondecode(file("${path.module}/../../.github/services.json")).services
   images   = [for k, s in local.services : k if contains(keys(s), "build")]
@@ -203,6 +204,12 @@ resource "random_password" "db" {
   special = false # pas de $ ni de caractères à échapper dans .env / l'URL
 }
 
+# Compte PostgreSQL dedie a MLflow ; aucune valeur locale reutilisee en production.
+resource "random_password" "mlflow_db" {
+  length  = 32
+  special = false
+}
+
 # clé HMAC de core-api : 32 octets aléatoires, encodés en Base64 (format attendu par l'API)
 resource "random_bytes" "jwt" {
   length = 32
@@ -212,17 +219,21 @@ locals {
   db_user = "enervision"
   db_name = "enervision"
   env = merge(var.app_env, {
-    POSTGRES_USER       = local.db_user
-    POSTGRES_PASSWORD   = random_password.db.result
-    POSTGRES_DB         = local.db_name
-    DATABASE_URL        = "postgresql://${local.db_user}:${random_password.db.result}@db:5432/${local.db_name}"
-    ENERGY_API_BASE_URL = var.energy_api_base_url
-    ENERGY_API_USERNAME = var.energy_api_username
-    ENERGY_API_PASSWORD = var.energy_api_password
-    BRONZE_BUCKET       = aws_s3_bucket.datalake.bucket
-    AWS_DEFAULT_REGION  = var.region
-    DOMAIN              = var.domain
-    JWT_SECRET          = random_bytes.jwt.base64
+    POSTGRES_USER                = local.db_user
+    POSTGRES_PASSWORD            = random_password.db.result
+    POSTGRES_DB                  = local.db_name
+    DATABASE_URL                 = "postgresql://${local.db_user}:${random_password.db.result}@db:5432/${local.db_name}"
+    ENERGY_API_BASE_URL          = var.energy_api_base_url
+    ENERGY_API_USERNAME          = var.energy_api_username
+    ENERGY_API_PASSWORD          = var.energy_api_password
+    BRONZE_BUCKET                = aws_s3_bucket.datalake.bucket
+    AWS_DEFAULT_REGION           = var.region
+    DOMAIN                       = var.domain
+    JWT_SECRET                   = random_bytes.jwt.base64
+    MLFLOW_DB_NAME               = "mlflow"
+    MLFLOW_DB_USER               = "mlflow"
+    MLFLOW_DB_PASSWORD           = random_password.mlflow_db.result
+    MLFLOW_ARTIFACTS_DESTINATION = "s3://${aws_s3_bucket.datalake.bucket}/${local.mlflow_artifacts_prefix}"
   })
 }
 

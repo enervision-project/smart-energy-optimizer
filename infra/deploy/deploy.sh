@@ -36,13 +36,24 @@ aws ecr get-login-password | docker login --username AWS --password-stdin "$regi
 compose=(docker compose -f compose.yaml -f compose.prod.yaml --env-file .env --env-file deploy.env)
 # Le scheduler utilise la même image et le même tag que le worker ponctuel.
 deploy_services=()
+check_mlflow=false
 for svc in "$@"; do
   case "$svc" in
     etl-worker) deploy_services+=(scheduler) ;;
+    mlflow) deploy_services+=(mlflow); check_mlflow=true ;;
     *) deploy_services+=("$svc") ;;
   esac
 done
 "${compose[@]}" pull "${deploy_services[@]}"
-"${compose[@]}" up -d --no-build --remove-orphans "${deploy_services[@]}"
+up_options=(-d --no-build --remove-orphans)
+if "$check_mlflow"; then
+  # mlflow-init doit reussir et le serveur etre sain avant le test S3.
+  up_options+=(--wait --wait-timeout 180)
+fi
+"${compose[@]}" up "${up_options[@]}" "${deploy_services[@]}"
+if "$check_mlflow"; then
+  # Parametre, metrique et aller-retour d'un fichier via le serveur vers S3.
+  "${compose[@]}" exec -T mlflow python smoke_test.py
+fi
 docker image prune -f
 "${compose[@]}" ps

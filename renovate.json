@@ -1,35 +1,59 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
   "timezone": "Europe/Paris",
   "schedule": ["before 6am"],
   "minimumReleaseAge": "3 days",
   "prConcurrentLimit": 5,
   "vulnerabilityAlerts": { "schedule": ["at any time"] },
-
   "packageRules": [
     {
-      "groupName": "angular (major)",
-      "matchManagers": ["npm"],
-      "matchPackageNames": ["@angular/**", "@angular-devkit/**", "@schematics/angular", "angular-eslint", "@angular-eslint/**", "ng-packagr"],
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true
     },
     {
-      "groupName": "angular (non-major)",
-      "matchManagers": ["npm"],
-      "matchPackageNames": ["@angular/**", "@angular-devkit/**", "@schematics/angular", "angular-eslint", "@angular-eslint/**", "ng-packagr"],
-      "matchUpdateTypes": ["minor", "patch"]
-    },
-    {
-      "matchPackageNames": ["typescript"],
-      "matchUpdateTypes": ["major", "minor"],
+      "matchManagers": ["maven"],
+      "matchPackageNames": ["com.enervision:**"],
       "enabled": false
     },
     {
       "groupName": "npm (non-major)",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "groupName": "angular (major)",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "@angular/**",
+        "@angular-devkit/**",
+        "@schematics/angular",
+        "angular-eslint",
+        "@angular-eslint/**",
+        "ng-packagr"
+      ],
+      "matchUpdateTypes": ["major"]
+    },
+    {
+      "groupName": "angular (non-major)",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "@angular/**",
+        "@angular-devkit/**",
+        "@schematics/angular",
+        "angular-eslint",
+        "@angular-eslint/**",
+        "ng-packagr"
+      ],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "matchPackageNames": ["typescript"],
+      "matchUpdateTypes": ["major", "minor"],
+      "enabled": false
     },
     {
       "matchManagers": ["dockerfile", "docker-compose"],
@@ -45,10 +69,6 @@
       "matchManagers": ["terraform"],
       "groupName": "Terraform (non-major)",
       "matchUpdateTypes": ["minor", "patch"]
-    },
-    {
-      "matchUpdateTypes": ["major"],
-      "dependencyDashboardApproval": true
     }
   ]
 }
