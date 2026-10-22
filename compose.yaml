@@ -94,6 +94,8 @@ services:
       MLFLOW_TRACKING_URI: http://127.0.0.1:5000
       MLFLOW_SQLALCHEMYSTORE_POOL_SIZE: "2"
       MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW: "2"
+      # sans ça, MLflow 3.17 lance 7 workers de jobs (~1,6 Go) : OOM sur l'EC2
+      MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
     ports:
       - "127.0.0.1:${MLFLOW_PORT:-5000}:5000"
     volumes:
