@@ -15,6 +15,10 @@
       "paths": ["app/web/"],
       "build": { "context": "app/web", "dockerfile": "app/web/Dockerfile" }
     },
+    "core-api": {
+      "paths": ["services/core-api/"],
+      "build": { "context": ".", "dockerfile": "services/core-api/Dockerfile" }
+    },
     "etl-worker": {
       "paths": ["services/etl-worker/"],
       "build": { "context": ".", "dockerfile": "services/etl-worker/Dockerfile" }
