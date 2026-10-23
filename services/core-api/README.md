@@ -152,6 +152,10 @@ Authentification **stateless par jeton JWT** (Bearer, signé en HS256), avec Spr
 
 Les appels authentifiés envoient l'en-tête `Authorization: Bearer <accessToken>`. Le jeton contient l'id de l'utilisateur (`sub`), son email et ses rôles (`roles`). La doc interactive est sur http://localhost:8080/swagger-ui.html (bouton « Authorize »).
 
+### Premier compte
+
+Il n'y a pas d'inscription : au démarrage, tant que la table `users` est vide, l'API crée un compte `ADMIN` à partir de `ADMIN_EMAIL` et `ADMIN_PASSWORD` (12 caractères minimum ; `.env` en local, SSM `/enervision/prod/env/` en production, valeurs générées par Terraform). `ADMIN_EMAIL` vide : aucun compte n'est créé. Une fois un utilisateur en base, ces variables n'ont plus d'effet.
+
 ### Rôles
 
 `USER` et `ADMIN` (enum `Role`, module `common`), exposés à Spring Security sous la forme `ROLE_USER` / `ROLE_ADMIN` (`Role.authority()`). Pour restreindre un endpoint aux administrateurs, utiliser la méta-annotation `@AdminOnly` (`com.enervision.common.security`) plutôt qu'un `@PreAuthorize("hasRole('ADMIN')")` écrit à la main :

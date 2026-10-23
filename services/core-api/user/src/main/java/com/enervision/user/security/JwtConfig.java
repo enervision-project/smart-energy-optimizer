@@ -31,7 +31,7 @@ import java.util.Base64;
  * {@link JwtAuthenticationConverter} beans used by the global security filter chain (application module).
  */
 @Configuration
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, InitialAdminProperties.class})
 class JwtConfig {
 
 	private static final int MIN_SECRET_BYTES = 32;

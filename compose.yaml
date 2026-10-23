@@ -54,6 +54,9 @@ services:
       # secret obligatoire : compose refuse de démarrer si JWT_SECRET est absent du .env
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET doit être défini dans .env}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-1h}
+      # premier compte ADMIN, créé au démarrage tant que la table users est vide (facultatif)
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:

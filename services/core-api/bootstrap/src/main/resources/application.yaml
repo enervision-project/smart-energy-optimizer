@@ -33,3 +33,8 @@ enervision:
       secret: ${JWT_SECRET:}
       expiration: ${JWT_EXPIRATION:1h}
       issuer: enervision-core-api
+    # First ADMIN account, created at startup only while the users table is empty (password: 12 characters min).
+    # Empty email: no account is created.
+    initial-admin:
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}

@@ -210,6 +210,13 @@ resource "random_password" "mlflow_db" {
   special = false
 }
 
+# mot de passe du premier ADMIN de core-api (créé au démarrage tant que la table users est vide)
+# lecture : aws ssm get-parameter --with-decryption --name /enervision/prod/env/ADMIN_PASSWORD
+resource "random_password" "admin" {
+  length  = 24
+  special = false
+}
+
 # clé HMAC de core-api : 32 octets aléatoires, encodés en Base64 (format attendu par l'API)
 resource "random_bytes" "jwt" {
   length = 32
@@ -229,6 +236,8 @@ locals {
     AWS_DEFAULT_REGION           = var.region
     DOMAIN                       = var.domain
     JWT_SECRET                   = random_bytes.jwt.base64
+    ADMIN_EMAIL                  = "admin@${var.domain}"
+    ADMIN_PASSWORD               = random_password.admin.result
     MLFLOW_DB_NAME               = "mlflow"
     MLFLOW_DB_USER               = "mlflow"
     MLFLOW_DB_PASSWORD           = random_password.mlflow_db.result
