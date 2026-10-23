@@ -29,3 +29,38 @@ services:
         read_only: true
         bind:
           create_host_path: false
+
+  ml-prepare:
+    image: enervision-ml-trainer:local
+    build:
+      context: services/ml-service
+      dockerfile: Dockerfile.training
+    profiles: ["preparation"]
+    entrypoint: ["python", "-m", "training.prepare_data"]
+    command:
+      - --source
+      - /raw/all_sites_combined.csv
+      - --metadata-dir
+      - /raw/metadata
+      - --output-dir
+      - /output
+    cpus: 2.0
+    mem_limit: 2g
+    volumes:
+      - type: bind
+        source: ./.data/ml/raw/all_sites_combined.csv
+        target: /raw/all_sites_combined.csv
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.data/ml/raw/metadata
+        target: /raw/metadata
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.data/ml/splits
+        target: /output
+        bind:
+          create_host_path: false
