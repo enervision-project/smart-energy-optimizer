@@ -28,3 +28,29 @@ def test_load_corrupted_model(model_dir, tmp_path):
     (tmp_path / META_FILE).write_bytes((model_dir / META_FILE).read_bytes())
     with pytest.raises(ModelLoadError):
         load_predictor(tmp_path)
+
+
+def test_load_sklearn_predictor(sklearn_model_dir, payload):
+    from prediction_service.schemas import PredictRequest
+
+    predictor = load_predictor(sklearn_model_dir)
+    assert predictor.version == "sk-1"
+    assert predictor.site_codes == {"SITE001": 0, "SITE002": 1}
+    # lags et température absents : valeurs manquantes gérées nativement
+    value = predictor.predict(PredictRequest(**{**payload, "lag_24h": None, "lag_168h": None}))
+    assert value == pytest.approx(value)
+
+
+def test_load_unknown_format(model_dir, tmp_path):
+    (tmp_path / META_FILE).write_text(
+        json.dumps({"version": "x", "site_ids": [], "format": "onnx"})
+    )
+    with pytest.raises(ModelLoadError):
+        load_predictor(tmp_path)
+
+
+def test_load_sklearn_missing_file(tmp_path):
+    meta = {"version": "x", "site_ids": ["SITE001"], "format": "sklearn", "features": ["hour"]}
+    (tmp_path / META_FILE).write_text(json.dumps(meta))
+    with pytest.raises(ModelLoadError):
+        load_predictor(tmp_path)

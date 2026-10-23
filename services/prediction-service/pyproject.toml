@@ -1,12 +1,15 @@
 [project]
 name = "enervision-prediction-service"
 version = "0.1.0"
-description = "API de prédiction EnerVision (modèle XGBoost)"
+description = "API de prédiction EnerVision (modèle XGBoost ou scikit-learn)"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.115,<1",
     "numpy>=2,<3",
+    "pandas>=3,<4",
     "pydantic-settings>=2.6,<3",
+    # version figée : celle de l'entraînement (requirements-training.txt), le pickle en dépend
+    "scikit-learn==1.9.1",
     "uvicorn>=0.32,<1",
     "xgboost>=2.1,<4",
 ]
