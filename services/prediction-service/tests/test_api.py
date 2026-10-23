@@ -102,3 +102,19 @@ def test_docs_can_be_disabled(monkeypatch, model_dir):
         assert c.get("/docs").status_code == 404
         assert c.get("/openapi.json").status_code == 404
     get_settings.cache_clear()
+
+
+def test_predict_with_sklearn_model(monkeypatch, sklearn_model_dir, payload):
+    from fastapi.testclient import TestClient
+
+    from prediction_service.main import create_app
+    from prediction_service.settings import get_settings
+
+    monkeypatch.setenv("MODEL_DIR", str(sklearn_model_dir))
+    get_settings.cache_clear()
+    with TestClient(create_app()) as client:
+        assert client.get("/health").json()["model_version"] == "sk-1"
+        response = client.post("/predict", json=payload)
+        assert response.status_code == 200
+        assert client.post("/predict", json={**payload, "site_id": "SITE099"}).status_code == 422
+    get_settings.cache_clear()

@@ -148,12 +148,23 @@ Le répertoire `MODEL_DIR` (`/models`, volume Docker `ml_models`) doit contenir 
 
 | Fichier | Contenu |
 | --- | --- |
-| `model.json` | Booster XGBoost sauvegardé avec `Booster.save_model`, colonnes dans l'ordre ci-dessus |
-| `model_meta.json` | Version du modèle et liste ordonnée des sites |
+| `model.json` ou `model.joblib` | Selon `format` : booster XGBoost (`Booster.save_model`, colonnes dans l'ordre ci-dessus) ou pipeline scikit-learn complet sauvegardé avec `joblib.dump` |
+| `model_meta.json` | Version, format du modèle, liste ordonnée des sites |
+
+`format` vaut `xgboost` (défaut si absent) ou `sklearn`. Pour `sklearn`, `features` liste les colonnes
+reçues par le pipeline (les prétraitements, dont l'encodage du site, sont dans le pipeline) ; les features
+non utilisées par le modèle (par exemple les lags) sont simplement ignorées. Changer de moteur ne demande
+que de déposer d'autres fichiers.
 
 ```json
-{ "version": "2026-10-23", "site_ids": ["SITE001", "SITE002", "SITE003"] }
+{ "version": "2026-10-23-hgb", "format": "sklearn",
+  "features": ["site_id", "hour", "day_of_week", "month", "is_working_hours", "temperature_celsius"],
+  "site_ids": ["SITE001", "SITE002", "SITE003"] }
 ```
+
+Le fichier est produit par `python -m training.export --run-id <id> --out-dir <dossier> --version <v>`
+(service `ml-service`). Le pipeline est un pickle : n'y déposer que des fichiers de confiance, avec la
+même version de scikit-learn que l'entraînement.
 
 !!! warning "Cohérence avec l'entraînement"
     La position d'un site dans `site_ids` doit être exactement la valeur numérique de `site_id` utilisée
