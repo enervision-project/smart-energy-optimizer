@@ -50,6 +50,15 @@ services:
       SPRINGDOC_SWAGGER_UI_ENABLED: "false"
     restart: unless-stopped
 
+  ml-engine:
+    build: !reset null
+    image: ${ECR_REGISTRY}/enervision/ml-engine:${ML_ENGINE_TAG:-latest}
+    # jamais derrière Caddy : seul l'hôte (tunnel SSM) et les autres conteneurs y accèdent
+    mem_limit: 512m
+    environment:
+      ENABLE_DOCS: "false"
+    restart: unless-stopped
+
   etl-worker:
     build: !reset null
     image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}

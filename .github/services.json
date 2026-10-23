@@ -23,6 +23,10 @@
       "paths": ["services/etl-worker/"],
       "build": { "context": ".", "dockerfile": "services/etl-worker/Dockerfile" }
     },
+    "ml-engine": {
+      "paths": ["services/ml-engine/"],
+      "build": { "context": ".", "dockerfile": "services/ml-engine/Dockerfile" }
+    },
     "db": {
       "paths": ["infra/db/"]
     },

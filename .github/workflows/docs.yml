@@ -8,6 +8,8 @@ on:
       - 'mkdocs.yml'
       - 'services/etl-worker/docs/**'
       - 'services/etl-worker/mkdocs.yml'
+      - 'services/ml-engine/docs/**'
+      - 'services/ml-engine/mkdocs.yml'
       - 'services/core-api/docs/**'
       - 'services/core-api/mkdocs.yml'
       - 'app/web/docs/**'
