@@ -90,13 +90,13 @@ class AlertControllerTest {
 
 		// when / then
 		mockMvc.perform(get("/api/v1/alerts")
-				.param("siteId", "SITE002")
-				.param("severity", "high,critical")
-				.param("type", "spike")
-				.param("from", "2026-10-22T08:00:00Z")
-				.param("to", "2026-10-22T12:00:00Z")
-				.param("page", "1")
-				.param("size", "20"))
+			.param("siteId", "SITE002")
+			.param("severity", "high,critical")
+			.param("type", "spike")
+			.param("from", "2026-10-22T08:00:00Z")
+			.param("to", "2026-10-22T12:00:00Z")
+			.param("page", "1")
+			.param("size", "20"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.content").isEmpty());
 	}

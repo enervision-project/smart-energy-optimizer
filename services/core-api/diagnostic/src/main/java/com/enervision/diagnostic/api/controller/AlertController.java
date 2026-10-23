@@ -41,7 +41,8 @@ public class AlertController {
 
 	@GetMapping("/summary")
 	@Operation(summary = "Count the alerts of the last hour per severity")
-	public AlertSummaryResponse getSummary(CurrentUser currentUser, @RequestParam(required = false) @Nullable String siteId) {
+	public AlertSummaryResponse getSummary(CurrentUser currentUser,
+			@RequestParam(required = false) @Nullable String siteId) {
 		return alertService.getSummary(currentUser, siteId);
 	}
 
