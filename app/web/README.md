@@ -1,59 +1,68 @@
-# Web
+# web — front EnerVision
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.3.
+Application Angular 22 (composants standalone, signals, zoneless) : détail d'un site et alertes ; vue du parc et prévisions à venir. Elle consomme l'API de [core-api](../../services/core-api/README.md).
 
-## Development server
+La conception (architecture, connexion) est décrite dans la documentation MkDocs : [`docs/`](docs/index.md).
 
-To start a local development server, run:
+## Lancer en local
 
-```bash
-ng serve
-```
+Deux modes, choisis par `environment.useMock` :
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+| Commande | Données | Connexion | Usage |
+|---|---|---|---|
+| `npm start` | Factices (`MockEnergyApi`) | Désactivée : pas de page de login, toutes les pages accessibles | Développer l'interface sans back |
+| `npm run start:api` | Vraie API core-api sur `localhost:8080`, via [`proxy.conf.json`](proxy.conf.json) | Obligatoire | Tester contre le back : connexion, droits, vraies données |
 
-## Code scaffolding
+Dans les deux cas, l'application est sur http://localhost:4200.
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+Pour `npm run start:api`, démarrer d'abord la base et core-api depuis la racine du dépôt :
 
 ```bash
-ng generate --help
+# .env : JWT_SECRET (openssl rand -base64 32), ADMIN_EMAIL et ADMIN_PASSWORD (12 caractères minimum)
+docker compose up -d --build core-api
 ```
 
-## Building
+Le compte `ADMIN_EMAIL` / `ADMIN_PASSWORD` est créé au démarrage de l'API si la table `users` est vide (voir [Premier compte](../../services/core-api/README.md#premier-compte)).
 
-To build the project run:
+> En production, le front est servi par nginx (image `app/web/Dockerfile`) derrière Caddy, qui envoie `/api/*` à core-api sur le même domaine : pas de CORS, pas de proxy Angular.
+
+## Commandes
 
 ```bash
-ng build
+npm test          # tests unitaires (Vitest)
+npm run lint      # ESLint
+npm run format    # ESLint avec correction automatique
+npx prettier --check src
+npm run build     # build de production dans dist/web
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+La CI (`.github/workflows/ci.yml`) lance lint, tests, build et l'analyse SonarCloud à chaque PR qui modifie `app/web/`.
 
-## Running unit tests
+## Organisation du code
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
+```text
+src/app/
+├── app.ts / app.html        coque : en-tête (utilisateur, déconnexion), menu, badge des alertes
+├── app.routes.ts            routes ; toutes sauf /login passent par authGuard
+├── app.config.ts            providers : routeur, HttpClient + authInterceptor, choix mock / HTTP
+├── core/
+│   ├── models/              interfaces des réponses de l'API (champs en camelCase, comme core-api)
+│   ├── services/
+│   │   ├── api.ts           préfixe des routes (/api/v1)
+│   │   ├── energy-api.ts    contrat d'accès aux données (classe abstraite)
+│   │   ├── http-energy-api.ts   implémentation HTTP (core-api)
+│   │   ├── mock-energy-api.ts   implémentation factice (npm start)
+│   │   └── auth.ts          session : jeton JWT, connexion, déconnexion, utilisateur courant
+│   ├── interceptors/        authInterceptor : jeton sur les appels /api, 401 → page de connexion
+│   ├── guards/              authGuard : pages réservées aux utilisateurs connectés
+│   └── resources/           reloadOnError : relance un rxResource après une erreur
+└── features/                une page par dossier (parc, site, previsions, alertes, login)
 ```
 
-## Running end-to-end tests
+## Conventions
 
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- **Accès aux données** : un composant injecte `EnergyApi`, jamais `HttpClient`. Toute nouvelle route se déclare dans `EnergyApi`, puis s'implémente dans `HttpEnergyApi` **et** `MockEnergyApi` (sinon `npm start` ne compile plus).
+- **Chargement** : `rxResource` ; lire la valeur via `hasValue()` (un `value()` sur une ressource en erreur lève une exception). Pour un rafraîchissement périodique, `timer(0, N)` + `switchMap`, et `reloadOnError` pour que le rafraîchissement reprenne après un échec.
+- **Connexion** : rien à faire dans les pages. L'intercepteur ajoute le jeton à tout appel commençant par `/api/v1` ; une nouvelle route est protégée par le guard dès qu'elle est déclarée dans les `children` de `app.routes.ts`.
+- **Tests** : `TestBed` avec `MockEnergyApi` ou `provideHttpClientTesting()`. En test, l'environnement est celui de développement (`useMock: true`) : fournir `{ provide: AUTH_ENABLED, useValue: true }` pour tester un comportement lié à la connexion.
+- **Textes** : interface et commentaires en français.
