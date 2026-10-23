@@ -23,9 +23,9 @@
       "paths": ["services/etl-worker/"],
       "build": { "context": ".", "dockerfile": "services/etl-worker/Dockerfile" }
     },
-    "ml-engine": {
-      "paths": ["services/ml-engine/"],
-      "build": { "context": ".", "dockerfile": "services/ml-engine/Dockerfile" }
+    "prediction-service": {
+      "paths": ["services/prediction-service/"],
+      "build": { "context": ".", "dockerfile": "services/prediction-service/Dockerfile" }
     },
     "db": {
       "paths": ["infra/db/"]

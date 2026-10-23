@@ -1,7 +1,7 @@
-# ML Engine
+# Prediction Service
 
 Service interne qui sert le modèle de prévision de consommation (XGBoost) en HTTP.
-Il n'est pas exposé publiquement : joignable depuis les autres conteneurs (`http://ml-engine:8000`)
+Il n'est pas exposé publiquement : joignable depuis les autres conteneurs (`http://prediction-service:8000`)
 et, sur l'EC2, via `127.0.0.1:8000` (tunnel SSM).
 
 ## Endpoints
@@ -53,7 +53,7 @@ Le répertoire `MODEL_DIR` (`/models`, volume Docker `ml_models`) contient :
 ## Développement
 
 ```bash
-cd services/ml-engine
+cd services/prediction-service
 pip install -e '.[dev]'
 ruff check . && ruff format --check .
 pytest --cov=src

@@ -60,15 +60,15 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  ml-engine:
-    # API de prédiction (XGBoost) : privée, joignable via ml-engine:8000 ou 127.0.0.1 sur l'hôte.
+  prediction-service:
+    # API de prédiction (XGBoost) : privée, joignable via prediction-service:8000 ou 127.0.0.1 sur l'hôte.
     # Modèle attendu dans /models (model.json + model_meta.json) ; sans modèle, /predict répond 503.
     build:
       context: .
-      dockerfile: services/ml-engine/Dockerfile
-    image: enervision-ml-engine:local
+      dockerfile: services/prediction-service/Dockerfile
+    image: enervision-prediction-service:local
     ports:
-      - "127.0.0.1:${ML_ENGINE_PORT:-8000}:8000"
+      - "127.0.0.1:${PREDICTION_SERVICE_PORT:-8000}:8000"
     volumes:
       - ml_models:/models
     healthcheck:

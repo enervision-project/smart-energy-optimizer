@@ -1,6 +1,6 @@
-# ML Engine
+# Prediction Service
 
-`ml-engine` est le service qui héberge le modèle prédictif de consommation (XGBoost) et l'expose en HTTP.
+`prediction-service` est le service qui héberge le modèle prédictif de consommation (XGBoost) et l'expose en HTTP.
 Dans l'état actuel, il fait **une seule chose** : charger un modèle déjà entraîné et répondre à des
 demandes de prédiction. L'entraînement, le réentraînement et la comparaison avec des modèles challengers
 (via MLflow) ne sont pas encore implémentés.
@@ -14,28 +14,28 @@ demandes de prédiction. L'entraînement, le réentraînement et la comparaison 
 | Valide strictement les entrées | Lecture du modèle depuis le registry MLflow |
 | Reste privé (jamais derrière le proxy public) | Prédiction par lot |
 
-Le code est dans `services/ml-engine/`, l'image Docker est publiée dans ECR sous `enervision/ml-engine`.
+Le code est dans `services/prediction-service/`, l'image Docker est publiée dans ECR sous `enervision/prediction-service`.
 
 ## Place dans l'architecture
 
 ```mermaid
 flowchart LR
     CORE("CORE-API")
-    ML("ML-ENGINE<br/>FastAPI + XGBoost")
+    ML("PREDICTION-SERVICE<br/>FastAPI + XGBoost")
     VOL[("Volume ml_models<br/>/models")]
     PROXY("Proxy Caddy")
     USER("👤 Utilisateur")
 
     USER --> PROXY
     PROXY -->|/api/*| CORE
-    CORE -->|"POST /predict<br/>ml-engine:8000"| ML
+    CORE -->|"POST /predict<br/>prediction-service:8000"| ML
     VOL -->|"model.json<br/>model_meta.json"| ML
     PROXY -. "aucune route" .-> ML
 ```
 
 !!! info "Service privé"
-    Le port `8000` n'est publié que sur `127.0.0.1` de l'hôte. Il n'existe aucune route vers `ml-engine`
-    dans le Caddyfile. Il est joignable par les autres conteneurs (`http://ml-engine:8000`) et, sur l'EC2,
+    Le port `8000` n'est publié que sur `127.0.0.1` de l'hôte. Il n'existe aucune route vers `prediction-service`
+    dans le Caddyfile. Il est joignable par les autres conteneurs (`http://prediction-service:8000`) et, sur l'EC2,
     par un tunnel SSM. Il n'y a pas d'authentification : la protection repose sur ce cloisonnement réseau.
 
 ## Endpoints
@@ -173,11 +173,11 @@ Tant que MLflow est désactivé en production, le modèle se dépose à la main 
 
 ## Déploiement
 
-- **Local** : `docker compose up ml-engine` puis `http://127.0.0.1:8000`.
+- **Local** : `docker compose up prediction-service` puis `http://127.0.0.1:8000`.
 - **Production** : déployé comme les autres services par le workflow *Deploy* (image ECR, SSM).
   Limite mémoire de 512 Mo, Swagger désactivé, aucune route publique.
 - **CI** : lint (`ruff check`, `ruff format --check`), tests `pytest` avec couverture, build du paquet
-  et analyse Sonar (workflow `_ci-ml-engine.yml`).
+  et analyse Sonar (workflow `_ci-prediction-service.yml`).
 
 ## Tester à la main
 

@@ -6,9 +6,9 @@ import pytest
 import xgboost as xgb
 from fastapi.testclient import TestClient
 
-from ml_engine.main import create_app
-from ml_engine.model import FEATURES, META_FILE, MODEL_FILE
-from ml_engine.settings import get_settings
+from prediction_service.main import create_app
+from prediction_service.model import FEATURES, META_FILE, MODEL_FILE
+from prediction_service.settings import get_settings
 
 SITE_IDS = ["SITE_001", "SITE_002"]
 

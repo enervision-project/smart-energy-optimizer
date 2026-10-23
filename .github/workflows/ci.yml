@@ -26,7 +26,7 @@ jobs:
       terraform: ${{ steps.filter.outputs.terraform }}
       images: ${{ steps.images.outputs.builds || '[]' }}
       etl-worker: ${{ steps.filter.outputs.etl-worker }}
-      ml-engine: ${{ steps.filter.outputs.ml-engine }}
+      prediction-service: ${{ steps.filter.outputs.prediction-service }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -51,9 +51,9 @@ jobs:
               - '.github/services.json'
             etl-worker:
               - 'services/etl-worker/**'
-            ml-engine:
-              - 'services/ml-engine/**'
-              - '.github/workflows/_ci-ml-engine.yml'
+            prediction-service:
+              - 'services/prediction-service/**'
+              - '.github/workflows/_ci-prediction-service.yml'
 
       # same selection rules as the deployment (services.yml), against the PR base
       - name: Services with an image to build
@@ -90,14 +90,14 @@ jobs:
     secrets:
       SONAR_TOKEN_ETL_WORKER: ${{ secrets.SONAR_TOKEN_ETL_WORKER }}
 
-  call-ml-engine:
-    name: ML Engine
+  call-prediction-service:
+    name: Prediction Service
     needs: changes
-    # Exécute si 'services/ml-engine' a changé OU si le workflow est lancé manuellement
-    if: ${{ needs.changes.outputs.ml-engine == 'true' || github.event_name == 'workflow_dispatch' }}
-    uses: ./.github/workflows/_ci-ml-engine.yml
+    # Exécute si 'services/prediction-service' a changé OU si le workflow est lancé manuellement
+    if: ${{ needs.changes.outputs.prediction-service == 'true' || github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/_ci-prediction-service.yml
     secrets:
-      SONAR_TOKEN_ML_ENGINE: ${{ secrets.SONAR_TOKEN_ML_ENGINE }}
+      SONAR_TOKEN_PREDICTION_SERVICE: ${{ secrets.SONAR_TOKEN_PREDICTION_SERVICE }}
 
   call-terraform:
     name: Terraform
@@ -122,7 +122,7 @@ jobs:
   # Single check to require in the main ruleset: the call-* jobs only
   # exist when their paths changed.
   mr-ok:
-    needs: [changes, call-frontend, call-core-api, call-terraform, call-images, call-etl-worker, call-ml-engine]
+    needs: [changes, call-frontend, call-core-api, call-terraform, call-images, call-etl-worker, call-prediction-service]
     # Uniquement sur les Pull Requests
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-26.04
