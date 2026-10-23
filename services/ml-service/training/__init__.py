@@ -1,1 +1,1 @@
-"""Entraînements supervisés sur les Parquet préparés par le notebook 01."""
+"""Préparation des données et entraînements supervisés sur les Parquet."""
