@@ -19,6 +19,7 @@ flowchart TD
     APP --> DIAG
     APP --> TELEM
     APP --> CONF
+    DIAG -->|sites visibles| CONF
     USER --> COMMON
     DIAG --> COMMON
     TELEM --> COMMON
@@ -185,7 +186,7 @@ public List<SiteSummaryResponse> getSites(CurrentUser currentUser) {
 
 Un `ADMIN` voit tous les sites. Un `USER` ne voit que les sites qui lui sont attribués dans la table `users_sites` ; un site non attribué répond 404, comme un site inexistant, pour ne pas révéler son existence. Les autres modules vérifient l'accès via `SiteService.canView(currentUser, siteId)` (module `configuration`).
 
-> **Comptes** : il n'y a pas d'inscription. Les utilisateurs sont les membres de l'équipe, créés directement en base, et ont accès à tous les sites (pas d'isolation par utilisateur pour l'instant). Le mot de passe stocké doit porter le préfixe de son encodeur (`DelegatingPasswordEncoder`) : `{bcrypt}$2a$10$…` (recommandé), ou `{noop}motdepasse` en dev uniquement. Sans préfixe, le login échoue.
+> **Comptes** : il n'y a pas d'inscription. Le premier `ADMIN` est créé au démarrage (voir [Premier compte](#premier-compte)) ; les autres comptes se créent pour l'instant directement en base. Le mot de passe stocké doit porter le préfixe de son encodeur (`DelegatingPasswordEncoder`) : `{bcrypt}$2a$10$…` (recommandé), ou `{noop}motdepasse` en dev uniquement. Sans préfixe, le login échoue.
 
 ## Configuration et secrets
 
@@ -198,6 +199,8 @@ Un `ADMIN` voit tous les sites. Un `USER` ne voit que les sites qui lui sont att
 | `SPRING_DATASOURCE_PASSWORD` | **Oui** | aucun | Mot de passe de la base |
 | `JWT_SECRET` | **Oui** | aucun | Clé HMAC encodée en Base64, 32 octets minimum (`openssl rand -base64 32`). Une clé différente par environnement. |
 | `JWT_EXPIRATION` | Non | `1h` | Durée de validité d'un jeton |
+| `ADMIN_EMAIL` | Non | vide | Email du premier `ADMIN`, créé au démarrage si la table `users` est vide ; vide : aucun compte créé |
+| `ADMIN_PASSWORD` | **Oui** | vide | Mot de passe de ce compte, 12 caractères minimum (en production : généré par Terraform, lu dans SSM) |
 
 Où vivent les valeurs selon l'environnement :
 
@@ -240,6 +243,12 @@ La couverture est mesurée par JaCoCo mais ne fait pas échouer `verify` : le mi
 3. L'ajouter comme dépendance dans `bootstrap/pom.xml`.
 4. Lui ajouter la dépendance `common` (utilisateur courant, rôles, `@AdminOnly`).
 5. Placer le code sous `com.enervision.<module>`.
+
+Sécurité des nouveaux endpoints (détails dans [docs/securite.md](docs/securite.md)) :
+
+6. **Authentification** : rien à faire, toute route exige un jeton valide (`SecurityConfig`). Une route publique se déclare explicitement dans `SecurityConfig`.
+7. **Données d'un site** : si l'endpoint renvoie des données liées à un site (mesures, alertes, prédictions…), ajouter la dépendance `configuration`, déclarer un paramètre `CurrentUser` dans le controller et filtrer avec `SiteService` : `canView(user, siteId)` pour un site donné (sinon 404), `getSites(user)` pour une liste. Sans ce filtre, un `USER` verrait tous les sites.
+8. **Réservé aux administrateurs** : annoter la méthode avec `@AdminOnly`.
 
 ## Références
 
