@@ -1,0 +1,6 @@
+*
+!requirements-training.txt
+!training/
+!training/**
+!configs/
+!configs/**

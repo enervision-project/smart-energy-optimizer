@@ -1,0 +1,18 @@
+model: ridge
+experiment: consommation-horaire-parquet-v2
+run_name: Ridge_8_features
+features:
+  - site_id
+  - hour
+  - day_of_week
+  - month
+  - is_working_hours
+  - lag_24h
+  - lag_168h
+  - temperature_celsius
+parameters:
+  alpha: 1000.0
+  fit_intercept: true
+  solver: lsqr
+  tol: 1.0e-8
+  max_iter: 10000
