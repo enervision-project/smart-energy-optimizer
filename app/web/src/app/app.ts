@@ -4,6 +4,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NgOptimizedImage } from '@angular/common';
 import { switchMap, timer } from 'rxjs';
 import { ALERT_REFRESH_MS } from './core/models/alert';
+import { reloadOnError } from './core/resources/reload-on-error';
 import { EnergyApi } from './core/services/energy-api';
 
 @Component({
@@ -31,4 +32,8 @@ export class App {
     const critical = summary.bySeverity.critical > 0;
     return { total: summary.total, critical };
   });
+
+  constructor() {
+    reloadOnError(this.alertSummary, ALERT_REFRESH_MS);
+  }
 }

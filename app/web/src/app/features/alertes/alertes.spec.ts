@@ -42,6 +42,16 @@ describe('Alertes', () => {
     await fixture.whenStable();
   }
 
+  /** Avec des timers simulés : avance le temps, puis laisse se terminer rendu et effets. */
+  async function advance(ms: number): Promise<void> {
+    fixture.detectChanges();
+    await vi.advanceTimersByTimeAsync(ms);
+    for (let i = 0; i < 3; i++) {
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(0);
+    }
+  }
+
   async function render(): Promise<void> {
     fixture = TestBed.createComponent(Alertes);
     await fixture.whenStable();
@@ -150,6 +160,42 @@ describe('Alertes', () => {
 
     await choose('severity', 'high');
     expect(getAlerts).toHaveBeenLastCalledWith(expect.anything(), 0, 20);
+  });
+
+  it('reprend la mise à jour après une erreur', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(api, 'getAlerts').mockReturnValueOnce(throwError(() => new Error('503')));
+    fixture = TestBed.createComponent(Alertes);
+    await advance(0);
+    expect(el().querySelector('[role="alert"]')?.textContent).toContain('Alertes indisponibles');
+
+    await advance(ALERT_REFRESH_MS);
+    expect(el().querySelector('[role="alert"]')).toBeNull();
+    expect(rows().length).toBe(7);
+  });
+
+  it('revient à la dernière page quand la page affichée n’existe plus', async () => {
+    vi.useFakeTimers();
+    let totalPages = 3;
+    const getAlerts = vi.spyOn(api, 'getAlerts').mockImplementation((_filters, page, size) =>
+      of({
+        content: [ALERT],
+        page: { size, number: page, totalElements: totalPages * size, totalPages },
+      }),
+    );
+    fixture = TestBed.createComponent(Alertes);
+    await advance(0);
+    for (let i = 0; i < 2; i++) {
+      [...el().querySelectorAll<HTMLButtonElement>('.pager button')][1].click();
+      await advance(0);
+    }
+    expect(el().querySelector('.pager')?.textContent).toContain('Page 3 sur 3');
+
+    // au rafraîchissement suivant, des alertes sont sorties de la période
+    totalPages = 2;
+    await advance(ALERT_REFRESH_MS);
+    expect(getAlerts).toHaveBeenLastCalledWith(expect.anything(), 1, 20);
+    expect(el().querySelector('.pager')?.textContent).toContain('Page 2 sur 2');
   });
 
   it('signale une API indisponible', async () => {
