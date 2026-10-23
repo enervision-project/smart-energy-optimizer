@@ -1,26 +1,36 @@
-<div class="layout">
+<div class="layout" [class.bare]="onLoginPage()">
   <header class="topbar">
     <img class="brand" ngSrc="asset/logo_long.png" width="480" height="96" alt="EnerVision" />
     <span class="subtitle">Smart Energy Optimizer</span>
+    @if (canLogout()) {
+      <div class="account">
+        @if (userName(); as name) {
+          <span data-testid="user-name">{{ name }}</span>
+        }
+        <button type="button" (click)="logout()" data-testid="logout">Se déconnecter</button>
+      </div>
+    }
   </header>
 
-  <nav class="sidebar" aria-label="Navigation principale">
-    <a routerLink="/parc" routerLinkActive="active">Vue du parc</a>
-    <a routerLink="/sites" routerLinkActive="active">Sites</a>
-    <a routerLink="/previsions" routerLinkActive="active">Prévisions</a>
-    <a routerLink="/alertes" routerLinkActive="active">
-      Alertes
-      @if (alertBadge(); as badge) {
-        <span
-          class="badge"
-          [class.critical]="badge.critical"
-          [attr.aria-label]="badge.total + ' alertes dans la dernière heure'"
-          data-testid="alert-badge"
-          >{{ badge.total }}</span
-        >
-      }
-    </a>
-  </nav>
+  @if (!onLoginPage()) {
+    <nav class="sidebar" aria-label="Navigation principale">
+      <a routerLink="/parc" routerLinkActive="active">Vue du parc</a>
+      <a routerLink="/sites" routerLinkActive="active">Sites</a>
+      <a routerLink="/previsions" routerLinkActive="active">Prévisions</a>
+      <a routerLink="/alertes" routerLinkActive="active">
+        Alertes
+        @if (alertBadge(); as badge) {
+          <span
+            class="badge"
+            [class.critical]="badge.critical"
+            [attr.aria-label]="badge.total + ' alertes dans la dernière heure'"
+            data-testid="alert-badge"
+            >{{ badge.total }}</span
+          >
+        }
+      </a>
+    </nav>
+  }
 
   <main class="content">
     <router-outlet />

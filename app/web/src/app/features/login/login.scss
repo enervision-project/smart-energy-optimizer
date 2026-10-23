@@ -1,0 +1,73 @@
+:host {
+  display: flex;
+  justify-content: center;
+  padding-top: 8vh;
+  color: #1f2a37;
+}
+
+.card {
+  width: min(380px, 100%);
+  padding: 28px;
+  border: 1px solid #dde2da;
+  border-radius: 12px;
+  background: #fff;
+}
+
+h1 {
+  margin: 0 0 20px;
+  font-size: 1.5rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: #5b6573;
+}
+
+input {
+  padding: 10px 12px;
+  border: 1px solid #c8cfc4;
+  border-radius: 8px;
+  font: inherit;
+  color: #1f2a37;
+
+  &.ng-touched.ng-invalid {
+    border-color: #b23a48;
+  }
+}
+
+.field-error,
+.error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #b23a48;
+}
+
+button {
+  margin-top: 8px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #1f7a63;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+}
+
+a {
+  color: #1f7a63;
+}
