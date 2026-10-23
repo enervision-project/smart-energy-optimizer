@@ -1,9 +1,9 @@
-name: ML Engine CI
+name: Prediction Service CI
 
 on:
   workflow_call:
     secrets:
-      SONAR_TOKEN_ML_ENGINE:
+      SONAR_TOKEN_PREDICTION_SERVICE:
         required: true
 
 permissions:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-26.04
     defaults:
       run:
-        working-directory: services/ml-engine
+        working-directory: services/prediction-service
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.12'
           cache: 'pip'
-          cache-dependency-path: services/ml-engine/pyproject.toml
+          cache-dependency-path: services/prediction-service/pyproject.toml
 
       - name: Cache des paquets SonarQube
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -58,8 +58,8 @@ jobs:
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8
         with:
-          projectBaseDir: services/ml-engine
+          projectBaseDir: services/prediction-service
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_ML_ENGINE }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_PREDICTION_SERVICE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from ml_engine.model import META_FILE, MODEL_FILE, ModelLoadError, load_predictor
+from prediction_service.model import META_FILE, MODEL_FILE, ModelLoadError, load_predictor
 
 
 def test_load_predictor(model_dir):

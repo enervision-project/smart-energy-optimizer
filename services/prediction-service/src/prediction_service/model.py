@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import xgboost as xgb
 
-from ml_engine.schemas import PredictRequest
+from prediction_service.schemas import PredictRequest
 
 logger = logging.getLogger(__name__)
 

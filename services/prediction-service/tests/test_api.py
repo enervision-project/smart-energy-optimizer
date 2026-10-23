@@ -95,7 +95,7 @@ def test_predict_rejects_unknown_field(client, payload):
 
 
 def test_docs_can_be_disabled(monkeypatch, model_dir):
-    from ml_engine.settings import get_settings
+    from prediction_service.settings import get_settings
     from tests.conftest import _client
 
     with _client(monkeypatch, model_dir, ENABLE_DOCS="false") as c:

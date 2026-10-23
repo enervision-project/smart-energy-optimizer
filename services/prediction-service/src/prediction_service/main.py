@@ -7,9 +7,9 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 
-from ml_engine.model import ModelLoadError, Predictor, UnknownSiteError, load_predictor
-from ml_engine.schemas import HealthResponse, PredictRequest, PredictResponse
-from ml_engine.settings import get_settings
+from prediction_service.model import ModelLoadError, Predictor, UnknownSiteError, load_predictor
+from prediction_service.schemas import HealthResponse, PredictRequest, PredictResponse
+from prediction_service.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ def get_predictor(request: Request) -> Predictor:
 def create_app() -> FastAPI:
     docs = get_settings().enable_docs
     app = FastAPI(
-        title="EnerVision ML Engine",
+        title="EnerVision Prediction Service",
         version="0.1.0",
         lifespan=lifespan,
         docs_url="/docs" if docs else None,

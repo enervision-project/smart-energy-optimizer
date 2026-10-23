@@ -8,9 +8,9 @@ RUN apt-get update \
     && mkdir /models && chown appuser /models
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MODEL_DIR=/models
 WORKDIR /app
-COPY services/ml-engine/pyproject.toml ./
-COPY services/ml-engine/src ./src
+COPY services/prediction-service/pyproject.toml ./
+COPY services/prediction-service/src ./src
 RUN pip install --no-cache-dir .
 USER appuser
 EXPOSE 8000
-CMD ["ml-engine"]
+CMD ["prediction-service"]
