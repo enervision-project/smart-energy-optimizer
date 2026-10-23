@@ -14,9 +14,10 @@ src/app/
 ├── app.ts / app.html / app.routes.ts / app.config.ts   coque, routes, providers
 ├── core/          code transverse, sans interface visuelle
 │   ├── models/        interfaces des réponses de l'API
-│   ├── services/      EnergyApi (contrat) + HttpEnergyApi + MockEnergyApi
+│   ├── services/      api.ts (API_BASE_URL), EnergyApi (contrat) + HttpEnergyApi + MockEnergyApi, auth.ts (session)
 │   ├── resources/     helpers pour rxResource (reloadOnError)
-│   ├── guards/  interceptors/
+│   ├── guards/        authGuard
+│   └── interceptors/  authInterceptor
 ├── shared/components/ composants réutilisés par plusieurs pages (kpi-card, consumption-chart…)
 └── features/<page>/   une page par dossier : alertes, parc, site, previsions, login
     ├── <page>.ts / .html / .scss / .spec.ts
@@ -35,7 +36,7 @@ Composant → EnergyApi (classe abstraite) → HttpEnergyApi (core-api)  |  Mock
 
 - Un composant injecte **`EnergyApi`**, jamais `HttpClient`. L'implémentation est choisie dans `app.config.ts` selon `environment.useMock`.
 - Nouvelle route : la déclarer dans `EnergyApi` (avec un commentaire si le sens d'un paramètre n'est pas évident), puis l'implémenter dans `HttpEnergyApi` **et** `MockEnergyApi`, sinon `npm start` ne compile plus.
-- `HttpEnergyApi` : URL sous `/api/v1` (même domaine, pas de CORS) ; paramètres de requête avec `HttpParams` ou un objet `params`, dates en `toISOString()`.
+- `HttpEnergyApi` : URL construites à partir de `API_BASE_URL` (`core/services/api.ts`, `/api/v1`, même domaine, pas de CORS) ; paramètres de requête avec `HttpParams` ou un objet `params`, dates en `toISOString()`.
 - `MockEnergyApi` : reproduit la forme et le comportement de l'API (pagination, filtres, erreur « Site inconnu » via `throwError`), avec des données **déterministes et datées par rapport à maintenant**, pour que les tests puissent compter des lignes. Documenter ce que contient le mock en tête de fichier et dans les specs qui s'en servent.
 
 ## 3. Modèles
@@ -93,7 +94,15 @@ export class SiteAlerts {
 - `withComponentInputBinding()` est actif : paramètres de route **et** de requête arrivent en `input()` du composant de page (`id` pour `/sites/:id`, `site` pour `/alertes?site=`). Pour un filtre initialisé depuis l'URL mais modifiable : `linkedSignal(() => this.site() ?? '')`.
 - Liens : `[routerLink]` (et `[queryParams]`) ; navigation programmatique avec `Router.navigate`.
 
-## 7. Styles
+## 7. Connexion
+
+- Jeton JWT de core-api, géré par le service `Auth` (`core/services/auth.ts`) et conservé dans le `sessionStorage`. Une page ne lit jamais le jeton.
+- `authInterceptor` ajoute `Authorization: Bearer …` à tout appel commençant par `API_BASE_URL` ; sur un 401, il ferme la session et renvoie vers `/login?returnUrl=…`. Une nouvelle route d'API n'a donc rien à faire pour être authentifiée.
+- `authGuard` protège toutes les routes déclarées dans les `children` de la route `''` (`canActivateChild`) : une nouvelle page s'ajoute **dans ces `children`**, jamais à côté de `login`.
+- `AUTH_ENABLED` vaut `!environment.useMock` : en mode mock (`npm start`), pas de page de connexion ni de jeton.
+- Droits : le back filtre déjà les données (sites visibles, `@AdminOnly`) ; le front se contente de gérer proprement le 403/404 comme une erreur.
+
+## 8. Styles
 
 - SCSS par composant, encapsulé ; `styles.scss` global reste minimal.
 - Palette actuelle (en dur dans les composants) : texte `#1f2a37`, texte secondaire `#5b6573`, bordures `#dde2da` / `#c8cfc4`, accent `#1f7a63`, erreur `#b23a48` sur `#fbeaec`. Cartes : `padding: 16px 20px`, `border-radius: 10px`, fond blanc.
@@ -101,13 +110,13 @@ export class SiteAlerts {
 - Mise en page en grid / flex avec un passage en une colonne sous 900 px ; tableaux dans un conteneur `overflow-x: auto`.
 - Budget de build : 500 kB d'avertissement pour le bundle initial, 4 kB par fichier de style de composant.
 
-## 8. Langue et format
+## 9. Langue et format
 
 - **Interface, commentaires et noms de tests en français** ; identifiants (classes, variables, fonctions) en anglais. Les routes de pages sont en français.
 - Prettier : `printWidth` 100, quotes simples. ESLint : `angular-eslint` (TS + templates) et `typescript-eslint` stylistic.
 - Commentaires JSDoc (`/** … */`) courts, pour expliquer un choix ou une contrainte de l'API, pas pour paraphraser le code.
 
-## 9. Tests
+## 10. Tests
 
 | Cible | Approche |
 |---|---|
@@ -116,13 +125,14 @@ export class SiteAlerts {
 | Fonction pure | Test direct, sans TestBed |
 | Composant avec graphique | `provideCharts(withDefaultRegisterables())` |
 
+- En test, l'environnement est celui de développement (`useMock: true`, donc `AUTH_ENABLED` faux) : fournir `{ provide: AUTH_ENABLED, useValue: true }` pour tester un comportement lié à la connexion.
 - Vitest (globals `describe`, `it`, `expect`, `vi`), environnement jsdom ; le message « HTMLCanvasElement's getContext() » est normal.
 - Entrées : `fixture.componentRef.setInput('siteId', 'SITE001')`, puis `await fixture.whenStable()`.
 - Rafraîchissement périodique : `vi.useFakeTimers()`, `fixture.detectChanges()` puis `vi.advanceTimersByTimeAsync(ms)` (`whenStable()` attend des timers réels) ; `vi.useRealTimers()` dans `afterEach`.
 - On teste ce que voit l'utilisateur (texte, nombre de lignes, `href`, `aria-*`) via `data-testid`, pas l'état interne.
 - Noms en français décrivant le comportement : `it('grise les alertes de plus d’une heure', …)`.
 
-## 10. Avant de terminer une tâche
+## 11. Avant de terminer une tâche
 
 ```bash
 npm test -- --watch=false
@@ -133,5 +143,6 @@ npm run build
 
 1. Les quatre commandes passent (la CI lance lint, tests, build et SonarCloud sur toute PR qui touche `app/web/`).
 2. Toute méthode ajoutée à `EnergyApi` existe dans `HttpEnergyApi` et `MockEnergyApi`, et la route existe côté core-api (sinon le signaler).
-3. Les états erreur, chargement et vide sont gérés, et testés au moins pour l'erreur.
-4. `README.md` mis à jour si l'organisation ou les commandes changent.
+3. Une nouvelle page est dans les `children` protégés de `app.routes.ts`, et testée avec la vraie API via `npm run start:api` (core-api lancé avec `docker compose up -d --build core-api`, connexion avec `ADMIN_EMAIL` / `ADMIN_PASSWORD` du `.env`).
+4. Les états erreur, chargement et vide sont gérés, et testés au moins pour l'erreur.
+5. `README.md` et `docs/` mis à jour si l'organisation ou les commandes changent.
