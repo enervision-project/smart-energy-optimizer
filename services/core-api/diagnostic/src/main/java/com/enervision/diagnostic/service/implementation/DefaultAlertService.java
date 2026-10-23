@@ -89,8 +89,8 @@ class DefaultAlertService implements AlertService {
 		}
 		long total = 0;
 		List<SeverityCount> counts = siteNames.isEmpty()
-			? List.of()
-			: alertRepository.countBySeveritySince(siteNames.keySet(), since);
+				? List.of()
+				: alertRepository.countBySeveritySince(siteNames.keySet(), since);
 		for (SeverityCount count : counts) {
 			total += count.count();
 			bySeverity.computeIfPresent(count.severity(), (severity, current) -> current + count.count());
