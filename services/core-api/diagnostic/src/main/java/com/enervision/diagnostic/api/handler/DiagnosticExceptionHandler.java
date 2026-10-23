@@ -1,5 +1,6 @@
 package com.enervision.diagnostic.api.handler;
 
+import com.enervision.configuration.exception.SiteNotFoundException;
 import com.enervision.diagnostic.exception.AlertSiteNotFoundException;
 import com.enervision.diagnostic.exception.InvalidAlertPeriodException;
 import org.springframework.http.HttpStatus;
@@ -14,8 +15,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice(basePackages = "com.enervision.diagnostic")
 class DiagnosticExceptionHandler {
 
-	@ExceptionHandler(AlertSiteNotFoundException.class)
-	ProblemDetail handleSiteNotFound(AlertSiteNotFoundException exception) {
+	@ExceptionHandler({AlertSiteNotFoundException.class, SiteNotFoundException.class})
+	ProblemDetail handleSiteNotFound(RuntimeException exception) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
 	}
 

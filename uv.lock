@@ -634,6 +634,7 @@ dependencies = [
     { name = "mkdocs-awesome-pages-plugin" },
     { name = "mkdocs-material" },
     { name = "mkdocs-monorepo-plugin" },
+    { name = "pymdown-extensions" },
 ]
 
 [package.metadata]
@@ -642,6 +643,7 @@ requires-dist = [
     { name = "mkdocs-awesome-pages-plugin", specifier = ">=2.10.1" },
     { name = "mkdocs-material", specifier = ">=9.7.7" },
     { name = "mkdocs-monorepo-plugin", specifier = ">=1.1.2" },
+    { name = "pymdown-extensions", specifier = ">=12.3" },
 ]
 
 [[package]]
