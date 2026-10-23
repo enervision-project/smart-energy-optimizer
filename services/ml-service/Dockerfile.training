@@ -1,0 +1,14 @@
+FROM docker.io/library/python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
+
+COPY requirements-training.txt ./
+RUN pip install --no-cache-dir -r requirements-training.txt \
+    && useradd --create-home --uid 10001 trainer
+COPY --chown=trainer:trainer training ./training
+COPY --chown=trainer:trainer configs ./configs
+ENV GIT_PYTHON_REFRESH=quiet
+USER trainer
+
+ENTRYPOINT ["python", "-m", "training.train"]

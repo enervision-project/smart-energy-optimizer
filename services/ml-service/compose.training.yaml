@@ -1,0 +1,31 @@
+# Depuis la racine : docker compose -f compose.yaml -f services/ml-service/compose.training.yaml ...
+services:
+  ml-trainer:
+    image: enervision-ml-trainer:local
+    build:
+      context: services/ml-service
+      dockerfile: Dockerfile.training
+    profiles: ["training"]
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      TRAINING_DATA_DIR: /data
+      TRAINING_GIT_REVISION: ${TRAINING_GIT_REVISION:-unknown}
+      TRAINING_GIT_DIRTY: ${TRAINING_GIT_DIRTY:-unknown}
+      OMP_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+    cpus: 2.0
+    mem_limit: 2g
+    volumes:
+      - type: bind
+        source: ./.data/ml/splits/train.parquet
+        target: /data/train.parquet
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.data/ml/splits/validation.parquet
+        target: /data/validation.parquet
+        read_only: true
+        bind:
+          create_host_path: false
