@@ -33,7 +33,8 @@ done
 
 aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
 
-compose=(docker compose -f compose.yaml -f compose.prod.yaml --env-file .env --env-file deploy.env)
+# profil ml actif pour pouvoir deployer et inspecter MLflow ; les up ciblent toujours des services precis
+compose=(docker compose --profile ml -f compose.yaml -f compose.prod.yaml --env-file .env --env-file deploy.env)
 # Le scheduler utilise la même image et le même tag que le worker ponctuel.
 deploy_services=()
 check_mlflow=false

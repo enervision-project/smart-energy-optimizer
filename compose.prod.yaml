@@ -3,10 +3,10 @@
 # Les images viennent d'ECR (construites par la CI) au lieu d'être construites sur place.
 # ECR_REGISTRY et <SERVICE>_TAG sont écrits dans deploy.env par le script de déploiement.
 
-# Meme image pour les migrations et le serveur ; le profil optionnel reste local.
+# Meme image pour les migrations et le serveur. Le profil "ml" est conserve : MLflow ne demarre
+# pas avec un `up` sans argument, seul deploy.sh le demarre quand il est deploye explicitement.
 x-mlflow-prod: &mlflow-prod
   build: !reset null
-  profiles: !reset []
   image: ${ECR_REGISTRY}/enervision/mlflow:${MLFLOW_TAG:-latest}
   environment: &mlflow-prod-env
     MLFLOW_DB_NAME: ${MLFLOW_DB_NAME:?MLFLOW_DB_NAME doit etre fourni par SSM}
