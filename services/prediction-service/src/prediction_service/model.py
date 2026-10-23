@@ -2,7 +2,7 @@
 
 Le répertoire du modèle contient :
 - model.json       : booster XGBoost (Booster.save_model)
-- model_meta.json  : {"version": "...", "site_ids": ["SITE_001", "SITE_002"]}
+- model_meta.json  : {"version": "...", "site_ids": ["SITE001", "SITE002"]}
                      site_ids = liste ordonnée utilisée à l'entraînement ; la position
                      d'un site dans la liste est la valeur numérique de la feature site_id.
 """

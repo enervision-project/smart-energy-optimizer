@@ -51,10 +51,10 @@ def test_predict_all_optional_missing(client, payload):
 
 
 def test_predict_unknown_site(client, payload):
-    payload["site_id"] = "SITE_999"
+    payload["site_id"] = "SITE999"
     response = client.post("/predict", json=payload)
     assert response.status_code == 422
-    assert "SITE_999" in response.json()["detail"]
+    assert "SITE999" in response.json()["detail"]
 
 
 def test_predict_without_model(client_without_model, payload):
