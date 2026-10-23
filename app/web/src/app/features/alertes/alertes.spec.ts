@@ -125,6 +125,15 @@ describe('Alertes', () => {
     expect(rows().length).toBe(7);
   });
 
+  it('filtre sur le site passé dans l’URL (?site=)', async () => {
+    fixture = TestBed.createComponent(Alertes);
+    fixture.componentRef.setInput('site', 'SITE002');
+    await fixture.whenStable();
+    expect(rows().length).toBe(2);
+    const select = el().querySelector('[data-testid="site"]') as HTMLSelectElement;
+    expect(select.selectedOptions[0].textContent).toContain('Usine Lyon Vénissieux');
+  });
+
   it('lie chaque alerte à la page de son site', async () => {
     await render();
     expect(rows()[0].querySelector('a')?.getAttribute('href')).toBe('/sites/SITE003');

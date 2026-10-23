@@ -1,0 +1,66 @@
+<section class="card" aria-labelledby="site-alerts-title">
+  <header class="card-header">
+    <h2 id="site-alerts-title">Alertes</h2>
+    <a [routerLink]="['/alertes']" [queryParams]="{ site: siteId() }" data-testid="all-alerts">
+      Voir toutes les alertes du site
+    </a>
+  </header>
+
+  <ul class="counters" aria-label="Alertes de la dernière heure par sévérité">
+    @for (sev of severities; track sev) {
+      <li class="counter" [class]="sev" [attr.data-testid]="'count-' + sev">
+        <span class="count">{{ counts()?.bySeverity?.[sev] ?? '—' }}</span>
+        <span class="label">{{ severityLabel(sev) }}</span>
+      </li>
+    }
+    <li class="hint">Dernière heure</li>
+  </ul>
+
+  @if (alerts.error()) {
+    <p class="error" role="alert">Alertes indisponibles.</p>
+  } @else if (alertPage(); as p) {
+    @if (p.content.length === 0) {
+      <p class="empty">Aucune alerte sur les {{ windowHours }} dernières heures.</p>
+    } @else {
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Sévérité</th>
+              <th scope="col">Type</th>
+              <th scope="col">Message</th>
+              <th scope="col" class="num">Valeur</th>
+              <th scope="col" class="num">Seuil</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of p.content; track a.alertId) {
+              <tr [class.old]="!a.recent" data-testid="alert-row">
+                <td>{{ formatDate(a.timestamp) }}</td>
+                <td>
+                  <span class="badge" [class]="a.severity">{{ severityLabel(a.severity) }}</span>
+                </td>
+                <td>{{ typeLabel(a.type) }}</td>
+                <td>{{ a.message }}</td>
+                <td class="num">{{ formatNumber(a.value) }}</td>
+                <td class="num">{{ formatNumber(a.threshold) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">
+        @if (p.page.totalElements > p.content.length) {
+          {{ p.content.length }} plus récentes sur {{ p.page.totalElements }} en
+          {{ windowHours }} h.
+        } @else {
+          {{ windowHours }} dernières heures.
+        }
+        Les alertes de plus d'une heure sont grisées.
+      </p>
+    }
+  } @else {
+    <p class="empty">Chargement…</p>
+  }
+</section>
