@@ -1,1 +1,39 @@
-<p>login works!</p>
+<section class="card">
+  <h1>Connexion</h1>
+
+  @if (enabled) {
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <label>
+        <span>Email</span>
+        <input type="email" formControlName="email" autocomplete="username" data-testid="email" />
+      </label>
+      @if (form.controls.email.touched && form.controls.email.invalid) {
+        <p class="field-error">Saisissez une adresse email valide.</p>
+      }
+
+      <label>
+        <span>Mot de passe</span>
+        <input
+          type="password"
+          formControlName="password"
+          autocomplete="current-password"
+          data-testid="password"
+        />
+      </label>
+      @if (form.controls.password.touched && form.controls.password.invalid) {
+        <p class="field-error">Saisissez votre mot de passe.</p>
+      }
+
+      @if (error(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+
+      <button type="submit" [disabled]="pending()" data-testid="submit">
+        {{ pending() ? 'Connexion…' : 'Se connecter' }}
+      </button>
+    </form>
+  } @else {
+    <p>Connexion désactivée : l'application tourne sur des données de démonstration.</p>
+    <a routerLink="/parc">Accéder à l'application</a>
+  }
+</section>

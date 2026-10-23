@@ -4,10 +4,8 @@ import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
 import { Reading } from '../models/reading';
 import { Site } from '../models/site';
+import { API_BASE_URL as BASE_URL } from './api';
 import { EnergyApi } from './energy-api';
-
-/** URL provisoires, calquées sur l'API Mock : les routes de l'API Spring Boot restent à fixer avec l'équipe back. */
-const BASE_URL = '/api/v1';
 
 @Service()
 export class HttpEnergyApi extends EnergyApi {
@@ -21,6 +19,7 @@ export class HttpEnergyApi extends EnergyApi {
     return this.http.get<Site>(`${BASE_URL}/sites/${siteId}`);
   }
 
+  /** Route provisoire, calquée sur l'API Mock : core-api n'expose pas encore les mesures (module telemetry). */
   getReadings(siteId: string, from: Date, to: Date): Observable<Reading[]> {
     return this.http.get<Reading[]>(`${BASE_URL}/readings`, {
       params: { site_id: siteId, start_time: from.toISOString(), end_time: to.toISOString() },
