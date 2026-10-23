@@ -1,4 +1,4 @@
-import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
+import { Component, computed, effect, inject, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { switchMap, tap, timer } from 'rxjs';
@@ -10,6 +10,7 @@ import {
   AlertSeverity,
   AlertType,
 } from '../../core/models/alert';
+import { reloadOnError } from '../../core/resources/reload-on-error';
 import { EnergyApi } from '../../core/services/energy-api';
 import { severityLabel, typeLabel } from './alert-labels';
 
@@ -107,6 +108,19 @@ export class Alertes {
     const date = this.lastUpdate();
     return date ? time.format(date) : '—';
   });
+
+  constructor() {
+    reloadOnError(this.alerts, ALERT_REFRESH_MS);
+    reloadOnError(this.summary, ALERT_REFRESH_MS);
+
+    // Des alertes sortent de la période à chaque rafraîchissement : la page affichée peut ne plus exister.
+    effect(() => {
+      const p = this.alertPage();
+      if (p && p.page.number > 0 && p.page.number >= p.page.totalPages) {
+        this.page.set(Math.max(0, p.page.totalPages - 1));
+      }
+    });
+  }
 
   protected selectSite(event: Event): void {
     this.siteId.set((event.target as HTMLSelectElement).value);
