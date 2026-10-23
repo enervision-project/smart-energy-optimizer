@@ -4,9 +4,9 @@
     <label class="picker">
       <span>Site</span>
       <select (change)="selectSite($event)" data-testid="site">
-        <option value="">Tous les sites</option>
+        <option value="" [selected]="siteId() === ''">Tous les sites</option>
         @for (s of siteOptions(); track s.siteId) {
-          <option [value]="s.siteId">{{ s.siteName }}</option>
+          <option [value]="s.siteId" [selected]="s.siteId === siteId()">{{ s.siteName }}</option>
         }
       </select>
     </label>

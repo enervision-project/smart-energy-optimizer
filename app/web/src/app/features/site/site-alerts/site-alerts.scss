@@ -1,0 +1,144 @@
+:host {
+  display: block;
+}
+
+.card {
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid #dde2da;
+  border-radius: 10px;
+}
+
+.card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  h2 {
+    margin: 0;
+    font-size: 1rem;
+  }
+  a {
+    font-size: 0.9rem;
+    color: #1f7a63;
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+/* Mêmes couleurs de sévérité que la page Alertes */
+.low {
+  --sev-bg: #eef1ec;
+  --sev-fg: #3f4a5a;
+}
+.medium {
+  --sev-bg: #fdf3dc;
+  --sev-fg: #8a5a00;
+}
+.high {
+  --sev-bg: #fde8d7;
+  --sev-fg: #a24a0b;
+}
+.critical {
+  --sev-bg: #fbeaec;
+  --sev-fg: #b23a48;
+}
+
+.counters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+
+  .hint {
+    margin: 0;
+  }
+}
+
+.counter {
+  display: flex;
+  flex-direction: column;
+  min-width: 100px;
+  padding: 8px 14px;
+  border: 1px solid #dde2da;
+  border-left: 4px solid var(--sev-fg);
+  border-radius: 10px;
+
+  .count {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+  .label {
+    font-size: 0.8rem;
+    color: #5b6573;
+  }
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th {
+    padding: 8px;
+    border-bottom: 1px solid #dde2da;
+    font-weight: 600;
+    text-align: left;
+    color: #5b6573;
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #eef1ec;
+  }
+  .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+  tr.old td {
+    color: #8a929c;
+  }
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--sev-bg, #eef1ec);
+  color: var(--sev-fg, #3f4a5a);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: #5b6573;
+}
+
+.empty {
+  margin: 0;
+  color: #5b6573;
+}
+
+.error {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fbeaec;
+  color: #b23a48;
+}

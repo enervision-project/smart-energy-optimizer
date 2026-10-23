@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, linkedSignal, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { switchMap, tap, timer } from 'rxjs';
@@ -53,7 +53,10 @@ export class Alertes {
   protected readonly severityLabel = severityLabel;
   protected readonly typeLabel = typeLabel;
 
-  protected readonly siteId = signal('');
+  /** Paramètre `?site=` de l'URL (lien « Voir toutes les alertes du site » de la vue site). */
+  readonly site = input<string>();
+
+  protected readonly siteId = linkedSignal(() => this.site() ?? '');
   protected readonly severity = signal<AlertSeverity | ''>('');
   protected readonly type = signal<AlertType | ''>('');
   protected readonly periodHours = signal(1);

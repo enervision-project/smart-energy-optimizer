@@ -5,6 +5,7 @@ import { ChartData, ChartOptions } from 'chart.js';
 import { BaseChartDirective } from 'ng2-charts';
 import { EnergyApi } from '../../core/services/energy-api';
 import { summarize } from './reading-summary';
+import { SiteAlerts } from './site-alerts/site-alerts';
 
 const HOUR_MS = 3_600_000;
 const WINDOW_HOURS = 48;
@@ -26,7 +27,7 @@ const dateTime = new Intl.DateTimeFormat('fr-FR', {
 });
 
 @Component({
-  imports: [BaseChartDirective],
+  imports: [BaseChartDirective, SiteAlerts],
   selector: 'app-site',
   styleUrl: './site.scss',
   templateUrl: './site.html',
