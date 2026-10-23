@@ -52,7 +52,7 @@ flowchart LR
 
 | Champ | Type | Obligatoire | Contrainte | Rôle |
 | --- | --- | --- | --- | --- |
-| `site_id` | texte | oui | `SITE_` + au moins 3 chiffres (`SITE_001`), connu du modèle | Distinguer les profils des sites |
+| `site_id` | texte | oui | `SITE` + au moins 3 chiffres (`SITE001`), connu du modèle | Distinguer les profils des sites |
 | `hour` | entier | oui | 0 à 23 | Rythme dans la journée |
 | `day_of_week` | entier | oui | 0 à 6, lundi = 0 | Rythme hebdomadaire |
 | `month` | entier | oui | 1 à 12 | Variations saisonnières |
@@ -68,7 +68,7 @@ flowchart LR
 
 ```json
 {
-  "site_id": "SITE_001",
+  "site_id": "SITE001",
   "hour": 14,
   "day_of_week": 2,
   "month": 10,
@@ -152,7 +152,7 @@ Le répertoire `MODEL_DIR` (`/models`, volume Docker `ml_models`) doit contenir 
 | `model_meta.json` | Version du modèle et liste ordonnée des sites |
 
 ```json
-{ "version": "2026-10-23", "site_ids": ["SITE_001", "SITE_002", "SITE_003"] }
+{ "version": "2026-10-23", "site_ids": ["SITE001", "SITE002", "SITE003"] }
 ```
 
 !!! warning "Cohérence avec l'entraînement"
@@ -188,7 +188,7 @@ curl -s http://127.0.0.1:8000/health
 
 curl -s http://127.0.0.1:8000/predict \
   -H 'Content-Type: application/json' \
-  -d '{"site_id":"SITE_001","hour":14,"day_of_week":2,"month":10,
+  -d '{"site_id":"SITE001","hour":14,"day_of_week":2,"month":10,
        "lag_24h":12.5,"lag_168h":11.0,"temperature_celsius":18.2,"is_working_hours":1}'
 ```
 

@@ -8,7 +8,7 @@ from prediction_service.model import META_FILE, MODEL_FILE, ModelLoadError, load
 def test_load_predictor(model_dir):
     predictor = load_predictor(model_dir)
     assert predictor.version == "test-1"
-    assert predictor.site_codes == {"SITE_001": 0, "SITE_002": 1}
+    assert predictor.site_codes == {"SITE001": 0, "SITE002": 1}
 
 
 def test_load_missing_files(tmp_path):

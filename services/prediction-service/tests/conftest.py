@@ -10,7 +10,7 @@ from prediction_service.main import create_app
 from prediction_service.model import FEATURES, META_FILE, MODEL_FILE
 from prediction_service.settings import get_settings
 
-SITE_IDS = ["SITE_001", "SITE_002"]
+SITE_IDS = ["SITE001", "SITE002"]
 
 
 @pytest.fixture(scope="session")
@@ -55,7 +55,7 @@ def client_without_model(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 @pytest.fixture
 def payload() -> dict:
     return {
-        "site_id": "SITE_001",
+        "site_id": "SITE001",
         "hour": 14,
         "day_of_week": 2,
         "month": 10,

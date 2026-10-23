@@ -7,7 +7,7 @@ class PredictRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     site_id: str = Field(
-        pattern=r"^SITE_\d{3,}$", description="Identifiant du site (SITE_001, SITE_002…)."
+        pattern=r"^SITE\d{3,}$", description="Identifiant du site (SITE001, SITE002…)."
     )
     hour: int = Field(ge=0, le=23, description="Heure de la journée.")
     day_of_week: int = Field(ge=0, le=6, description="Jour de la semaine, lundi = 0.")

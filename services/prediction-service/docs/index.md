@@ -15,7 +15,7 @@ et, sur l'EC2, via `127.0.0.1:8000` (tunnel SSM).
 
 | Champ                 | Type        | Contrainte                    |
 | --------------------- | ----------- | ----------------------------- |
-| `site_id`             | texte       | `SITE_\d{3,}`, connu du modèle |
+| `site_id`             | texte       | `SITE\d{3,}`, connu du modèle |
 | `hour`                | entier      | 0–23                          |
 | `day_of_week`         | entier      | 0–6 (lundi = 0)               |
 | `month`               | entier      | 1–12                          |
@@ -26,7 +26,7 @@ et, sur l'EC2, via `127.0.0.1:8000` (tunnel SSM).
 
 ```bash
 curl -s http://127.0.0.1:8000/predict -H 'Content-Type: application/json' -d '{
-  "site_id": "SITE_001", "hour": 14, "day_of_week": 2, "month": 10,
+  "site_id": "SITE001", "hour": 14, "day_of_week": 2, "month": 10,
   "lag_24h": 12.5, "lag_168h": 11.0, "temperature_celsius": 18.2, "is_working_hours": 1
 }'
 # {"prediction": 12.3, "model_version": "2026-10-23"}
@@ -39,7 +39,7 @@ Réponses : `200`, `422` (validation ou site inconnu), `503` (aucun modèle char
 Le répertoire `MODEL_DIR` (`/models`, volume Docker `ml_models`) contient :
 
 - `model.json` : booster XGBoost (`Booster.save_model`), colonnes dans l'ordre du tableau ci-dessus ;
-- `model_meta.json` : `{"version": "...", "site_ids": ["SITE_001", "SITE_002"]}`. La position d'un site
+- `model_meta.json` : `{"version": "...", "site_ids": ["SITE001", "SITE002"]}`. La position d'un site
   dans `site_ids` est la valeur numérique de `site_id` utilisée à l'entraînement.
 
 ## Configuration
