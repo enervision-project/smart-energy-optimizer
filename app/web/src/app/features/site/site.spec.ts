@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { ChartOptions } from 'chart.js';
 import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
-import { throwError } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { EnergyApi } from '../../core/services/energy-api';
 import { MockEnergyApi } from '../../core/services/mock-energy-api';
 import { Site } from './site';
@@ -42,11 +42,22 @@ describe('Site', () => {
     fixture = TestBed.createComponent(Site);
   });
 
-  it('invite à choisir un site quand aucun n’est sélectionné', async () => {
+  it('affiche le premier site visible quand aucun n’est sélectionné', async () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelectorAll('select option:not([disabled])').length).toBe(7);
-    expect(el.querySelector('.hint')?.textContent).toContain('Sélectionnez un site');
+    expect(navigate).toHaveBeenCalledWith(['/sites', 'SITE001'], { replaceUrl: true });
+  });
+
+  it('signale un compte sans site visible', async () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    vi.spyOn(api, 'getSites').mockReturnValue(of([]));
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.hint')?.textContent).toContain(
+      'Aucun site',
+    );
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('présélectionne le site de l’URL dans la liste', async () => {

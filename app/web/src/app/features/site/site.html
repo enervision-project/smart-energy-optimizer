@@ -38,7 +38,11 @@
 </header>
 
 @if (!id()) {
-  <p class="hint">Sélectionnez un site dans la liste pour afficher ses mesures.</p>
+  @if (sites.isLoading()) {
+    <p class="hint">Chargement…</p>
+  } @else {
+    <p class="hint">Aucun site n’est rattaché à votre compte.</p>
+  }
 } @else if (site.error()) {
   <p class="error" role="alert">Site introuvable ou API indisponible.</p>
 } @else {
