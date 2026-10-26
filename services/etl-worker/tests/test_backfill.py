@@ -4,6 +4,7 @@ import unittest
 from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY, call, patch
 from urllib.error import URLError
+from zoneinfo import ZoneInfo
 
 from etl_worker.backfill import backfill_readings, backfill_window, split_range
 
@@ -42,6 +43,19 @@ class SplitRangeTests(unittest.TestCase):
     def test_short_range_is_a_single_chunk(self):
         end = START + timedelta(minutes=2)
         self.assertEqual(split_range(START, end), [(START, end)])
+
+    def test_chunks_keep_1000_real_minutes_across_a_time_change(self):
+        # Bornes en heure de Paris, comme les renvoie la base ; le 25/10/2026 à 3 h, il est 2 h.
+        paris = ZoneInfo("Europe/Paris")
+        start = datetime(2026, 10, 25, 1, 0, tzinfo=paris)
+        end = datetime(2026, 10, 25, 23, 0, tzinfo=paris)
+        chunks = split_range(start, end)
+        self.assertTrue(all(last - first <= timedelta(minutes=1000) for first, last in chunks))
+        self.assertEqual(chunks[0][0], start)
+        self.assertEqual(chunks[-1][1], end)
+        # 23 heures réelles ce jour-là : end - start, dans le même fuseau, en donnerait 22.
+        total = sum((last - first for first, last in chunks), timedelta())
+        self.assertEqual(total, timedelta(hours=23))
 
 
 @patch("etl_worker.backfill.load_readings")
