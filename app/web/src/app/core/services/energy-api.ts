@@ -1,14 +1,23 @@
 import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
-import { Reading } from '../models/reading';
+import { LatestReading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
 import { Site } from '../models/site';
 
 /** Seul point d'accès aux données pour les pages : l'implémentation (mock ou HTTP) est choisie dans `app.config.ts`. */
 export abstract class EnergyApi {
   abstract getSites(): Observable<Site[]>;
   abstract getSite(siteId: string): Observable<Site>;
-  /** Mesures horaires de `from` (inclus) à `to` (exclu). */
-  abstract getReadings(siteId: string, from: Date, to: Date): Observable<Reading[]>;
+  /** Courbe d'un site, un point par pas ; `from` et `to` sont alignés sur le pas par core-api. */
+  abstract getReadingSeries(
+    siteId: string,
+    from: Date,
+    to: Date,
+    step: ReadingStep,
+  ): Observable<ReadingSeries>;
+  /** Dernière mesure du site, `null` s'il n'en a encore aucune (204). */
+  abstract getLatestReading(siteId: string): Observable<LatestReading | null>;
+  /** Énergie, pic et disponibilité du site sur `[from, to)`. */
+  abstract getReadingSummary(siteId: string, from: Date, to: Date): Observable<ReadingSummary>;
   /** Alertes des sites visibles, de la plus récente à la plus ancienne (`page` commence à 0). */
   abstract getAlerts(filters: AlertFilters, page: number, size: number): Observable<Page<Alert>>;
   /** Nombre d'alertes de la dernière heure par sévérité, pour tous les sites visibles ou un seul. */
