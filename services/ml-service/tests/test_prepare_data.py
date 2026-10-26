@@ -174,7 +174,12 @@ class PrepareDataTests(unittest.TestCase):
                 pd.testing.assert_frame_equal(pd.read_parquet(output / f"{name}.parquet"), part)
                 self.assertEqual(summary["splits"][name]["rows"], len(part))
             self.assertEqual(original, {path: sha256(path.read_bytes()).hexdigest() for path in inputs})
-            self.assertNotIn("mlflow", sys.modules)
+            # Vérifier l'import de préparation dans un interpréteur neuf :
+            # les autres suites peuvent légitimement importer MLflow.
+            subprocess.run([
+                sys.executable, "-B", "-c",
+                "import sys; import training.prepare_data; assert 'mlflow' not in sys.modules",
+            ], capture_output=True, text=True, check=True)
 
 
 if __name__ == "__main__":

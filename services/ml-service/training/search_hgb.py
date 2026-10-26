@@ -1,4 +1,4 @@
-"""Ablations HGB optionnelles et grille, uniquement sur train et validation."""
+"""Ablations, variantes de features et grille HGB sur train et validation."""
 
 import argparse
 from copy import deepcopy
@@ -27,44 +27,65 @@ def build_trials(config_path: Path) -> tuple[dict, list[dict], dict]:
     include_ablations = specification.get("include_ablations", True)
     if not isinstance(include_ablations, bool):
         raise ValueError("include_ablations doit être un booléen.")
+    variants = specification.get("feature_variants", {"all_features": base["features"]})
+    if not isinstance(variants, dict) or not variants:
+        raise ValueError("feature_variants doit contenir au moins une variante.")
+    for name, features in variants.items():
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", name):
+            raise ValueError("Chaque variante doit avoir un nom simple, sans espaces.")
+        if (
+            not isinstance(features, list) or not features
+            or not all(isinstance(feature, str) for feature in features)
+            or len(features) != len(set(features))
+            or not set(features).issubset(base["features"])
+        ):
+            raise ValueError(f"Features invalides pour la variante {name}.")
     trials = []
 
-    def append(config: dict, phase: str, removed: str = "none") -> None:
+    def append(config: dict, phase: str, variant: str, removed: str = "none") -> None:
         payload = {key: config[key] for key in ["model", "features", "parameters"]}
         key = sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:20]
         config["tags"] = {
-            "study_phase": phase, "removed_feature": removed,
+            "study_phase": phase, "feature_variant": variant,
+            "weather_enabled": str("temperature_celsius" in config["features"]).lower(),
+            "removed_feature": removed,
             "excluded_features": ",".join(feature for feature in FEATURES if feature not in config["features"]),
             "trial_index": str(len(trials) + 1), "trial_key": key,
         }
         trials.append(config)
 
-    if include_ablations:
-        for feature in base["features"]:
-            config = deepcopy(base)
-            config["features"] = [column for column in base["features"] if column != feature]
-            config["run_name"] = f"HGB_without_{feature}"
-            append(config, "ablation", feature)
-
     grid = specification["grid"]
-    combinations = product(
+    combinations = list(product(
         grid["max_leaf_nodes"], grid["min_samples_leaf"],
         grid["l2_regularization"], grid["learning_schedule"],
-    )
-    for index, (leaves, minimum, regularization, schedule) in enumerate(combinations, 1):
-        if set(schedule) != {"learning_rate", "max_iter"}:
-            raise ValueError("Chaque learning_schedule doit définir learning_rate et max_iter.")
-        config = deepcopy(base)
-        config["parameters"].update({
-            "max_leaf_nodes": leaves, "min_samples_leaf": minimum,
-            "l2_regularization": regularization, **schedule,
-        })
-        config["run_name"] = (
-            f"{specification.get('run_name_prefix', 'HGB_grid')}_{index:02d}"
-            f"_leaves-{leaves}_min-{minimum}_l2-{regularization}"
-            f"_lr-{schedule['learning_rate']}_iter-{schedule['max_iter']}"
-        )
-        append(config, "grid")
+    ))
+    prefix = specification.get("run_name_prefix", "HGB_grid")
+    for variant, features in variants.items():
+        if include_ablations:
+            for feature in features:
+                config = deepcopy(base)
+                config["features"] = [column for column in features if column != feature]
+                config["run_name"] = (
+                    f"HGB_without_{feature}" if len(variants) == 1
+                    else f"HGB_{variant}_without_{feature}"
+                )
+                append(config, "ablation", variant, feature)
+
+        for index, (leaves, minimum, regularization, schedule) in enumerate(combinations, 1):
+            if set(schedule) != {"learning_rate", "max_iter"}:
+                raise ValueError("Chaque learning_schedule doit définir learning_rate et max_iter.")
+            config = deepcopy(base)
+            config["features"] = features.copy()
+            config["parameters"].update({
+                "max_leaf_nodes": leaves, "min_samples_leaf": minimum,
+                "l2_regularization": regularization, **schedule,
+            })
+            run_prefix = prefix if len(variants) == 1 else f"{prefix}_{variant}"
+            config["run_name"] = (
+                f"{run_prefix}_{index:02d}_leaves-{leaves}_min-{minimum}_l2-{regularization}"
+                f"_lr-{schedule['learning_rate']}_iter-{schedule['max_iter']}"
+            )
+            append(config, "grid", variant)
     if len({config["tags"]["trial_key"] for config in trials}) != len(trials):
         raise ValueError("La campagne contient des configurations dupliquées.")
     return base, trials, specification
@@ -75,6 +96,7 @@ def existing_result(existing, config: dict) -> dict:
         "model": config["model"], "run_id": existing.info.run_id,
         "features": config["features"], "parameters": config["parameters"],
         "phase": config["tags"]["study_phase"],
+        "feature_variant": config["tags"]["feature_variant"],
         "removed_feature": config["tags"]["removed_feature"],
         "train_nmae_pct": existing.data.metrics["train_macro_nmae_pct"],
         "val_nmae_pct": existing.data.metrics["val_macro_nmae_pct"],
@@ -84,7 +106,7 @@ def existing_result(existing, config: dict) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Campagne HGB : ablations optionnelles et grille sur train/validation.")
+    parser = argparse.ArgumentParser(description="Campagne HGB : variantes de features et grille sur train/validation.")
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--data-dir", type=Path, default=Path(os.environ.get("TRAINING_DATA_DIR", ".data/ml/splits")))
     parser.add_argument("--tracking-uri", default=os.environ.get("MLFLOW_TRACKING_URI"))
@@ -156,6 +178,7 @@ def main() -> None:
                     "model": config["model"], "run_id": outcome["run_id"],
                     "features": config["features"], "parameters": config["parameters"],
                     "phase": config["tags"]["study_phase"],
+                    "feature_variant": config["tags"]["feature_variant"],
                     "removed_feature": config["tags"]["removed_feature"],
                     "train_nmae_pct": outcome["train"]["macro_nmae_pct"],
                     "val_nmae_pct": outcome["validation"]["macro_nmae_pct"],
@@ -180,12 +203,28 @@ def main() -> None:
         (item for item in results if item["phase"] == "ablation"),
         key=lambda item: item["val_nmae_pct"], default=None,
     )
+    variant_names = list(dict.fromkeys(item["feature_variant"] for item in results))
+    best_by_variant = {
+        variant: min(
+            (item for item in results if item["phase"] == "grid" and item["feature_variant"] == variant),
+            key=lambda item: item["val_nmae_pct"],
+        )
+        for variant in variant_names
+    }
+    reference_by_variant = {
+        variant: next(
+            item for item in results if item["phase"] == "grid"
+            and item["feature_variant"] == variant and item["parameters"] == base["parameters"]
+        )
+        for variant in variant_names
+    }
     summary = {
         "campaign_id": campaign, "experiment_id": experiment.experiment_id,
         "reference": reference, "repeated_reference": baseline,
         "datasets": data.manifest, "specification": specification,
         "trial_count": len(results), "results": results,
         "best_grid": best_grid, "best_ablation": best_ablation,
+        "best_by_variant": best_by_variant, "reference_by_variant": reference_by_variant,
     }
     client.log_dict(best_grid["run_id"], summary, "campaign/summary.json")
     client.log_artifact(best_grid["run_id"], str(args.config), artifact_path="campaign")
@@ -194,6 +233,7 @@ def main() -> None:
         "reference": reference, "repeated_reference": baseline,
         "ablation": [item for item in results if item["phase"] == "ablation"],
         "best_grid": best_grid, "best_ablation": best_ablation,
+        "best_by_variant": best_by_variant, "reference_by_variant": reference_by_variant,
         "summary_run_id": best_grid["run_id"],
     }, ensure_ascii=False), flush=True)
 
