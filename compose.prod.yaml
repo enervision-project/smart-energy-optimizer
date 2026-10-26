@@ -24,7 +24,8 @@ services:
       - "443:443"
       - "443:443/udp" # HTTP/3
     volumes:
-      - ./infra/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # directory mount: a Caddyfile replaced by the deploy stays visible to the container
+      - ./infra/proxy:/etc/caddy:ro
       - caddydata:/data # certificats
     depends_on: [web]
     restart: unless-stopped
@@ -92,6 +93,11 @@ services:
     # Les artefacts sont sur S3 ; seul le port local 127.0.0.1 du Compose de base
     # reste accessible sur l'EC2 pour un tunnel SSM. Aucun acces public via Caddy.
     volumes: !reset []
+
+  migrate:
+    environment:
+      # no local default in production
+      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD:?MONITORING_DB_PASSWORD must come from SSM}
 
   db:
     # base non exposée sur l'hôte en production

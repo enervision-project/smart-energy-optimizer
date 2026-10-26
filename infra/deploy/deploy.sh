@@ -53,6 +53,12 @@ if "$check_mlflow"; then
   up_options+=(--wait --wait-timeout 180)
 fi
 "${compose[@]}" up "${up_options[@]}" "${deploy_services[@]}"
+# compose does not track the mounted Caddyfile: graceful reload, no downtime
+for svc in "${deploy_services[@]}"; do
+  case "$svc" in
+    proxy) "${compose[@]}" exec -T proxy caddy reload --config /etc/caddy/Caddyfile ;;
+  esac
+done
 if "$check_mlflow"; then
   # Parametre, metrique et aller-retour d'un fichier via le serveur vers S3.
   "${compose[@]}" exec -T mlflow python smoke_test.py
