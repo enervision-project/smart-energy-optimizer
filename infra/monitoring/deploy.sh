@@ -19,6 +19,8 @@ mv .env.tmp .env
 
 compose=(docker compose --env-file .env)
 "${compose[@]}" pull
-"${compose[@]}" up -d --remove-orphans --wait --wait-timeout 180
+# compose does not track bind-mounted config files (prometheus.yml, loki.yaml, provisioning):
+# recreate every container so they are reloaded
+"${compose[@]}" up -d --remove-orphans --force-recreate --wait --wait-timeout 180
 docker image prune -f
 "${compose[@]}" ps
