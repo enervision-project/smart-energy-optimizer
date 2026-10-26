@@ -82,6 +82,7 @@ nav:
   - ...
   - Fonctionnement du Prediction Service: doc-technique/prediction-service.md
   - ETL Worker: '!include ./services/etl-worker/mkdocs.yml'
+  - ML Service: '!include ./services/ml-service/mkdocs.yml'
   - Prediction Service: '!include ./services/prediction-service/mkdocs.yml'
   - Core API: '!include ./services/core-api/mkdocs.yml'
   - UI: '!include ./app/web/mkdocs.yml'
