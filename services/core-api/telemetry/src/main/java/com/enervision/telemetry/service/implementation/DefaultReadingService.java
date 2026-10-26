@@ -122,13 +122,14 @@ class DefaultReadingService implements ReadingService {
 		return new ReadingPoint(row.bucket(), row.consumptionKw(), row.consumptionKwImputed(), row.voltageV(),
 				row.currentA(), row.powerFactor(), row.temperatureCelsius(), row.humidityPercent(),
 				QUALITIES.get(Math.clamp(row.worstQuality(), 0, QUALITIES.size() - 1)), row.nullReasons(),
-				minutesExpected, row.minutesReceived(), row.minutesBackfilled(), row.minutesImputed(),
+				minutesExpected, row.minutesReceived(), row.minutesWithConsumption(), row.minutesBackfilled(),
+				row.minutesImputed(),
 				row.imputationMethods());
 	}
 
 	private static ReadingPoint emptyPoint(Instant ts, int minutesExpected) {
 		return new ReadingPoint(ts, null, null, null, null, null, null, null, null, List.of(), minutesExpected, 0,
-				0, 0, List.of());
+				0, 0, 0, List.of());
 	}
 
 	private static LatestReadingResponse latest(ReadingRow row, Instant now) {

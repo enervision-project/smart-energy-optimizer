@@ -67,6 +67,7 @@ class ReadingRepositoryTest {
 		assertThat(first.powerFactor()).isEqualTo(0.915);
 		assertThat(first.worstQuality()).isEqualTo(2);
 		assertThat(first.minutesReceived()).isEqualTo(4);
+		assertThat(first.minutesWithConsumption()).isEqualTo(3);
 		assertThat(first.minutesBackfilled()).isEqualTo(1);
 		assertThat(first.minutesImputed()).isEqualTo(1);
 		assertThat(first.imputationMethods()).containsExactly("linear");

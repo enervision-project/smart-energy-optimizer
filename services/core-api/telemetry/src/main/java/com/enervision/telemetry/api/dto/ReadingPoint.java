@@ -17,6 +17,7 @@ import java.util.List;
  * @param nullReasons          every {@code null_reasons} value seen in the step
  * @param minutesExpected      minutes of the step already elapsed: a step in progress is not reported incomplete
  * @param minutesReceived      minutes with a reading (raw values may be {@code null})
+ * @param minutesWithConsumption minutes with a raw consumption: coverage of the measured curve
  * @param minutesBackfilled    readings recovered afterwards from the history endpoint
  * @param minutesImputed       readings whose consumption was imputed
  * @param imputationMethods    {@code previous_value}, {@code linear}
@@ -34,6 +35,7 @@ public record ReadingPoint(
 		List<String> nullReasons,
 		int minutesExpected,
 		int minutesReceived,
+		int minutesWithConsumption,
 		int minutesBackfilled,
 		int minutesImputed,
 		List<String> imputationMethods) {

@@ -83,11 +83,13 @@ class DefaultReadingServiceTest {
 		assertThat(gap.dataQuality()).isNull();
 		assertThat(gap.minutesExpected()).isEqualTo(15);
 		assertThat(gap.minutesReceived()).isZero();
+		assertThat(gap.minutesWithConsumption()).isZero();
 
 		ReadingPoint complete = series.points().get(series.points().size() - 2);
 		assertThat(complete.consumptionKw()).isEqualTo(120.5);
 		assertThat(complete.dataQuality()).isEqualTo("degraded");
 		assertThat(complete.minutesExpected()).isEqualTo(15);
+		assertThat(complete.minutesWithConsumption()).isEqualTo(14);
 
 		// 10:00 to 10:07 elapsed: the quarter in progress is not reported incomplete.
 		ReadingPoint inProgress = series.points().getLast();
@@ -239,7 +241,7 @@ class DefaultReadingServiceTest {
 	}
 
 	private static BucketRow bucket(Instant ts) {
-		return new BucketRow(ts, 120.5, 121.0, 230.0, 10.0, 0.915, 21.0, 40.0, 2, 15, 0, 1, List.of("linear"),
+		return new BucketRow(ts, 120.5, 121.0, 230.0, 10.0, 0.915, 21.0, 40.0, 2, 15, 14, 0, 1, List.of("linear"),
 				List.of("electrical_sensor_failure"));
 	}
 

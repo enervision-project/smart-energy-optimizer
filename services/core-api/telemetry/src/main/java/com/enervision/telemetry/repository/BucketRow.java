@@ -21,6 +21,7 @@ public record BucketRow(
 		@Nullable Double humidityPercent,
 		int worstQuality,
 		int minutesReceived,
+		int minutesWithConsumption,
 		int minutesBackfilled,
 		int minutesImputed,
 		List<String> imputationMethods,

@@ -44,6 +44,7 @@ public class ReadingRepository {
 			       max(CASE r.data_quality WHEN 'good' THEN 0 WHEN 'partial' THEN 1
 			                               WHEN 'degraded' THEN 2 ELSE 3 END) AS worst_quality,
 			       count(*) AS minutes_received,
+			       count(r.consumption_kw) AS minutes_with_consumption,
 			       count(*) FILTER (WHERE r.source = 'backfill') AS minutes_backfilled,
 			       count(r.consumption_kw_imputed) AS minutes_imputed,
 			       string_agg(DISTINCT r.imputation_method, ',') AS imputation_methods,
@@ -113,6 +114,7 @@ public class ReadingRepository {
 					nullableDouble(rs, "humidity_percent"),
 					rs.getInt("worst_quality"),
 					rs.getInt("minutes_received"),
+					rs.getInt("minutes_with_consumption"),
 					rs.getInt("minutes_backfilled"),
 					rs.getInt("minutes_imputed"),
 					distinctValues(rs.getString("imputation_methods")),

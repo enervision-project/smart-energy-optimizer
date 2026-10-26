@@ -59,7 +59,7 @@ class ReadingControllerTest {
 	void shouldReturnSeriesInCamelCase_withFifteenMinuteStepByDefault() throws Exception {
 		// given
 		ReadingPoint point = new ReadingPoint(FROM, 120.5, 121.0, 230.0, 10.0, 0.915, null, 40.0, "partial",
-				List.of("temperature_sensor_failure"), 15, 15, 0, 1, List.of("linear"));
+				List.of("temperature_sensor_failure"), 15, 15, 14, 0, 1, List.of("linear"));
 		when(readingService.getReadings(USER, "SITE001", null, null, ReadingStep.FIFTEEN_MINUTES))
 			.thenReturn(new ReadingSeriesResponse("SITE001", "15m", FROM, TO, List.of(point)));
 
@@ -71,6 +71,7 @@ class ReadingControllerTest {
 			.andExpect(jsonPath("$.points[0].consumptionKwImputed").value(121.0))
 			.andExpect(jsonPath("$.points[0].temperatureCelsius").doesNotExist())
 			.andExpect(jsonPath("$.points[0].nullReasons[0]").value("temperature_sensor_failure"))
+			.andExpect(jsonPath("$.points[0].minutesWithConsumption").value(14))
 			.andExpect(jsonPath("$.points[0].minutesImputed").value(1));
 	}
 

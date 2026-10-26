@@ -47,6 +47,7 @@ Toutes en lecture seule, derrière le JWT. Un site que l'utilisateur ne voit pas
 | `nullReasons`, `imputationMethods` | toutes les valeurs vues dans le pas (survol) |
 | `minutesExpected` | minutes du pas déjà écoulées : le pas en cours n'apparaît pas incomplet |
 | `minutesReceived`, `minutesBackfilled`, `minutesImputed` | minutes reçues, dont rattrapées, dont à consommation imputée |
+| `minutesWithConsumption` | minutes avec une consommation **brute** : couverture de la courbe mesurée (bande sous le graphique du front) |
 
 ### Dernière mesure : `/sites/{siteId}/readings/latest`
 
