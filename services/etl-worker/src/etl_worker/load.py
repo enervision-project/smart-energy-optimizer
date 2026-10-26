@@ -67,9 +67,9 @@ _INSERT_READING = """
     INSERT INTO readings_raws (
         site_id, ts, site_type, consumption_kw, consumption_kwh, voltage_v, current_a,
         power_factor, temperature_celsius, humidity_percent, null_reasons,
-        data_quality
+        data_quality, source
     )
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (site_id, ts) DO NOTHING
 """
 
@@ -87,17 +87,19 @@ _PREVIOUS_CONSUMPTIONS = """
 """
 
 _CONSUMPTION_FIELDS = ("consumption_kw", "consumption_kwh")
+# Origine d'une mesure (colonne source, changeset 005).
+READING_SOURCES = frozenset({"current", "readings", "backfill"})
 _logger = logging.getLogger(__name__)
 
 
-def _reading_row(reading: Mapping[str, Any]) -> tuple[Any, ...]:
+def _reading_row(reading: Mapping[str, Any], source: str) -> tuple[Any, ...]:
     return (
         reading["site_id"], reading["timestamp"], reading["site_type"],
         reading.get("consumption_kw"), reading.get("consumption_kwh"),
         reading.get("voltage_v"), reading.get("current_a"),
         reading.get("power_factor"), reading.get("temperature_celsius"),
         reading.get("humidity_percent"), reading.get("null_reasons", []),
-        reading["data_quality"],
+        reading["data_quality"], source,
     )
 
 
@@ -131,11 +133,13 @@ def load_readings(
     *,
     connect_timeout: int = 10,
     fill_consumptions: bool = False,
+    source: str = "current",
 ) -> int:
     """Charge une copie des mesures, avec timestamps UTC ramenés au début de leur minute.
 
     Une ligne par site et par minute : une seconde collecte dans la même minute
     est ignorée ; le timestamp exact reste dans le bronze.
+    source indique l'origine de tout le lot (current, readings ou backfill).
     Le mode fill_consumptions, non activé par sync-readings, reprend chaque
     consommation NULL depuis le même champ du même site strictement antérieur.
     Sans antécédent, NULL est conservé. Les zéros sont des valeurs disponibles.
@@ -148,6 +152,8 @@ def load_readings(
     """
     if not readings:
         return 0
+    if source not in READING_SOURCES:
+        raise ValueError(f"Source de mesure inconnue : {source}.")
     connection_url = (
         database_url if database_url is not None else os.environ.get("DATABASE_URL", "")
     ).strip()
@@ -162,7 +168,7 @@ def load_readings(
         for reading in readings
     ]
     if not fill_consumptions:
-        rows = [_reading_row(reading) for reading in copies]
+        rows = [_reading_row(reading, source) for reading in copies]
         with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
             cursor.executemany(_INSERT_READING, rows)
             return cursor.rowcount
@@ -172,7 +178,7 @@ def load_readings(
     with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
         for reading in copies:
             _fill_consumptions(cursor, reading)
-            cursor.execute(_INSERT_READING, _reading_row(reading))
+            cursor.execute(_INSERT_READING, _reading_row(reading, source))
             inserted += cursor.rowcount
     return inserted
 
@@ -190,6 +196,62 @@ def read_site_ids(
     with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
         cursor.execute("SELECT site_id FROM sites ORDER BY site_id")
         return [row[0] for row in cursor.fetchall()]
+
+
+# Minutes sans aucune ligne, regroupées en plages consécutives par site
+# (« gaps and islands » : ts − rang × 1 min est constant dans une même plage).
+_MISSING_RANGES = """
+    WITH expected AS (
+        SELECT sites.site_id, minute
+        FROM sites
+        CROSS JOIN generate_series(
+            %(start)s::timestamptz, %(end)s::timestamptz - interval '1 minute', interval '1 minute'
+        ) AS minute
+    ),
+    missing AS (
+        SELECT expected.site_id, expected.minute
+        FROM expected
+        LEFT JOIN readings_raws AS raw
+            ON raw.site_id = expected.site_id AND raw.ts = expected.minute
+        WHERE raw.site_id IS NULL
+    ),
+    islands AS (
+        SELECT site_id, minute,
+               minute - row_number() OVER (PARTITION BY site_id ORDER BY minute)
+                        * interval '1 minute' AS island
+        FROM missing
+    )
+    SELECT site_id, min(minute), max(minute) + interval '1 minute'
+    FROM islands
+    GROUP BY site_id, island
+    ORDER BY site_id, min(minute)
+"""
+
+
+def read_missing_ranges(
+    start: datetime,
+    end: datetime,
+    database_url: str | None = None,
+    *,
+    connect_timeout: int = 10,
+) -> list[tuple[str, datetime, datetime]]:
+    """Retourne les plages [début, fin) de minutes sans mesure, par site, dans [start, end).
+
+    Seule l'absence de ligne compte : une mesure reçue avec des NULL n'est pas
+    un trou. start et end sont des débuts de minute avec fuseau.
+    """
+    for bound in (start, end):
+        if bound.utcoffset() is None or bound.second or bound.microsecond:
+            raise ValueError("Les bornes doivent être des minutes avec fuseau.")
+    connection_url = (
+        database_url if database_url is not None else os.environ.get("DATABASE_URL", "")
+    ).strip()
+    if not connection_url:
+        raise ValueError("Renseigner DATABASE_URL ou passer une URL à read_missing_ranges.")
+
+    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+        cursor.execute(_MISSING_RANGES, {"start": start, "end": end})
+        return [(site_id, first, last) for site_id, first, last in cursor.fetchall()]
 
 
 # Un profil dont le site n'existe pas (encore) en base est ignoré plutôt que de faire échouer le lot.

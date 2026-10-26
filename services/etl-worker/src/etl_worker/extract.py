@@ -5,12 +5,16 @@ import base64
 import json
 import os
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from importlib.resources import files
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from etl_worker.timestamps import parse_reading_timestamp
+
+# Plafond de limit pour GET /readings (documentation de l'API Mock).
+HISTORY_MAX_MINUTES = 1000
 
 _ALERT_FIELDS = frozenset({
     "alert_id", "timestamp", "site_id", "severity",
@@ -39,9 +43,11 @@ def _resolve_base_url(base_url: str | None, caller: str) -> str:
     return url
 
 
-def _get_json(base_url: str, path: str, timeout: float) -> Any:
+def _get_json(base_url: str, path: str, timeout: float, params: dict[str, Any] | None = None) -> Any:
     """GET JSON ; les erreurs HTTP, réseau et de décodage remontent à l'appelant."""
     url = f"{base_url}{path}"
+    if params:
+        url = f"{url}?{urlencode(params)}"
     with urlopen(Request(url, headers=_api_headers()), timeout=timeout) as response:
         return json.load(response)
 
@@ -103,17 +109,75 @@ def extract_readings(
     base_url: str | None = None,
     *,
     timeout: float = 10.0,
-) -> list[dict[str, Any]]:
-    """Retourne la mesure /current de chaque site, sans modifier aucun champ.
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Retourne les mesures /current reçues et les erreurs par site.
 
     Les timestamps, leur précision et leurs éventuels fuseaux sont conservés
     tels que reçus, tout comme les NULL, la qualité et les champs supplémentaires.
-    Une erreur réseau, un site incohérent ou un timestamp invalide annule le lot.
+    Chaque site est interrogé indépendamment : une erreur HTTP, réseau ou une
+    réponse invalide est retournée pour ce site sans empêcher la collecte des autres.
+    Une URL d'API absente reste une erreur de configuration qui arrête tout.
     """
     if not site_ids:
-        return []
+        return [], {}
     api_base_url = _resolve_base_url(base_url, "extract_readings")
-    return [_fetch_reading(api_base_url, site_id, timeout) for site_id in site_ids]
+    readings: list[dict[str, Any]] = []
+    errors: dict[str, str] = {}
+    for site_id in site_ids:
+        try:
+            readings.append(_fetch_reading(api_base_url, site_id, timeout))
+        # OSError couvre HTTPError, URLError et les délais dépassés ; ValueError le JSON invalide.
+        except (OSError, TypeError, ValueError) as error:
+            errors[site_id] = str(error) or type(error).__name__
+    return readings, errors
+
+
+def extract_history(
+    site_id: str,
+    start: datetime,
+    end: datetime,
+    base_url: str | None = None,
+    *,
+    timeout: float = 30.0,
+) -> list[dict[str, Any]]:
+    """Retourne une mesure /readings par minute de [start, end), pour le rattrapage.
+
+    start et end sont des débuts de minute avec fuseau ; la plage compte au plus
+    HISTORY_MAX_MINUTES minutes. limit vaut le nombre de minutes : avec moins,
+    l'API échantillonnerait la plage au lieu de renvoyer chaque minute.
+    La réponse doit contenir exactement une mesure de ce site pour chaque minute,
+    sinon ValueError (ou TypeError) : rien n'est retourné pour une plage douteuse.
+    Les valeurs sont recalculées par l'API à chaque appel (historique simulé).
+    """
+    for bound in (start, end):
+        if bound.utcoffset() is None or bound.second or bound.microsecond:
+            raise ValueError("Les bornes du rattrapage doivent être des minutes avec fuseau.")
+    start, end = start.astimezone(UTC), end.astimezone(UTC)
+    minutes = int((end - start) / timedelta(minutes=1))
+    if not 1 <= minutes <= HISTORY_MAX_MINUTES:
+        raise ValueError(f"Une plage de rattrapage compte de 1 à {HISTORY_MAX_MINUTES} minutes.")
+
+    api_base_url = _resolve_base_url(base_url, "extract_history")
+    payload = _get_json(api_base_url, "/api/v1/readings", timeout, params={
+        "site_id": site_id,
+        "start_time": start.isoformat(),
+        "end_time": end.isoformat(),
+        "limit": minutes,
+    })
+    if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
+        raise TypeError(f"Une liste de mesures est attendue pour le site {site_id}.")
+    for reading in payload:
+        _validate_reading(reading, site_id)
+    received = sorted(
+        parse_reading_timestamp(reading["timestamp"]) for reading in payload
+    )
+    expected = [start + timedelta(minutes=offset) for offset in range(minutes)]
+    if received != expected:
+        raise ValueError(
+            f"Rattrapage {site_id} : {len(payload)} mesures reçues, "
+            f"une par minute attendue de {start.isoformat()} à {end.isoformat()}."
+        )
+    return payload
 
 
 # --- Alertes ---------------------------------------------------------------

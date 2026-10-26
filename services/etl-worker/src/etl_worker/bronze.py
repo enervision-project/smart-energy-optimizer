@@ -15,13 +15,19 @@ def write_readings_bronze(
     *,
     client: Any = None,
     collected_at: datetime | None = None,
+    kind: str = "minutes",
+    label: str | None = None,
 ) -> str | None:
     """Archive les JSON d'origine ; seul le classement utilise l'heure de collecte.
 
     Chaque réponse garde son propre timestamp exact, ses NULL et tous ses champs.
     Une clé précise à la microseconde évite d'écraser deux collectes d'une même
-    minute. Sans BRONZE_BUCKET, rien n'est écrit.
+    minute. kind sépare la collecte /current (minutes) du rattrapage (backfill) ;
+    label (site et plage d'un rattrapage) complète le nom du fichier.
+    Sans BRONZE_BUCKET, rien n'est écrit.
     """
+    if kind not in {"minutes", "backfill"}:
+        raise ValueError(f"Type d'archive bronze inconnu : {kind}.")
     bucket_name = (
         bucket if bucket is not None else os.environ.get("BRONZE_BUCKET", "")
     ).strip()
@@ -32,9 +38,10 @@ def write_readings_bronze(
     if captured_at.utcoffset() is None:
         raise ValueError("collected_at doit comporter un fuseau horaire.")
     captured_at = captured_at.astimezone(UTC)
+    suffix = f"_{label}" if label else ""
     key = (
-        f"bronze/readings/minutes/date={captured_at:%Y-%m-%d}/hour={captured_at:%H}/"
-        f"{captured_at:%Y-%m-%dT%H-%M-%S.%f}Z.jsonl"
+        f"bronze/readings/{kind}/date={captured_at:%Y-%m-%d}/hour={captured_at:%H}/"
+        f"{captured_at:%Y-%m-%dT%H-%M-%S.%f}Z{suffix}.jsonl"
     )
     body = "".join(
         json.dumps(reading, ensure_ascii=False) + "\n" for reading in readings
