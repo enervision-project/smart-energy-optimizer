@@ -23,7 +23,7 @@ curl -s http://127.0.0.1:8000/predict -H 'Content-Type: application/json' -d '{
 ## Cycle quotidien
 
 - À **01:00 Europe/Paris**, `prediction-jobs` déclenche un entraînement HGB. Au démarrage, il déclenche un rattrapage si le dernier entraînement réussi dans MLflow date strictement de plus de 25 heures.
-- Le dataset réunit `train.parquet` et `validation.parquet` historiques du préfixe S3 d'amorçage avec les nouvelles heures de `readings_hours` dès que chaque site historique dispose d'au moins 168 heures SQL valides. Avant ce seuil, l'entraînement utilise seulement l'historique. `test.parquet` reste réservé à l'évaluation hors ligne. Les 14 derniers jours disponibles forment la validation chronologique.
+- Les rôles des splits Parquet sont conservés au démarrage : `train.parquet` sert à l'ajustement et `validation.parquet` à l'évaluation. `test.parquet` n'est jamais lu par l'entraînement quotidien et reste réservé à l'évaluation finale hors ligne. Dès que chaque site historique dispose d'au moins 168 heures SQL valides, le job ajuste le modèle sur `train.parquet`, l'ancien `validation.parquet` (le HGB et ses hyperparamètres sont alors fixés), et les heures SQL antérieures à la fenêtre de validation. Les 14 derniers jours SQL deviennent la validation courante. Les comparaisons champion/challenger utilisent toujours les mêmes lignes.
 - Le challenger est comparé au champion sur **les mêmes lignes**. Il est promu si `val_macro_nmae_pct_challenger <= 0,96 × val_macro_nmae_pct_champion`, avec un score défini et positif pour le champion. Le premier candidat valide devient champion s'il n'existe pas encore de version.
 - **Chaque heure à :05**, le job de prévisions utilise le champion disponible, même pendant un entraînement. Il calcule 24 heures successives en UTC à partir du prochain début d'heure et publie le lot complet dans `prediction_runs` et `predictions`. Les 24 heures à venir sont donc toujours couvertes ; pour chaque heure, `core-api` lit la série complète la plus récente.
 
@@ -42,7 +42,7 @@ En local, `prediction-jobs` lit `.data/ml/splits` monté sous `/bootstrap`. En p
 | `REGISTERED_MODEL_NAME` | `enervision-hourly-consumption` | Nom stable dans le Registry. |
 | `TRAINING_BOOTSTRAP_URI` | `/bootstrap` local, S3 en production | Source des Parquet historiques. |
 | `TRAINING_TIMEZONE` | `Europe/Paris` | Heure des jobs et features calendaires. |
-| `VALIDATION_DAYS` | `14` | Fenêtre de validation chronologique. |
+| `VALIDATION_DAYS` | `14` | Fenêtre des heures SQL les plus récentes utilisée pour comparer les modèles. |
 | `MIN_CURRENT_VALIDATION_HOURS` | `168` | Heures SQL minimales par site avant de les intégrer au snapshot d'entraînement. |
 | `MODEL_DIR` | `/models` | Cache local du champion. |
 | `MODEL_REFRESH_SECONDS` | `60` | Vérification périodique de l'alias dans l'API. |

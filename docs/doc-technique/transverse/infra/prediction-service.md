@@ -26,9 +26,9 @@ Le conteneur `prediction-jobs` doit rester démarré pour exécuter ces tâches.
 ## Entraînement quotidien
 
 1. Le job lit `train.parquet` et `validation.parquet` historiques depuis `TRAINING_BOOTSTRAP_URI` : `/bootstrap` en local ou un préfixe S3 en production. `test.parquet` reste hors de l'entraînement quotidien. Le script `scripts/ml/upload-bootstrap.sh` sert au transfert initial vers S3.
-2. Il lit dans `readings_hours` les consommations non nulles des heures closes. Il n'intègre ces données que lorsque **chaque site historique dispose d'au moins 168 heures SQL valides**. Avant ce seuil, il entraîne sur les Parquet historiques seuls. Quand les heures SQL sont utilisées, `site_profiles` fournit les jours et heures de travail.
-3. Il fusionne les sources, trie par date et réserve les **14 derniers jours disponibles** à la validation chronologique. Les sites doivent être présents dans l'entraînement et la validation.
-4. Il entraîne un seul challenger `HistGradientBoostingRegressor` avec `site_id`, `hour`, `day_of_week`, `month` et `is_working_hours`. **Ni température ni lags** ne sont utilisés par ce modèle de production.
+2. Il lit dans `readings_hours` les consommations non nulles des heures closes. Il n'intègre ces données que lorsque **chaque site historique dispose d'au moins 168 heures SQL valides**. Avant ce seuil, `train.parquet` reste le train et `validation.parquet` reste la validation. Quand les heures SQL sont utilisées, `site_profiles` fournit les jours et heures de travail.
+3. Dès que le HGB et ses hyperparamètres sont fixés, `validation.parquet` rejoint les données d'entraînement. Les heures SQL antérieures aux 14 derniers jours complètent le train ; ces 14 jours SQL forment la validation courante du challenger et du champion. `test.parquet` n'est jamais utilisé dans ce cycle et reste un jeu final d'évaluation hors ligne. Les sites doivent être présents dans le train et la validation.
+4. Il entraîne un seul challenger `HistGradientBoostingRegressor` avec `max_leaf_nodes=31` et les features `site_id`, `hour`, `day_of_week`, `month` et `is_working_hours`. **Ni température ni lags** ne sont utilisés par ce modèle de production.
 5. Il enregistre dans MLflow la configuration, la provenance des données, les métriques et le modèle, puis vérifie qu'il peut recharger celui-ci. Chaque challenger obtient une version dans le Model Registry.
 
 La métrique de sélection est `val_macro_nmae_pct`, moyenne des NMAE calculées séparément pour chaque site :

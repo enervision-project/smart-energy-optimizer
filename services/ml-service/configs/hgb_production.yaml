@@ -10,7 +10,7 @@ features:
 parameters:
   loss: absolute_error
   learning_rate: 0.1
-  max_leaf_nodes: 63
+  max_leaf_nodes: 31
   min_samples_leaf: 50
   max_iter: 300
   early_stopping: false

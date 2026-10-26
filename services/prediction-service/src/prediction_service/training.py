@@ -9,6 +9,7 @@ from uuid import UUID
 import mlflow
 import mlflow.sklearn
 import numpy as np
+import pandas as pd
 import yaml
 from mlflow import MlflowClient
 from mlflow.models import infer_signature
@@ -87,18 +88,23 @@ def train_challenger(settings: Settings, job_id: UUID, trigger: str) -> dict:
     config = _configuration(settings.training_config)
     if config["experiment"] != settings.training_experiment:
         raise ValueError("TRAINING_EXPERIMENT ne correspond pas à la configuration du modèle.")
-    historical, bootstrap_manifest = load_bootstrap(settings.training_bootstrap_uri)
+    bootstrap_train, bootstrap_validation, bootstrap_manifest = load_bootstrap(
+        settings.training_bootstrap_uri
+    )
     cutoff = datetime.now(UTC).replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
     raw_current = read_recent_hours(settings.database_url, cutoff)
+    historical = pd.concat([bootstrap_train, bootstrap_validation], ignore_index=True)
     use_current = current_ready(raw_current, historical, settings.min_current_validation_hours)
     current = (
         prepare_current(
             raw_current, read_site_profiles(settings.database_url), settings.training_timezone
         )
         if use_current
-        else historical.iloc[0:0]
+        else bootstrap_train.iloc[0:0]
     )
-    train, validation = make_splits(historical, current, settings.validation_days)
+    train, validation = make_splits(
+        bootstrap_train, bootstrap_validation, current, settings.validation_days
+    )
     x_train, y_train = train[FEATURES], train[TARGET].astype(float)
     x_validation = validation[FEATURES]
     configure(settings.mlflow_tracking_uri)
