@@ -33,13 +33,25 @@ def test_bootstrap_and_training_register_a_champion(tmp_path, monkeypatch):
     frame = pd.DataFrame(rows)
     frame.iloc[: 18 * 48].to_parquet(bootstrap / "train.parquet")
     frame.iloc[18 * 48 :].to_parquet(bootstrap / "validation.parquet")
-    historical, manifest = load_bootstrap(str(bootstrap))
+    bootstrap_train, bootstrap_validation, manifest = load_bootstrap(str(bootstrap))
+    historical = pd.concat([bootstrap_train, bootstrap_validation], ignore_index=True)
     assert len(historical) == 960
     assert manifest["train"]["rows"] == 864
     assert not current_ready(historical.iloc[0:0], historical, 168)
     assert current_ready(historical, historical, 168)
-    train, validation = make_splits(historical, historical.iloc[0:0], 1)
+    train, validation = make_splits(bootstrap_train, bootstrap_validation, historical.iloc[0:0], 1)
+    assert len(train) == len(bootstrap_train)
+    assert len(validation) == len(bootstrap_validation)
     assert set(train.site_id) == set(validation.site_id)
+
+    current = frame.iloc[-48:].copy()
+    current["timestamp"] += pd.Timedelta(days=30)
+    train_live, validation_live = make_splits(bootstrap_train, bootstrap_validation, current, 1)
+    assert set(bootstrap_validation.timestamp).issubset(set(train_live.timestamp))
+    assert validation_live.timestamp.min() == current.timestamp.max() - pd.Timedelta(
+        days=1
+    ) + pd.Timedelta(hours=1)
+    assert not set(validation_live.timestamp).intersection(set(train_live.timestamp))
 
     config = tmp_path / "hgb.yaml"
     config.write_text(

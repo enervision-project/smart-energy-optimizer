@@ -89,15 +89,22 @@ def test_forecast_uses_loaded_champion_while_training_is_irrelevant(monkeypatch,
 
 
 def test_splits_reject_missing_validation_sites():
-    historical = pd.DataFrame(
+    train = pd.DataFrame(
         {
-            "timestamp": pd.to_datetime(["2024-01-01", "2024-02-01"], utc=True),
-            "site_id": ["SITE001", "SITE002"],
-            "consumption_kwh": [10.0, 20.0],
+            "timestamp": pd.to_datetime(["2024-01-01"], utc=True),
+            "site_id": ["SITE001"],
+            "consumption_kwh": [10.0],
+        }
+    )
+    validation = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-02-01"], utc=True),
+            "site_id": ["SITE002"],
+            "consumption_kwh": [20.0],
         }
     )
     with pytest.raises(ValueError, match="mêmes sites"):
-        make_splits(historical, historical.iloc[0:0], validation_days=14)
+        make_splits(train, validation, train.iloc[0:0], validation_days=14)
 
 
 def test_sparse_sql_does_not_replace_historical_validation():

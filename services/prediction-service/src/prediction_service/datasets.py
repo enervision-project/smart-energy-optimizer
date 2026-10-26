@@ -23,8 +23,9 @@ def _bootstrap_file(uri: str, name: str, s3_client=None) -> bytes:
     return (Path(uri) / f"{name}.parquet").read_bytes()
 
 
-def load_bootstrap(uri: str, s3_client=None) -> tuple[pd.DataFrame, dict]:
-    frames, manifest = [], {}
+def load_bootstrap(uri: str, s3_client=None) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """Charge les splits d'origine séparément ; le split test n'entre jamais dans le job."""
+    frames, manifest = {}, {}
     for name in ("train", "validation"):
         content = _bootstrap_file(uri, name, s3_client)
         frame = pd.read_parquet(BytesIO(content))
@@ -39,11 +40,11 @@ def load_bootstrap(uri: str, s3_client=None) -> tuple[pd.DataFrame, dict]:
             frame["timestamp"] = frame.timestamp.dt.tz_localize("UTC")
         else:
             frame["timestamp"] = frame.timestamp.dt.tz_convert("UTC")
-        frames.append(frame)
+        frames[name] = frame
         manifest[name] = {"sha256": sha256(content).hexdigest(), "rows": len(frame)}
-    if frames[0].timestamp.max() >= frames[1].timestamp.min():
+    if frames["train"].timestamp.max() >= frames["validation"].timestamp.min():
         raise ValueError("Les splits historiques ne sont pas chronologiques.")
-    return pd.concat(frames, ignore_index=True), manifest
+    return frames["train"], frames["validation"], manifest
 
 
 def prepare_current(
@@ -73,24 +74,32 @@ def prepare_current(
 
 
 def make_splits(
-    historical: pd.DataFrame, current: pd.DataFrame, validation_days: int = 14
+    bootstrap_train: pd.DataFrame,
+    bootstrap_validation: pd.DataFrame,
+    current: pd.DataFrame,
+    validation_days: int = 14,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Validation sur les dernières journées disponibles, sans jeu test historique."""
-    combined = pd.concat([historical, current], ignore_index=True)
-    combined = combined.dropna(subset=[TARGET]).sort_values(["timestamp", "site_id"])
+    """Préserve les splits initiaux, puis valide sur les données SQL récentes."""
+    if current.empty:
+        train, validation = bootstrap_train.copy(), bootstrap_validation.copy()
+    else:
+        cutoff = current.timestamp.max() - pd.Timedelta(days=validation_days)
+        current_train = current.loc[current.timestamp < cutoff]
+        validation = current.loc[current.timestamp >= cutoff].copy()
+        # Après le choix du HGB, le split historique de validation rejoint le train.
+        train = pd.concat([bootstrap_train, bootstrap_validation, current_train], ignore_index=True)
+    train = train.dropna(subset=[TARGET]).sort_values(["timestamp", "site_id"])
+    validation = validation.dropna(subset=[TARGET]).sort_values(["timestamp", "site_id"])
+    combined = pd.concat([train, validation], ignore_index=True)
     if combined.duplicated(["site_id", "timestamp"]).any():
         raise ValueError("Doublons site/heure entre historique et SQL.")
     if combined.empty or (combined[TARGET] < 0).any():
         raise ValueError("Cibles absentes ou négatives.")
-    latest = combined.timestamp.max()
-    cutoff = latest - pd.Timedelta(days=validation_days)
-    train = combined.loc[combined.timestamp < cutoff].reset_index(drop=True)
-    validation = combined.loc[combined.timestamp >= cutoff].reset_index(drop=True)
     if train.empty or validation.empty:
         raise ValueError("Historique insuffisant pour train et validation.")
     if set(train.site_id) != set(validation.site_id):
         raise ValueError("Train et validation doivent couvrir les mêmes sites.")
-    return train, validation
+    return train.reset_index(drop=True), validation.reset_index(drop=True)
 
 
 def current_ready(current: pd.DataFrame, historical: pd.DataFrame, minimum_hours: int) -> bool:
