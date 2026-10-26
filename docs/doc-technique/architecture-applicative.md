@@ -23,8 +23,8 @@ MLSERVICE("ML-SERVICE")
 
 subgraph ETL["ETL"]
 direction TB
-E60("Chaque minute<br/>/current, /alerts")
-EH("Chaque heure<br/>agrégats")
+E60("Chaque minute<br/>/current, /alerts, imputation")
+EH("Chaque heure<br/>rattrapage /readings, agrégats 6 h")
 E1D("Chaque jour<br/>sites, profils")
 E60 ~~~ EH ~~~ E1D
 end
@@ -41,6 +41,7 @@ TELEM --> MLSERVICE
 CORE --> TSDB
 
 API_MOCK --> E60
+API_MOCK --> EH
 API_MOCK --> E1D
 E60 -->|BRUT| TSDB
 E60 -->|bronze JSON| S3
