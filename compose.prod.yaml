@@ -59,6 +59,17 @@ services:
       ENABLE_DOCS: "false"
     restart: unless-stopped
 
+  prediction-jobs:
+    build: !reset null
+    image: ${ECR_REGISTRY}/enervision/prediction-service:${PREDICTION_SERVICE_TAG:-latest}
+    mem_limit: 2g
+    cpus: 2.0
+    environment:
+      TRAINING_BOOTSTRAP_URI: ${TRAINING_BOOTSTRAP_URI:?TRAINING_BOOTSTRAP_URI doit etre fourni par SSM}
+    volumes: !override
+      - ml_models:/models
+    restart: unless-stopped
+
   etl-worker:
     build: !reset null
     image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
