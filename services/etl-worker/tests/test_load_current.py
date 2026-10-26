@@ -21,6 +21,7 @@ from etl_worker.load import load_readings, load_sites
 from etl_worker.timestamps import parse_reading_timestamp
 
 START = datetime(2026, 10, 26, 8, 3, 16, tzinfo=UTC)
+MINUTE = START.replace(second=0)  # ts stocké : début de la minute
 
 
 def reading(minute=0, site="SITE001", kw=None, kwh=None, **extra):
@@ -55,9 +56,9 @@ class CurrentReadingUnitTests(unittest.TestCase):
         self.assertEqual(load_readings([source], "postgresql://fixture", fill_consumptions=True), 1)
         self.assertEqual(source, before)
         select_parameters = cursor.execute.call_args_list[0].args[1]
-        self.assertEqual(select_parameters, {"site_id": "SITE001", "ts": START})
+        self.assertEqual(select_parameters, {"site_id": "SITE001", "ts": MINUTE})
         row = cursor.execute.call_args_list[-1].args[1]
-        self.assertEqual(row[1], START)  # Secondes conservées ; fractions supprimées.
+        self.assertEqual(row[1], MINUTE)  # Secondes et fractions supprimées.
         self.assertEqual(row[3:5], (0, 0.25))
         self.assertTrue(all(value is None for value in row[5:10]))
         self.assertEqual(row[10:], (source["null_reasons"], "partial"))
@@ -127,7 +128,7 @@ class CurrentReadingPostgresTests(unittest.TestCase):
         rows = [row for row in self.stored() if row["site_id"] == "SITE001"]
         self.assertEqual(len(rows), 5)
         self.assertTrue(all((row["consumption_kw"], row["consumption_kwh"]) == (12.5, 0.2) for row in rows))
-        self.assertTrue(all(row["ts"].microsecond == 0 and row["ts"].second == 16 for row in rows))
+        self.assertTrue(all(row["ts"].microsecond == 0 and row["ts"].second == 0 for row in rows))
         self.assertTrue(all(row["voltage_v"] is None and row["data_quality"] == "critical" for row in rows))
 
     def test_fields_use_their_own_last_non_null_value_and_received_values_win(self):
@@ -161,14 +162,17 @@ class CurrentReadingPostgresTests(unittest.TestCase):
         self.assertEqual(source, before)
         self.assertTrue(all(row["consumption_kw"] == 12.5 for row in self.stored()))
 
-    def test_timestamp_normalization_keeps_instants_and_deduplicates_same_second(self):
+    def test_timestamp_normalization_keeps_instants_and_deduplicates_same_minute(self):
         first = reading(kw=12.567891234, kwh=0.123456789,
                         timestamp="2026-10-26T09:03:16.268687+01:00")
         self.assertEqual(self.load_current([first]), 1)
         self.assertEqual(self.load_current([reading(kw=99, kwh=9,
                          timestamp="2026-10-26T08:03:16.999999")]), 0)
+        # Autre seconde de la même minute : toujours ignorée, la première collecte reste.
+        self.assertEqual(self.load_current([reading(kw=77, kwh=7,
+                         timestamp="2026-10-26T08:03:48.5")]), 0)
         row = self.stored()[0]
-        self.assertEqual(row["ts"], START)
+        self.assertEqual(row["ts"], MINUTE)
         self.assertEqual((row["consumption_kw"], row["consumption_kwh"]), (12.567891234, 0.123456789))
 
     def test_failure_rolls_back_entire_batch(self):
@@ -201,7 +205,7 @@ class CurrentReadingPostgresTests(unittest.TestCase):
         self.assertEqual(archived, before)
         self.assertEqual(source, before)
         stored = self.stored()[-1]
-        self.assertEqual(stored["ts"], START + timedelta(minutes=1))
+        self.assertEqual(stored["ts"], MINUTE + timedelta(minutes=1))
         # sync-readings n'active pas la complétion : le NULL reçu est stocké tel quel.
         self.assertEqual((stored["consumption_kw"], stored["consumption_kwh"]), (None, None))
         self.assertIsNone(stored["voltage_v"])

@@ -132,9 +132,11 @@ def load_readings(
     connect_timeout: int = 10,
     fill_consumptions: bool = False,
 ) -> int:
-    """Charge une copie des mesures, avec timestamps UTC sans fractions de seconde.
+    """Charge une copie des mesures, avec timestamps UTC ramenés au début de leur minute.
 
-    Le mode fill_consumptions, activé par sync-readings, reprend chaque
+    Une ligne par site et par minute : une seconde collecte dans la même minute
+    est ignorée ; le timestamp exact reste dans le bronze.
+    Le mode fill_consumptions, non activé par sync-readings, reprend chaque
     consommation NULL depuis le même champ du même site strictement antérieur.
     Sans antécédent, NULL est conservé. Les zéros sont des valeurs disponibles.
     Le mode par défaut conserve les NULL pour les imports historiques existants.
@@ -155,7 +157,7 @@ def load_readings(
     copies = [
         {
             **reading,
-            "timestamp": parse_reading_timestamp(reading["timestamp"]).replace(microsecond=0),
+            "timestamp": parse_reading_timestamp(reading["timestamp"]).replace(second=0, microsecond=0),
         }
         for reading in readings
     ]
