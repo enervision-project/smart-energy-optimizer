@@ -1,1 +1,85 @@
-<p>previsions works!</p>
+<header class="page-header">
+  <h1>Prévisions</h1>
+  <label class="picker">
+    <span>Site</span>
+    <select data-testid="site" (change)="selectSite($event)">
+      @for (s of siteOptions(); track s.siteId) {
+        <option [value]="s.siteId" [selected]="s.siteId === siteId()">{{ s.siteName }}</option>
+      }
+    </select>
+  </label>
+</header>
+
+@if (sites.error()) {
+  <p class="error" role="alert">Sites indisponibles.</p>
+} @else if (!siteId()) {
+  @if (sites.isLoading()) {
+    <p class="hint">Chargement…</p>
+  } @else {
+    <p class="hint">Aucun site n’est rattaché à votre compte.</p>
+  }
+} @else {
+  @if (selectedSite(); as s) {
+    <p class="meta">capacité {{ s.capacityKw }} kW · horizon H+{{ horizonHours }}</p>
+  }
+
+  @if (predictions.error()) {
+    <p class="error" role="alert">Prévisions indisponibles.</p>
+  } @else if (predictions.isLoading() && !predictions.hasValue()) {
+    <p class="hint">Chargement…</p>
+  } @else if (!hasForecast()) {
+    <p class="hint" data-testid="no-forecast">
+      Aucune prévision publiée pour ce site : le modèle n’a pas encore produit de série.
+    </p>
+  } @else {
+    <ul class="cards">
+      <li class="card" data-testid="peak">
+        <span class="label">Pic prévu (H+{{ horizonHours }})</span>
+        <strong class="value">{{ cards().peak }}</strong>
+        <span class="detail">{{ cards().peakDetail }}</span>
+      </li>
+      <li class="card" data-testid="energy">
+        <span class="label">Énergie prévue</span>
+        <strong class="value">{{ cards().energy }}</strong>
+        <span class="detail">sur les {{ horizonHours }} prochaines heures</span>
+      </li>
+      <li class="card" data-testid="until">
+        <span class="label">Prévision disponible jusqu’à</span>
+        <strong class="value">{{ cards().until }}</strong>
+        <span class="detail">une nouvelle série est publiée chaque heure</span>
+      </li>
+      <li class="card" data-testid="model">
+        <span class="label">Modèle</span>
+        <strong class="value model">{{ cards().model }}</strong>
+        <span class="detail">{{ cards().modelDetail }}</span>
+      </li>
+    </ul>
+
+    <section class="card chart" aria-labelledby="chart-title">
+      <h2 id="chart-title">Consommation (kW) — mesurée et prévue</h2>
+      @if (readings.error()) {
+        <p class="error" role="alert">Mesures indisponibles : seule la prévision est affichée.</p>
+      }
+      <div class="canvas-wrapper">
+        <canvas
+          baseChart
+          type="line"
+          [data]="chartData()"
+          [options]="chartOptions"
+          [plugins]="chartPlugins"
+          [attr.aria-label]="
+            'Consommation mesurée sur ' +
+            pastHours +
+            ' heures et prévue sur ' +
+            horizonHours +
+            ' heures'
+          "
+        ></canvas>
+      </div>
+      <p class="hint">
+        Pointillés : prévision horaire (avant « maintenant », celle qui avait été faite pour ces
+        heures, à comparer au mesuré). Le point marque le pic prévu.
+      </p>
+    </section>
+  }
+}
