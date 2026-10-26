@@ -250,6 +250,11 @@ export class MockEnergyApi extends EnergyApi {
     ) as Record<AlertSeverity, number>;
     return of({ since: since.toISOString(), total: recent.length, bySeverity });
   }
+
+  /** Aucune donnée de mock pour les recommandations : l'application s'appuie uniquement sur l'API réelle. */
+  getRecommendations(): Observable<RecommendationResponse | null> {
+    return of(null);
+  }
 }
 
 /** Alertes datées par rapport à maintenant, de la plus récente à la plus ancienne. */
