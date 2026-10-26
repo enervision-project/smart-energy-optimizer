@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { ChartData, ChartOptions, TooltipItem } from 'chart.js';
@@ -180,6 +180,14 @@ export class Site {
   });
 
   constructor() {
+    // Sans site dans l'URL (`/sites`), le premier site visible est affiché ; `replaceUrl` évite qu'un retour
+    // arrière ramène sur `/sites` et redirige de nouveau.
+    effect(() => {
+      const first = this.siteOptions()[0];
+      if (!this.id() && first) {
+        this.router.navigate(['/sites', first.siteId], { replaceUrl: true });
+      }
+    });
     reloadOnError(this.latest, READING_REFRESH_MS);
     reloadOnError(this.series, READING_REFRESH_MS);
     reloadOnError(this.summary, READING_REFRESH_MS);

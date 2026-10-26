@@ -1,1 +1,53 @@
-/* You can add global styles to this file, and also import other style files */
+/* Styles globaux : seulement ce qui est partagé par plusieurs pages (les styles d'un composant ne
+   s'appliquent qu'à son propre template). */
+.picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #5b6573;
+
+  select {
+    padding: 8px 10px;
+    border: 1px solid #c8cfc4;
+    border-radius: 8px;
+    background: #fff;
+    font: inherit;
+    color: #1f2a37;
+  }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th {
+    padding: 8px;
+    border-bottom: 1px solid #dde2da;
+    font-weight: 600;
+    text-align: left;
+    color: #5b6573;
+    white-space: nowrap;
+  }
+  td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #eef1ec;
+  }
+  .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+  tr.old td {
+    color: #8a929c;
+  }
+  a {
+    color: #1f7a63;
+    font-weight: 600;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
