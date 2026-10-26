@@ -62,8 +62,20 @@ class LoadMockedTests(unittest.TestCase):
         self.assertEqual(
             row,
             ("SITE001", datetime.fromisoformat(READING["timestamp"]), "office", 12.5, None, None, None, None,
-             None, None, [], "good"),
+             None, None, [], "good", "current"),
         )
+
+    def test_load_readings_writes_the_given_source(self, mock_connect):
+        cursor = mock_connection(mock_connect, rowcount=1)
+
+        load_readings([READING], DATABASE_URL, source="backfill")
+
+        self.assertEqual(cursor.executemany.call_args.args[1][0][-1], "backfill")
+
+    def test_unknown_source_fails_before_connecting(self, mock_connect):
+        with self.assertRaisesRegex(ValueError, "Source de mesure inconnue"):
+            load_readings([READING], DATABASE_URL, source="manual")
+        mock_connect.assert_not_called()
 
     def test_load_readings_empty_batch_does_not_connect(self, mock_connect):
         self.assertEqual(load_readings([]), 0)

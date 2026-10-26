@@ -52,6 +52,24 @@ class BronzeTests(unittest.TestCase):
         self.assertIsNone(write_readings_bronze([], "lake", client=client))
         client.put_object.assert_not_called()
 
+    def test_backfill_archives_are_separated_and_labelled(self):
+        client = MagicMock()
+        key = write_readings_bronze(
+            READINGS, "lake", client=client, collected_at=CAPTURED,
+            kind="backfill", label="SITE001_20261026T0800-20261026T0803",
+        )
+        self.assertEqual(
+            key,
+            "bronze/readings/backfill/date=2026-10-26/hour=08/"
+            "2026-10-26T08-03-15.123456Z_SITE001_20261026T0800-20261026T0803.jsonl",
+        )
+
+    def test_unknown_archive_kind_fails_before_writing(self):
+        client = MagicMock()
+        with self.assertRaisesRegex(ValueError, "bronze inconnu"):
+            write_readings_bronze(READINGS, "lake", client=client, collected_at=CAPTURED, kind="other")
+        client.put_object.assert_not_called()
+
     def test_naive_capture_time_fails_before_writing(self):
         client = MagicMock()
         with self.assertRaisesRegex(ValueError, "fuseau"):
