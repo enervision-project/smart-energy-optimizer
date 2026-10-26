@@ -20,7 +20,7 @@ flowchart LR
 |---|---|---|
 | `/login` | Connexion | `POST /auth/login` |
 | `/parc` | Vue du parc | (à venir) |
-| `/sites`, `/sites/:id` | Détail d'un site | Site et profil de référence, mesures horaires |
+| `/sites`, `/sites/:id` | Détail d'un site | Site et profil, dernière mesure, courbe brute / imputée avec la qualité de chaque pas, état des capteurs, synthèse ; rafraîchis chaque minute |
 | `/previsions` | Prévisions | (à venir) |
 | `/alertes` | Alertes | Alertes paginées et filtrées, compteurs de la dernière heure |
 
@@ -30,7 +30,7 @@ Toutes les routes sauf `/login` exigent d'être connecté (voir [Connexion](auth
 
 Les pages n'utilisent jamais `HttpClient` directement : elles injectent `EnergyApi` (classe abstraite, `core/services/energy-api.ts`). `app.config.ts` choisit l'implémentation selon `environment.useMock` :
 
-- **`MockEnergyApi`** (`npm start`) : données factices déterministes, calquées sur les réponses réelles de l'API Mock (7 sites, mesures horaires avec des trous, alertes de la dernière heure). Permet de développer sans back.
+- **`MockEnergyApi`** (`npm start`) : données factices déterministes, calquées sur les réponses réelles de l'API Mock (7 sites, mesures minute par minute avec pannes de capteurs, perte réseau, coupure de collecte et valeurs imputées, alertes de la dernière heure). Permet de développer sans back.
 - **`HttpEnergyApi`** (build de production, `npm run start:api`) : appelle core-api sur `/api/v1`.
 
 Ajouter une donnée = une méthode dans `EnergyApi`, implémentée dans les deux classes, et un modèle dans `core/models/` (champs en camelCase, comme les DTO de core-api).
