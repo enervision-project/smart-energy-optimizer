@@ -23,9 +23,10 @@ MLSERVICE("ML-SERVICE")
 
 subgraph ETL["ETL"]
 direction TB
-E60("60 Secondes")
-E1D("1 Day")
-E60 ~~~ E1D
+E60("Chaque minute<br/>/current, /alerts")
+EH("Chaque heure<br/>agrégats")
+E1D("Chaque jour<br/>sites, profils")
+E60 ~~~ EH ~~~ E1D
 end
 
 TSDB("TimeScaleDB")
@@ -40,9 +41,11 @@ TELEM --> MLSERVICE
 CORE --> TSDB
 
 API_MOCK --> E60
+API_MOCK --> E1D
 E60 -->|BRUT| TSDB
-TSDB --> E1D
-E1D --> S3
+E60 -->|bronze JSON| S3
+E1D --> TSDB
+TSDB <-->|readings_hours| EH
 
 S3 --> MLFLOW
 MLFLOW --> MLSERVICE
