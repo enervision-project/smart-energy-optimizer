@@ -77,6 +77,42 @@ resource "aws_iam_instance_profile" "app" {
   role = aws_iam_role.app.name
 }
 
+# --- Monitoring instance role: SSM (agent + parameters), read S3 releases
+resource "aws_iam_role" "monitoring" {
+  name               = "${local.name}-monitoring"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume.json
+}
+
+resource "aws_iam_role_policy_attachment" "monitoring" {
+  role       = aws_iam_role.monitoring.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+data "aws_iam_policy_document" "monitoring" {
+  statement {
+    actions   = ["ssm:GetParametersByPath"]
+    resources = ["arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name}/prod/monitoring"]
+  }
+  statement {
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.deploy.arn}/releases/*"]
+  }
+  statement {
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.deploy.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "monitoring" {
+  role   = aws_iam_role.monitoring.id
+  policy = data.aws_iam_policy_document.monitoring.json
+}
+
+resource "aws_iam_instance_profile" "monitoring" {
+  name = "${local.name}-monitoring"
+  role = aws_iam_role.monitoring.name
+}
+
 # --- GitHub Actions (OIDC) : push ECR + déploiement SSM, depuis main uniquement
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
@@ -131,7 +167,7 @@ data "aws_iam_policy_document" "github_deploy" {
   }
   statement {
     actions   = ["ssm:SendCommand"]
-    resources = [aws_instance.app.arn, "arn:aws:ssm:${var.region}::document/AWS-RunShellScript"]
+    resources = [aws_instance.app.arn, aws_instance.monitoring.arn, "arn:aws:ssm:${var.region}::document/AWS-RunShellScript"]
   }
   statement {
     actions   = ["ssm:GetParameter", "ssm:PutParameter"]

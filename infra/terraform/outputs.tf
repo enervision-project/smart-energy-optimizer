@@ -6,6 +6,21 @@ output "instance_id" {
   value = aws_instance.app.id
 }
 
+output "monitoring_instance_id" {
+  value = aws_instance.monitoring.id
+}
+
+output "grafana_tunnel" {
+  description = "Grafana on http://localhost:13000 (user admin, password in SSM)."
+  value       = <<-EOT
+    aws ssm start-session --target ${aws_instance.monitoring.id} \
+      --document-name AWS-StartPortForwardingSession \
+      --parameters portNumber=3000,localPortNumber=13000
+    aws ssm get-parameter --with-decryption --name /${local.name}/prod/monitoring/GRAFANA_ADMIN_PASSWORD \
+      --query Parameter.Value --output text
+  EOT
+}
+
 output "deploy_role_arn" {
   value = aws_iam_role.github_deploy.arn
 }

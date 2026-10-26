@@ -244,6 +244,8 @@ locals {
     MLFLOW_DB_PASSWORD           = random_password.mlflow_db.result
     MLFLOW_ARTIFACTS_DESTINATION = "s3://${aws_s3_bucket.datalake.bucket}/${local.mlflow_artifacts_prefix}"
     TRAINING_BOOTSTRAP_URI       = "s3://${aws_s3_bucket.datalake.bucket}/${local.ml_datasets_prefix}/bootstrap/v1"
+    # Alloy pushes metrics and logs to the monitoring EC2 (VPC private IP)
+    MONITORING_HOST = aws_instance.monitoring.private_ip
   })
 }
 
