@@ -82,7 +82,7 @@ if (request.siteId() != null && !siteNames.containsKey(request.siteId())) {
 
 1. **Jeton** : rien à faire (`anyRequest().authenticated()`).
 2. **Utilisateur courant** : déclarer un paramètre `CurrentUser` dans la méthode du controller ; il est construit à partir du jeton (`sub`, rôle).
-3. **Données d'un site** : dépendre du module `configuration` dans le `pom.xml`, puis filtrer avec `SiteService` (voir ci-dessus). C'est le point à ne pas oublier, par exemple pour les mesures du futur module `telemetry`.
+3. **Données d'un site** : dépendre du module `configuration` dans le `pom.xml`, puis filtrer avec `SiteService` (voir ci-dessus). C'est le point à ne pas oublier : le module `telemetry` le fait pour les mesures.
 4. **Administration** : `@AdminOnly`.
 5. **Tests** : un test `@WebMvcTest` sans jeton (401) et un test de service où le site n'est pas visible (404).
 
