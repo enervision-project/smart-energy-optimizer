@@ -27,6 +27,7 @@ jobs:
       images: ${{ steps.images.outputs.builds || '[]' }}
       etl-worker: ${{ steps.filter.outputs.etl-worker }}
       prediction-service: ${{ steps.filter.outputs.prediction-service }}
+      infra: ${{ steps.filter.outputs.infra }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -56,6 +57,14 @@ jobs:
               - 'services/ml-service/training/**'
               - 'services/ml-service/configs/hgb_production.yaml'
               - '.github/workflows/_ci-prediction-service.yml'
+            infra:
+                  - 'infra/**'
+                  - '.github/workflows/**'
+                  - '**/Dockerfile*'
+                  - '**/compose*.yaml'
+                  - '**/compose*.yml'
+                  - 'sonar-project.properties'
+                  - '.github/workflows/_ci-infra.yml'
 
       # same selection rules as the deployment (services.yml), against the PR base
       - name: Services with an image to build
@@ -112,6 +121,15 @@ jobs:
       id-token: write
     uses: ./.github/workflows/_ci-terraform.yml
 
+  call-infra:
+    name: Infra
+    needs: changes
+    if: ${{ needs.changes.outputs.infra == 'true' || github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/_ci-infra.yml
+    secrets:
+      SONAR_TOKEN_INFRA_ROOT: ${{ secrets.SONAR_TOKEN_INFRA_ROOT }}
+
+
   # pull requests only: on main, services.yml builds, publishes and deploys the images
   call-images:
     name: Docker images
@@ -124,7 +142,7 @@ jobs:
   # Single check to require in the main ruleset: the call-* jobs only
   # exist when their paths changed.
   mr-ok:
-    needs: [changes, call-frontend, call-core-api, call-terraform, call-images, call-etl-worker, call-prediction-service]
+    needs: [changes, call-frontend, call-core-api, call-terraform, call-images, call-etl-worker, call-prediction-service, call-infra]
     # Uniquement sur les Pull Requests
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-26.04
