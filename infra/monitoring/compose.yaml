@@ -1,0 +1,58 @@
+# Monitoring stack, on the monitoring EC2 (infra/terraform/monitoring.tf).
+# Deployed by infra/monitoring/deploy.sh; secrets come from SSM (/enervision/prod/monitoring).
+# Alloy on the app EC2 pushes metrics (9090) and logs (3100); the security group
+# only accepts the app EC2. Grafana: SSM tunnel only (terraform output grafana_tunnel).
+name: enervision-monitoring
+
+services:
+  prometheus:
+    image: docker.io/prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=8GB # guard for the 30 GB disk
+      - --web.enable-remote-write-receiver # metrics pushed by Alloy
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus:/prometheus
+    mem_limit: 512m
+    restart: unless-stopped
+
+  loki:
+    image: docker.io/grafana/loki:3.5.3
+    command: -config.file=/etc/loki/loki.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki.yaml:/etc/loki/loki.yaml:ro
+      - loki:/loki
+    mem_limit: 512m
+    restart: unless-stopped
+
+  grafana:
+    image: docker.io/grafana/grafana:12.1.1
+    environment:
+      # only used on the first start: later changes go through the Grafana UI or grafana-cli
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must come from SSM}
+      # public URL once Grafana is exposed to the team; tunnel URL until then
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:13000}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    # host loopback only: reached through the SSM tunnel
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana:/var/lib/grafana
+    depends_on: [prometheus, loki]
+    mem_limit: 256m
+    restart: unless-stopped
+
+volumes:
+  prometheus: {}
+  loki: {}
+  grafana: {}

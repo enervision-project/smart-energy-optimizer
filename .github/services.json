@@ -40,6 +40,9 @@
         "context": "services/ml-service/mlflow",
         "dockerfile": "services/ml-service/mlflow/Dockerfile"
       }
+    },
+    "monitoring": {
+      "paths": ["infra/monitoring/"]
     }
   }
 }
