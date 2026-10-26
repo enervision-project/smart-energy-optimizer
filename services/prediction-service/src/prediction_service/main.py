@@ -1,13 +1,15 @@
 """Application FastAPI : /predict et /health."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 
-from prediction_service.model import ModelLoadError, Predictor, UnknownSiteError, load_predictor
+from prediction_service.model import ModelLoadError, Predictor, UnknownSiteError
+from prediction_service.registry import available_predictor, changed_champion
 from prediction_service.schemas import HealthResponse, PredictRequest, PredictResponse
 from prediction_service.settings import get_settings
 
@@ -22,11 +24,42 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.predictor = None
     try:
-        app.state.predictor = load_predictor(settings.model_dir)
+        app.state.predictor = await asyncio.to_thread(
+            available_predictor,
+            settings.model_dir,
+            settings.mlflow_tracking_uri or None,
+            settings.registered_model_name,
+        )
     except ModelLoadError:
         # le service démarre quand même : /health l'indique, /predict répond 503
         logger.exception("aucun modèle chargé")
-    yield
+
+    async def refresh_loop() -> None:
+        if not settings.mlflow_tracking_uri:
+            return
+        while True:
+            await asyncio.sleep(settings.model_refresh_seconds)
+            try:
+                current = app.state.predictor
+                candidate = await asyncio.to_thread(
+                    changed_champion,
+                    settings.model_dir,
+                    settings.mlflow_tracking_uri,
+                    settings.registered_model_name,
+                    current.version if current else None,
+                )
+                if candidate is not None:
+                    app.state.predictor = candidate
+            except Exception:
+                logger.exception("Rafraîchissement du champion impossible")
+
+    task = asyncio.create_task(refresh_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 
 def get_predictor(request: Request) -> Predictor:

@@ -24,7 +24,11 @@
       "build": { "context": ".", "dockerfile": "services/etl-worker/Dockerfile" }
     },
     "prediction-service": {
-      "paths": ["services/prediction-service/"],
+      "paths": [
+        "services/prediction-service/",
+        "services/ml-service/training/",
+        "services/ml-service/configs/hgb_production.yaml"
+      ],
       "build": { "context": ".", "dockerfile": "services/prediction-service/Dockerfile" }
     },
     "db": {

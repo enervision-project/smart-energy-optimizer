@@ -102,7 +102,7 @@ class Predictor:
             "month": request.month,
             "lag_24h": _or_nan(request.lag_24h),
             "lag_168h": _or_nan(request.lag_168h),
-            "temperature_celsius": _or_nan(request.temperature_celsius),
+            "temperature_celsius": _or_nan(getattr(request, "temperature_celsius", None)),
             "is_working_hours": request.is_working_hours,
         }
         return self.backend.predict(request.site_id, code, values)

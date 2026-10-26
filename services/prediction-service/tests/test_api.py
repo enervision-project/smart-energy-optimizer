@@ -26,14 +26,9 @@ def test_predict_is_deterministic(client, payload):
     assert client.post("/predict", json=payload).json()["prediction"] == first
 
 
-def test_predict_without_temperature(client, payload):
-    del payload["temperature_celsius"]
-    assert client.post("/predict", json=payload).status_code == 200
-
-
-def test_predict_null_temperature(client, payload):
-    payload["temperature_celsius"] = None
-    assert client.post("/predict", json=payload).status_code == 200
+def test_predict_rejects_temperature(client, payload):
+    payload["temperature_celsius"] = 18.2
+    assert client.post("/predict", json=payload).status_code == 422
 
 
 @pytest.mark.parametrize("field", ["lag_24h", "lag_168h"])
@@ -45,7 +40,7 @@ def test_predict_lag_optional(client, payload, field):
 
 
 def test_predict_all_optional_missing(client, payload):
-    for field in ("lag_24h", "lag_168h", "temperature_celsius"):
+    for field in ("lag_24h", "lag_168h"):
         payload[field] = None
     assert client.post("/predict", json=payload).status_code == 200
 
@@ -73,7 +68,6 @@ def test_predict_without_model(client_without_model, payload):
         ("lag_24h", -1),
         ("lag_168h", "abc"),
         ("is_working_hours", 2),
-        ("temperature_celsius", 100),
         ("site_id", ""),
         ("site_id", "site-a"),
     ],

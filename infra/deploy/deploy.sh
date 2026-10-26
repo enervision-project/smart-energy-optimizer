@@ -42,6 +42,7 @@ for svc in "$@"; do
   case "$svc" in
     etl-worker) deploy_services+=(scheduler) ;;
     mlflow) deploy_services+=(mlflow); check_mlflow=true ;;
+    prediction-service) deploy_services+=(prediction-service prediction-jobs) ;;
     *) deploy_services+=("$svc") ;;
   esac
 done

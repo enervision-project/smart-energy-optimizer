@@ -22,12 +22,6 @@ class PredictRequest(BaseModel):
         ge=0,
         description="Consommation du site à la même heure 7 jours avant ; absente = manquante.",
     )
-    temperature_celsius: float | None = Field(
-        default=None,
-        ge=-60,
-        le=60,
-        description="Température prévue ; absente = valeur manquante pour le modèle.",
-    )
     is_working_hours: int = Field(ge=0, le=1, description="1 = heure de travail, 0 sinon.")
 
 
