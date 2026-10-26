@@ -40,37 +40,37 @@ par le lanceur.
 
 Les chemins ci-dessous sont relatifs à `services/ml-service/`.
 
-| Fichier | Rôle |
-| --- | --- |
-| `notebook/01_exploration_consommation.ipynb` | Exploration, tableaux, graphiques et justification des variables. |
-| `requirements-notebooks.txt` | Dépendances de l'environnement d'exploration. |
-| `training/prepare_data.py` | Vérification du CSV, recalcul des horaires travaillés, création des lags et des trois Parquet. |
-| `training/data.py` | Schéma des données et lecture exclusive de train et validation pendant les expériences. |
-| `training/models.py` | Pipeline de prétraitement et estimateur HGB ou Ridge. |
-| `training/train.py` | Entraînement d'un essai sur train, évaluation sur validation et vérification du modèle sauvegardé. |
-| `training/metrics.py` | MAE, RMSE, R² et nMAE, globalement et par site. |
-| `training/tracking.py` | Connexion MLflow, provenance, paramètres, jeux de données et pipeline. |
-| `training/search_hgb.py` | Grille, exécution des essais, reprise et bilan de campagne. |
-| `configs/hist_gradient_boosting_no_weather.yaml` | Modèle de base, expérience et paramètres fixes de la campagne actuelle. |
-| `configs/hgb_search_no_weather.yaml` | Quatre variantes de variables et grille des 24 configurations. |
-| `run_experiments.py` | Commande unique : vérifications, image Docker, démarrage de MLflow et 96 essais. |
-| `Dockerfile.training`, `requirements-training.txt` | Image Python et versions des dépendances d'entraînement. |
-| `compose.training.yaml` | Services `ml-trainer` et `ml-prepare`, montages et limites de ressources. |
-| `mlflow/` | Serveur, initialisation de sa base PostgreSQL et configuration des artefacts. |
-| `tests/` | Contrôles de la préparation, du lanceur et du plan d'expériences. |
-| `training/export.py` | Export manuel d'un run sklearn pour le service de prédiction ; hors du parcours des 96 essais. |
+| Fichier                                            | Rôle                                                                                               |
+|----------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| `notebook/01_exploration_consommation.ipynb`       | Exploration, tableaux, graphiques et justification des variables.                                  |
+| `requirements-notebooks.txt`                       | Dépendances de l'environnement d'exploration.                                                      |
+| `training/prepare_data.py`                         | Vérification du CSV, recalcul des horaires travaillés, création des lags et des trois Parquet.     |
+| `training/data.py`                                 | Schéma des données et lecture exclusive de train et validation pendant les expériences.            |
+| `training/models.py`                               | Pipeline de prétraitement et estimateur HGB ou Ridge.                                              |
+| `training/train.py`                                | Entraînement d'un essai sur train, évaluation sur validation et vérification du modèle sauvegardé. |
+| `training/metrics.py`                              | MAE, RMSE, R² et nMAE, globalement et par site.                                                    |
+| `training/tracking.py`                             | Connexion MLflow, provenance, paramètres, jeux de données et pipeline.                             |
+| `training/search_hgb.py`                           | Grille, exécution des essais, reprise et bilan de campagne.                                        |
+| `configs/hist_gradient_boosting_no_weather.yaml`   | Modèle de base, expérience et paramètres fixes de la campagne actuelle.                            |
+| `configs/hgb_search_no_weather.yaml`               | Quatre variantes de variables et grille des 24 configurations.                                     |
+| `run_experiments.py`                               | Commande unique : vérifications, image Docker, démarrage de MLflow et 96 essais.                   |
+| `Dockerfile.training`, `requirements-training.txt` | Image Python et versions des dépendances d'entraînement.                                           |
+| `compose.training.yaml`                            | Services `ml-trainer` et `ml-prepare`, montages et limites de ressources.                          |
+| `mlflow/`                                          | Serveur, initialisation de sa base PostgreSQL et configuration des artefacts.                      |
+| `tests/`                                           | Contrôles de la préparation, du lanceur et du plan d'expériences.                                  |
+| `training/export.py`                               | Export manuel d'un run sklearn pour le service de prédiction ; hors du parcours des 96 essais.     |
 
 Les anciennes configurations Ridge et HGB avec météo restent disponibles pour retrouver
 les expériences précédentes. Le lanceur actuel sélectionne la configuration sans météo.
 
 ## Stockage local
 
-| Élément | Emplacement et contenu |
-| --- | --- |
-| Sources et Parquet | `.data/ml/`, ignoré par Git ; à récupérer séparément du code. |
-| Base MLflow | Base et utilisateur dédiés dans le conteneur PostgreSQL existant : expériences, runs, paramètres, métriques et métadonnées des modèles. |
-| Artefacts MLflow | Volume Docker `mlflow_artifacts` : pipelines, configurations, prédictions et rapports JSON. |
-| Dépendances Python d'entraînement | Image Docker `enervision-ml-trainer:local`. |
+| Élément                           | Emplacement et contenu                                                                                                                  |
+|-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| Sources et Parquet                | `.data/ml/`, ignoré par Git ; à récupérer séparément du code.                                                                           |
+| Base MLflow                       | Base et utilisateur dédiés dans le conteneur PostgreSQL existant : expériences, runs, paramètres, métriques et métadonnées des modèles. |
+| Artefacts MLflow                  | Volume Docker `mlflow_artifacts` : pipelines, configurations, prédictions et rapports JSON.                                             |
+| Dépendances Python d'entraînement | Image Docker `enervision-ml-trainer:local`.                                                                                             |
 
 Récupérer le dépôt Git ne récupère pas les runs ni les modèles d'un autre poste.
 Deux serveurs MLflow locaux ont des historiques distincts. Une désignation de champion

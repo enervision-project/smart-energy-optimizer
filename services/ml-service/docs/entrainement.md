@@ -75,21 +75,21 @@ Parquet pour une reprise.
 Le modèle est un `HistGradientBoostingRegressor` commun aux sites. Les variables
 communes sont `site_id`, `hour`, `day_of_week`, `month` et `is_working_hours`.
 
-| Tag `feature_variant` | Lags ajoutés | Nombre d'entrées | Essais |
-| --- | --- | --- | --- |
-| `both_lags` | 24 h et 168 h | 7 | 24 |
-| `lag_24h` | 24 h | 6 | 24 |
-| `lag_168h` | 168 h | 6 | 24 |
-| `no_lags` | Aucun | 5 | 24 |
+| Tag `feature_variant` | Lags ajoutés  | Nombre d'entrées | Essais |
+|-----------------------|---------------|------------------|--------|
+| `both_lags`           | 24 h et 168 h | 7                | 24     |
+| `lag_24h`             | 24 h          | 6                | 24     |
+| `lag_168h`            | 168 h         | 6                | 24     |
+| `no_lags`             | Aucun         | 5                | 24     |
 
 La température n'est utilisée dans aucune variante. Le fichier
 `configs/hgb_search_no_weather.yaml` définit la grille :
 
-| Paramètre | Valeurs comparées |
-| --- | --- |
-| `max_leaf_nodes` | 31, 63 |
-| `min_samples_leaf` | 20, 50, 100 |
-| `l2_regularization` | 0, 10 |
+| Paramètre                     | Valeurs comparées                                  |
+|-------------------------------|----------------------------------------------------|
+| `max_leaf_nodes`              | 31, 63                                             |
+| `min_samples_leaf`            | 20, 50, 100                                        |
+| `l2_regularization`           | 0, 10                                              |
 | `learning_rate` et `max_iter` | 0,1 avec 300 itérations ; 0,05 avec 600 itérations |
 
 Cela représente `2 × 3 × 2 × 2 = 24` configurations par variante, donc 96 essais.
@@ -113,14 +113,14 @@ L'identifiant numérique de l'expérience dépend du serveur : rechercher son no
 3. Comparer les quatre `feature_variant` et leurs paramètres.
 4. Vérifier les résultats par site, l'écart train/validation et les artefacts sauvegardés.
 
-| Mesure | Interprétation |
-| --- | --- |
-| `val_mae_kwh` | Moyenne de l'écart absolu entre consommation réelle et prédite, en kWh. Plus faible = meilleur. |
-| `val_rmse_kwh` | Racine de l'erreur quadratique moyenne, en kWh ; sensible aux erreurs importantes. |
-| `val_macro_nmae_pct` | Moyenne non pondérée des nMAE des sites ; critère principal de comparaison. |
-| `val_SITE001_nmae_pct`, etc. | Erreur normalisée de chaque site, pour repérer une dégradation locale. |
-| `generalization_gap_nmae_pct` | nMAE macro de validation moins celle de train, en points de pourcentage. |
-| `val_negative_predictions` | Nombre de prédictions négatives ; les prédictions ne sont pas écrêtées. |
+| Mesure                        | Interprétation                                                                                  |
+|-------------------------------|-------------------------------------------------------------------------------------------------|
+| `val_mae_kwh`                 | Moyenne de l'écart absolu entre consommation réelle et prédite, en kWh. Plus faible = meilleur. |
+| `val_rmse_kwh`                | Racine de l'erreur quadratique moyenne, en kWh ; sensible aux erreurs importantes.              |
+| `val_macro_nmae_pct`          | Moyenne non pondérée des nMAE des sites ; critère principal de comparaison.                     |
+| `val_SITE001_nmae_pct`, etc.  | Erreur normalisée de chaque site, pour repérer une dégradation locale.                          |
+| `generalization_gap_nmae_pct` | nMAE macro de validation moins celle de train, en points de pourcentage.                        |
+| `val_negative_predictions`    | Nombre de prédictions négatives ; les prédictions ne sont pas écrêtées.                         |
 
 Pour un site, `nMAE = 100 × MAE / moyenne(abs(consommation réelle))`.
 Chaque site a le même poids dans la moyenne macro, quelle que soit sa consommation.
@@ -155,12 +155,12 @@ signature du modèle indiquent les seules colonnes réellement utilisées.
 
 Campagne : `hgb-no-weather-mvp4v14m`, sur 89 780 lignes de train et 15 083 de validation.
 
-| Variante | Meilleure nMAE macro validation | MAE validation |
-| --- | --- | --- |
-| Lags 24 h et 7 jours | 13,33 % | 60,07 kWh |
-| Lag 24 h seul | 13,12 % | 59,26 kWh |
-| Lag 7 jours seul | 13,08 % | 59,10 kWh |
-| Sans lags | **12,92 %** | **58,55 kWh** |
+| Variante             | Meilleure nMAE macro validation | MAE validation |
+|----------------------|---------------------------------|----------------|
+| Lags 24 h et 7 jours | 13,33 %                         | 60,07 kWh      |
+| Lag 24 h seul        | 13,12 %                         | 59,26 kWh      |
+| Lag 7 jours seul     | 13,08 %                         | 59,10 kWh      |
+| Sans lags            | **12,92 %**                     | **58,55 kWh**  |
 
 Le meilleur run de cette campagne est `14a45d446c2e4156847a9f819f81acaa`.
 Il utilise les cinq variables communes et les paramètres `learning_rate=0.1`,
@@ -182,11 +182,11 @@ propres runs, même si le code et le nom d'expérience sont identiques.
 
 ## Diagnostic rapide
 
-| Symptôme | Vérification |
-| --- | --- |
-| Parquet manquant | Récupérer train et validation dans `.data/ml/splits` ; le lanceur ne les génère pas. |
-| Docker indisponible | Démarrer Docker et vérifier `docker compose version`. |
-| MLflow ne devient pas sain | Consulter `docker compose --profile ml logs mlflow-init mlflow db` et vérifier les identifiants PostgreSQL. |
-| Campagne déjà existante | Reprendre avec le même `--campaign-id` et `--resume`, ou choisir un nouvel identifiant. |
-| Données différentes à la reprise | Restaurer les Parquet de la campagne ou démarrer une autre campagne. |
-| Runs absents sur un autre poste | Vérifier le serveur MLflow ciblé : les runs ne sont pas transférés par Git. |
+| Symptôme                         | Vérification                                                                                                |
+|----------------------------------|-------------------------------------------------------------------------------------------------------------|
+| Parquet manquant                 | Récupérer train et validation dans `.data/ml/splits` ; le lanceur ne les génère pas.                        |
+| Docker indisponible              | Démarrer Docker et vérifier `docker compose version`.                                                       |
+| MLflow ne devient pas sain       | Consulter `docker compose --profile ml logs mlflow-init mlflow db` et vérifier les identifiants PostgreSQL. |
+| Campagne déjà existante          | Reprendre avec le même `--campaign-id` et `--resume`, ou choisir un nouvel identifiant.                     |
+| Données différentes à la reprise | Restaurer les Parquet de la campagne ou démarrer une autre campagne.                                        |
+| Runs absents sur un autre poste  | Vérifier le serveur MLflow ciblé : les runs ne sont pas transférés par Git.                                 |
