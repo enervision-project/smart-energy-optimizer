@@ -1,4 +1,4 @@
-"""Ordonnanceur unique : entraînement 01:00 et prévisions 01:05 Europe/Paris."""
+"""Ordonnanceur unique : entraînement à 01:00 Europe/Paris, prévisions chaque heure à :05."""
 
 import logging
 import time
@@ -31,6 +31,11 @@ def _forecast(schedule_key: str) -> None:
         if job_id is not None:
             run_id = generate_forecast(settings, job_id)
             logger.info("Prévisions publiées : %s", run_id)
+
+
+def forecast_key(now: datetime) -> str:
+    """Créneau de prévision : l'heure UTC en cours (par exemple 2026-10-26T14:00Z)."""
+    return now.astimezone(UTC).strftime("%Y-%m-%dT%H:00Z")
 
 
 def run_scheduler() -> None:
@@ -71,11 +76,11 @@ def run_scheduler() -> None:
                 logger.exception("Job d'entraînement échoué")
             active_training = None
         try:
-            # La clé SQL garantit une seule série par jour ; retry toutes les 15 min.
-            if (local.hour > 1 or (local.hour == 1 and local.minute >= 5)) and (
-                local.minute % 15 == 5
-            ):
-                _forecast(day)
+            # Une série par heure UTC (clé SQL) : les 24 heures suivantes restent couvertes.
+            # :05 laisse à l'ETL le temps de calculer l'heure close (sync-hours à :02) ;
+            # en cas d'échec, nouvel essai à :20, :35 et :50.
+            if local.minute % 15 == 5:
+                _forecast(forecast_key(now))
         except Exception:
             logger.exception("Prévisions impossibles")
         time.sleep(60 - datetime.now(UTC).second)

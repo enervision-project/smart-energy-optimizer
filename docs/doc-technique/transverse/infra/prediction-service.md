@@ -19,9 +19,9 @@ flowchart LR
 | --- | --- |
 | Chaque jour à **01:00** | Démarre un entraînement HGB. Le calcul s'exécute dans un thread distinct : il ne bloque pas la génération des prévisions. |
 | Au démarrage, puis au plus une tentative par heure | Si aucun entraînement réussi n'existe dans MLflow ou si le dernier date de **plus de 25 heures**, lance un entraînement de rattrapage. |
-| Dès **01:05**, puis à `:20`, `:35` et `:50` de chaque heure restante | Tente de générer la série quotidienne de 24 prévisions, jusqu'à ce qu'un lot soit publié. |
+| Chaque heure à **:05**, puis à `:20`, `:35` et `:50` en cas d'échec | Génère une série de 24 prévisions à partir de l'heure suivante, une fois par heure UTC. |
 
-Le conteneur `prediction-jobs` doit rester démarré pour exécuter ces tâches. La table `prediction_jobs` conserve l'état des tentatives. Un verrou PostgreSQL empêche deux exécutions simultanées d'un même type de job ; la clé du jour évite de republier un lot déjà réussi. Une tentative échouée peut être reprise. Les changements d'heure sont traités à partir des instants UTC : une série contient toujours 24 heures successives.
+Le conteneur `prediction-jobs` doit rester démarré pour exécuter ces tâches. La table `prediction_jobs` conserve l'état des tentatives. Un verrou PostgreSQL empêche deux exécutions simultanées d'un même type de job ; la clé de l'heure UTC (`2026-10-26T14:00Z`) évite de republier un lot déjà réussi. Une tentative échouée peut être reprise. Les changements d'heure sont traités à partir des instants UTC : une série contient toujours 24 heures successives.
 
 ## Entraînement quotidien
 
@@ -42,11 +42,11 @@ Le challenger et le champion sont évalués sur **les mêmes lignes de validatio
 
 La promotion met à jour l'alias MLflow `champion` et le cache versionné dans `/models/versions/`. Un entraînement réussi peut donc se terminer **sans promotion**. Tant qu'il reste un champion, l'API continue de servir celui qu'elle a déjà chargé pendant le calcul et en cas d'échec du challenger.
 
-## Prévisions nocturnes
+## Prévisions horaires
 
 Avant le calcul, le job vérifie qu'un agrégat `readings_hours` suffisamment récent existe. Il charge le champion disponible, puis lit `site_profiles`. Un site doit avoir un profil et être connu du modèle ; les sites avec profil mais inconnus du modèle sont signalés puis ignorés. Si aucun site n'est éligible, le lot échoue.
 
-À 01:05, la première heure prévue commence normalement à **02:00** ; les 23 suivantes se suivent d'une heure réelle. Pour chaque site et chaque heure, le job construit les cinq variables du modèle selon l'heure locale, vérifie que la valeur prédite est finie et positive ou nulle, puis écrit le lot entier dans une transaction PostgreSQL.
+À 14:05, par exemple, la première heure prévue commence à **15:00** ; les 23 suivantes se suivent d'une heure réelle. L'heure en cours reste couverte par la série de l'heure précédente. Pour chaque site et chaque heure, le job construit les cinq variables du modèle selon l'heure locale, vérifie que la valeur prédite est finie et positive ou nulle, puis écrit le lot entier dans une transaction PostgreSQL.
 
 | Table | Contenu |
 | --- | --- |
@@ -54,7 +54,7 @@ Avant le calcul, le job vérifie qu'un agrégat `readings_hours` suffisamment r�
 | `prediction_runs` | Version du modèle, fenêtre de 24 heures, date de génération et taille du lot. |
 | `predictions` | `run_id`, `site_id`, `predicted_for` et `prediction_kwh` pour chaque heure. |
 
-Les versions successives des prévisions restent en base. Si le contrôle de fraîcheur, le chargement du champion ou une valeur échoue, aucun lot partiel n'est publié. Si la tentative de 01:05 est retardée, la fenêtre de 24 heures est recalculée à partir du prochain début d'heure au moment de la nouvelle tentative.
+Les versions successives des prévisions restent en base. Si le contrôle de fraîcheur, le chargement du champion ou une valeur échoue, aucun lot partiel n'est publié. Si la tentative de :05 échoue, celle de :20, :35 ou :50 recalcule la fenêtre de 24 heures à partir du prochain début d'heure. Une série est publiée chaque heure : environ 4 000 lignes par jour pour 7 sites.
 
 ## API et chargement du champion
 

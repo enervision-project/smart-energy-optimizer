@@ -2,6 +2,7 @@ from concurrent.futures import Future
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -25,20 +26,32 @@ def test_training_and_forecast_claim_jobs(monkeypatch):
     jobs._training("scheduled", "2026-10-26")
     monkeypatch.setattr(jobs, "latest_hour", lambda *args: None)
     with pytest.raises(ValueError, match="trop ancien"):
-        jobs._forecast("2026-10-26")
+        jobs._forecast("2026-10-26T12:00Z")
     monkeypatch.setattr(jobs, "latest_hour", lambda *args: datetime.now(UTC))
-    jobs._forecast("2026-10-26")
+    jobs._forecast("2026-10-26T12:00Z")
     assert calls == [
         ("training", "2026-10-26", "scheduled"),
         "trained",
-        ("forecast", "2026-10-26", "scheduled"),
+        ("forecast", "2026-10-26T12:00Z", "scheduled"),
     ]
+
+
+def test_forecast_key_is_the_current_utc_hour():
+    paris = datetime(2026, 10, 26, 15, 5, 42, tzinfo=UTC).astimezone(ZoneInfo("Europe/Paris"))
+    assert jobs.forecast_key(paris) == "2026-10-26T15:00Z"
 
 
 @pytest.mark.parametrize(
     ("instant", "last_success", "expected_trigger", "forecast_expected"),
     [
         (datetime(2026, 10, 26, 0, 0, tzinfo=UTC), None, "scheduled", False),
+        # 00:05 à Paris : les prévisions tournent aussi la nuit, avant l'entraînement de 01:00.
+        (
+            datetime(2026, 10, 25, 23, 5, tzinfo=UTC),
+            datetime(2026, 10, 25, 1, tzinfo=UTC),
+            None,
+            True,
+        ),
         (datetime(2026, 10, 26, 12, 5, tzinfo=UTC), None, "catchup", True),
         (
             datetime(2026, 10, 26, 12, 5, tzinfo=UTC),
@@ -83,6 +96,8 @@ def test_scheduler_decides_training_and_forecast(
         jobs.run_scheduler()
     assert (expected_trigger is not None) == any(kind != "forecast" for kind, _ in calls)
     assert forecast_expected == any(kind == "forecast" for kind, _ in calls)
+    if forecast_expected:
+        assert ("forecast", instant.strftime("%Y-%m-%dT%H:00Z")) in calls
 
 
 def test_scheduler_requires_connections(monkeypatch):
