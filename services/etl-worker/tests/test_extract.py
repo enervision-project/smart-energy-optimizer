@@ -69,15 +69,15 @@ class ExtractReadingsTests(unittest.TestCase):
     @patch("etl_worker.extract.urlopen")
     def test_rejects_invalid_payloads(self, request):
         cases = {
-            "Un objet": [None, [], [reading("SITE001")], "SITE001"],
-            "ne correspond pas": [{}, reading("SITE002")],
-            "Timestamp invalide": [reading("SITE001", None), reading("SITE001", "not a date")],
+            (TypeError, "Un objet"): [None, [], [reading("SITE001")], "SITE001"],
+            (ValueError, "ne correspond pas"): [{}, reading("SITE002")],
+            (ValueError, "Timestamp invalide"): [reading("SITE001", None), reading("SITE001", "not a date")],
         }
-        for message, payloads in cases.items():
+        for (error, message), payloads in cases.items():
             for payload in payloads:
                 with self.subTest(payload=payload):
                     request.return_value = response(payload)
-                    with self.assertRaisesRegex(ValueError, message):
+                    with self.assertRaisesRegex(error, message):
                         extract_readings(["SITE001"], "http://api.test")
 
     @patch("etl_worker.extract.urlopen")

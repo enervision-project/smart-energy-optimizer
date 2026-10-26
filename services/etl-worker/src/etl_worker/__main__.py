@@ -54,7 +54,7 @@ def cmd_sync_readings(args: argparse.Namespace) -> None:
     bronze_key = write_readings_bronze(readings, collected_at=collected_at)
     if bronze_key is not None:
         print(f"Bronze : {bronze_key}.")
-    inserted = load_readings(readings, fill_consumptions=True)
+    inserted = load_readings(readings)
     print(
         f"Mesures reçues : {len(readings)} ; insérées : {inserted} ; "
         f"déjà présentes : {len(readings) - inserted}."
