@@ -1,70 +1,81 @@
-import { ParcSiteSummary } from '../../core/models/parc-summary';
-import { Reading } from '../../core/models/reading';
-import { missingSites, parcSeries, qualityCounts, sortByLoad, trendsBySite } from './parc-summary';
+import { ParcSiteLoad } from '../../core/models/parc-summary';
+import { ReadingPoint, ReadingSeries } from '../../core/models/reading';
+import { parcSeries, qualityCounts, sortByLoad, trendsBySite } from './parc-summary';
 
 function site(
-  site_id: string,
+  siteId: string,
   kw: number | null,
-  data_quality: ParcSiteSummary['data_quality'] = 'good',
-): ParcSiteSummary {
+  dataQuality: ParcSiteLoad['dataQuality'] = 'good',
+): ParcSiteLoad {
   return {
-    site_id,
-    site_name: site_id,
-    current_consumption_kw: kw,
-    capacity_kw: 100,
-    load_percent: kw,
-    data_quality,
+    siteId,
+    siteName: siteId,
+    currentConsumptionKw: kw,
+    consumptionImputed: false,
+    capacityKw: 100,
+    loadPercent: kw,
+    dataQuality,
+    ts: null,
+    ageSeconds: null,
   };
 }
 
-function reading(site_id: string, ts: string, kw: number | null): Reading {
-  return {
-    site_id,
-    ts,
-    consumption_kw: kw,
-    consumption_kwh: kw,
-    voltage_v: null,
-    current_a: null,
-    power_factor: null,
-    temperature_celsius: null,
-    humidity_percent: null,
-    data_quality: kw === null ? 'critical' : 'good',
-  };
+function series(siteId: string, values: (number | null)[]): ReadingSeries {
+  const points = values.map((kw, i): ReadingPoint => ({
+    ts: `2026-10-26T1${i}:00:00Z`,
+    consumptionKw: kw,
+    consumptionKwImputed: kw,
+    voltageV: null,
+    currentA: null,
+    powerFactor: null,
+    temperatureCelsius: null,
+    humidityPercent: null,
+    dataQuality: kw === null ? null : 'good',
+    nullReasons: [],
+    minutesExpected: 60,
+    minutesReceived: kw === null ? 0 : 60,
+    minutesBackfilled: 0,
+    minutesImputed: 0,
+    imputationMethods: [],
+  }));
+  return { siteId, step: '1h', from: points[0].ts, to: '', points };
 }
 
 describe('parc-summary', () => {
-  it('trie par charge décroissante, les sites sans mesure en dernier', () => {
-    const sorted = sortByLoad([site('A', 40), site('B', null, 'critical'), site('C', 80)]);
-    expect(sorted.map((s) => s.site_id)).toEqual(['C', 'A', 'B']);
+  it('trie par charge décroissante, les sites sans valeur en dernier', () => {
+    const sorted = sortByLoad([site('A', 40), site('B', null, null), site('C', 80)]);
+    expect(sorted.map((s) => s.siteId)).toEqual(['C', 'A', 'B']);
   });
 
-  it('liste les sites sans mesure et compte les qualités', () => {
-    const sites = [site('A', 40), site('B', null, 'critical'), site('C', 80, 'partial')];
-    expect(missingSites(sites).map((s) => s.site_id)).toEqual(['B']);
-    expect(qualityCounts(sites)).toEqual({ good: 1, partial: 1, degraded: 0, critical: 1 });
+  it('compte les qualités, sites sans mesure récente compris', () => {
+    const sites = [
+      site('A', 40),
+      site('B', null, null),
+      site('C', 80, 'partial'),
+      site('D', null, 'critical'),
+    ];
+    expect(qualityCounts(sites)).toEqual({
+      good: 1,
+      partial: 1,
+      degraded: 0,
+      critical: 1,
+      none: 1,
+    });
   });
 
-  it('additionne les sites heure par heure et signale les heures incomplètes', () => {
-    const series = parcSeries([
-      reading('A', '2026-10-20T11:00:00.000Z', 10),
-      reading('A', '2026-10-20T10:00:00.000Z', 5),
-      reading('B', '2026-10-20T10:00:00.000Z', 7),
-      reading('B', '2026-10-20T11:00:00.000Z', null),
-    ]);
-    expect(series.hours).toEqual(['2026-10-20T10:00:00.000Z', '2026-10-20T11:00:00.000Z']);
-    expect(series.totals).toEqual([12, 10]);
-    expect(series.incomplete).toEqual([false, true]);
+  it('additionne les sites pas à pas et signale les pas incomplets', () => {
+    const result = parcSeries([series('A', [5, 10]), series('B', [7, null])]);
+    expect(result.steps).toEqual(['2026-10-26T10:00:00Z', '2026-10-26T11:00:00Z']);
+    expect(result.totals).toEqual([12, 10]);
+    expect(result.incomplete).toEqual([false, true]);
   });
 
-  it('renvoie null quand aucun site n’a de mesure', () => {
-    expect(parcSeries([reading('A', '2026-10-20T10:00:00.000Z', null)]).totals).toEqual([null]);
+  it('renvoie null quand aucun site n’a de valeur, et rien sans série', () => {
+    expect(parcSeries([series('A', [null])]).totals).toEqual([null]);
+    expect(parcSeries([])).toEqual({ steps: [], totals: [], incomplete: [] });
   });
 
-  it('regroupe les tendances par site dans l’ordre chronologique', () => {
-    const trends = trendsBySite([
-      reading('A', '2026-10-20T11:00:00.000Z', 2),
-      reading('A', '2026-10-20T10:00:00.000Z', 1),
-    ]);
-    expect(trends.get('A')).toEqual([1, 2]);
+  it('regroupe les tendances par site', () => {
+    expect(trendsBySite([series('A', [1, 2])]).get('A')).toEqual([1, 2]);
   });
 });
