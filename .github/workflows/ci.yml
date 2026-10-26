@@ -19,7 +19,7 @@ concurrency:
 jobs:
   changes:
     name: Detect changes
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       core-api: ${{ steps.filter.outputs.core-api }}
@@ -41,6 +41,7 @@ jobs:
           filters: |
             frontend:
               - 'app/**'
+              - '.github/workflows/_ci-frontend.yml'
             # the changelog defines the schema that Hibernate validates
             core-api:
               - 'services/core-api/**'
@@ -52,6 +53,7 @@ jobs:
               - '.github/services.json'
             etl-worker:
               - 'services/etl-worker/**'
+              - '.github/workflows/_ci-etl-worker.yml'
             prediction-service:
               - 'services/prediction-service/**'
               - 'services/ml-service/training/**'
@@ -145,7 +147,7 @@ jobs:
     needs: [changes, call-frontend, call-core-api, call-terraform, call-images, call-etl-worker, call-prediction-service, call-infra]
     # Uniquement sur les Pull Requests
     if: ${{ always() && github.event_name == 'pull_request' }}
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     permissions: {}
     steps:
       - name: All required jobs passed

@@ -22,7 +22,7 @@ env:
 jobs:
   validate:
     name: Format and validate
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     defaults:
@@ -50,11 +50,22 @@ jobs:
       - name: Validate
         run: terraform validate -no-color
 
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337  # v6
+
+      - name: Init TFLint
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Linter
+        run: tflint
+
   plan:
     name: Plan
     needs: validate
     if: github.event_name == 'pull_request' && vars.AWS_PLAN_ROLE_ARN != ''
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write # OIDC AWS (read-only plan role)

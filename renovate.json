@@ -9,6 +9,9 @@
   "minimumReleaseAge": "3 days",
   "prConcurrentLimit": 5,
   "vulnerabilityAlerts": { "schedule": ["at any time"] },
+  "node": {
+    "supportPolicy": ["lts"]
+  },
   "packageRules": [
     {
       "matchUpdateTypes": ["major"],
@@ -79,6 +82,18 @@
       "matchManagers": ["terraform"],
       "groupName": "Terraform (non-major)",
       "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "Limiter les runners GitHub Ubuntu aux versions LTS supportees (bloque 26.04 tant qu'elle n'est pas disponible et exclut les versions intermédiaires non-LTS)",
+      "matchDatasources": ["github-runners"],
+      "matchPackageNames": ["ubuntu"],
+      "allowedVersions": "<= 24.04"
+    },
+    {
+      "description": "Limiter l'image Docker de Node.js aux versions majeures LTS (paires)",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["node", "docker.io/library/node"],
+      "allowedVersions": "/^(?:18|20|22|24|26)(?:\\.|-|$)/"
     }
   ]
 }

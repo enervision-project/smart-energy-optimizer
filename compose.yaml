@@ -1,6 +1,3 @@
-# EnerVision — stack Docker Compose du projet.
-name: enervision
-
 x-etl: &etl
   image: enervision-etl-worker:local
   build:
@@ -8,7 +5,7 @@ x-etl: &etl
     dockerfile: services/etl-worker/Dockerfile
   env_file: .env
   # API lancée sur l'hôte : disponible aussi sous Linux.
-  extra_hosts: ["host.docker.internal:host-gateway"]
+  extra_hosts: [ "host.docker.internal:host-gateway" ]
   depends_on:
     migrate:
       condition: service_completed_successfully
@@ -17,35 +14,24 @@ x-mlflow: &mlflow
   image: enervision-mlflow:local
   build:
     context: services/ml-service/mlflow
-  profiles: ["ml"]
+  profiles: [ "ml" ]
   environment: &mlflow-env
     MLFLOW_DB_HOST: db
     MLFLOW_DB_PORT: "5432"
     MLFLOW_DB_NAME: ${MLFLOW_DB_NAME:-mlflow}
     MLFLOW_DB_USER: ${MLFLOW_DB_USER:-mlflow}
     MLFLOW_DB_PASSWORD: ${MLFLOW_DB_PASSWORD:-mlflow-local}
+# EnerVision — stack Docker Compose du projet.
+name: enervision
 
 services:
-  web:
-    # front Angular servi par nginx (contexte app/web : son .dockerignore s'applique)
-    build:
-      context: app/web
-    ports:
-      - "127.0.0.1:4200:80"
-
-  etl-worker:
-    <<: *etl
-    profiles: ["manual"]
-
-  scheduler:
-    <<: *etl
-    command: ["/usr/local/bin/etl-cron-start"]
-    restart: unless-stopped
-
   core-api:
     build:
       context: .
       dockerfile: services/core-api/Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     environment:
       # hôte « db » = nom du service ; reprend les valeurs POSTGRES_* du .env
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
@@ -59,87 +45,47 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     ports:
       - "127.0.0.1:8080:8080"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
 
-  prediction-service:
-    # API de prédiction (XGBoost) : privée, joignable via prediction-service:8000 ou 127.0.0.1 sur l'hôte.
-    # Modèle attendu dans /models (model.json + model_meta.json) ; sans modèle, /predict répond 503.
-    build:
-      context: .
-      dockerfile: services/prediction-service/Dockerfile
-    image: enervision-prediction-service:local
+  db:
+    image: docker.io/timescale/timescaledb:2.30.2-pg16
+    volumes:
+      - dbdata:/var/lib/postgresql/data
     environment:
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-      REGISTERED_MODEL_NAME: ${REGISTERED_MODEL_NAME:-enervision-hourly-consumption}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "127.0.0.1:${PREDICTION_SERVICE_PORT:-8000}:8000"
-    volumes:
-      - ml_models:/models
+      - "127.0.0.1:15432:5432"
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=5).read()"]
-      interval: 10s
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 5s
       timeout: 5s
-      start_period: 20s
-      retries: 6
-    restart: unless-stopped
+      retries: 10
 
-  prediction-jobs:
-    profiles: ["ml"]
-    build:
-      context: .
-      dockerfile: services/prediction-service/Dockerfile
-    image: enervision-prediction-service:local
-    command: ["python", "-m", "prediction_service.jobs"]
-    environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL doit être défini dans .env}
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-      REGISTERED_MODEL_NAME: ${REGISTERED_MODEL_NAME:-enervision-hourly-consumption}
-      TRAINING_BOOTSTRAP_URI: ${TRAINING_BOOTSTRAP_URI:-/bootstrap}
-      TRAINING_TIMEZONE: ${TRAINING_TIMEZONE:-Europe/Paris}
-      VALIDATION_DAYS: ${VALIDATION_DAYS:-14}
-      MIN_CURRENT_VALIDATION_HOURS: ${MIN_CURRENT_VALIDATION_HOURS:-168}
-    volumes:
-      - ml_models:/models
-      - ./.data/ml/splits:/bootstrap:ro
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      mlflow:
-        condition: service_healthy
-    restart: unless-stopped
+  etl-worker:
+    <<: *etl
+    profiles: [ "manual" ]
 
   migrate:
-    # Applique les changesets Liquibase manquants (infra/db/changelog) puis s'arrête.
-    # Relancé à chaque « up » : sans nouveau changeset, il ne fait rien.
-    # Rester en 4.x : l'image 5.x n'embarque plus le pilote PostgreSQL (« Cannot find database driver »).
     image: docker.io/liquibase/liquibase:4.33.0
-    command: ["--search-path=/liquibase/changelog", "--changelog-file=changelog.yaml", "update"]
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./infra/db/changelog:/liquibase/changelog:ro
     environment:
       LIQUIBASE_COMMAND_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       LIQUIBASE_COMMAND_USERNAME: ${POSTGRES_USER}
       LIQUIBASE_COMMAND_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - ./infra/db/changelog:/liquibase/changelog:ro
-    depends_on:
-      db:
-        condition: service_healthy
-
-  mlflow-init:
-    <<: *mlflow
-    command: ["python", "init_db.py"]
-    environment:
-      <<: *mlflow-env
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    depends_on:
-      db:
-        condition: service_healthy
+    command: [ "--search-path=/liquibase/changelog", "--changelog-file=changelog.yaml", "update" ]
 
   mlflow:
-    <<: *mlflow
+    depends_on:
+      mlflow-init:
+        condition: service_completed_successfully
+    volumes:
+      - mlflow_artifacts:/mlartifacts
     environment:
       <<: *mlflow-env
       MLFLOW_TRACKING_URI: http://127.0.0.1:5000
@@ -149,36 +95,81 @@ services:
       MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
     ports:
       - "127.0.0.1:${MLFLOW_PORT:-5000}:5000"
-    volumes:
-      - mlflow_artifacts:/mlartifacts
-    depends_on:
-      mlflow-init:
-        condition: service_completed_successfully
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:5000/health', timeout=5).read()"]
+      test: [ "CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:5000/health', timeout=5).read()" ]
       interval: 10s
       timeout: 5s
       start_period: 60s
       retries: 6
-    restart: unless-stopped
+    <<: *mlflow
 
-  db:
-    restart: unless-stopped
-    # PostgreSQL 16 + extension TimescaleDB
-    image: docker.io/timescale/timescaledb:2.30.2-pg16
+  mlflow-init:
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
+      <<: *mlflow-env
+      POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+    command: [ "python", "init_db.py" ]
+    <<: *mlflow
+
+  prediction-jobs:
+    image: enervision-prediction-service:local
+    build:
+      context: .
+      dockerfile: services/prediction-service/Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      mlflow:
+        condition: service_healthy
     volumes:
-      - dbdata:/var/lib/postgresql/data
+      - ml_models:/models
+      - ./.data/ml/splits:/bootstrap:ro
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL doit être défini dans .env}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      REGISTERED_MODEL_NAME: ${REGISTERED_MODEL_NAME:-enervision-hourly-consumption}
+      TRAINING_BOOTSTRAP_URI: ${TRAINING_BOOTSTRAP_URI:-/bootstrap}
+      TRAINING_TIMEZONE: ${TRAINING_TIMEZONE:-Europe/Paris}
+      VALIDATION_DAYS: ${VALIDATION_DAYS:-14}
+      MIN_CURRENT_VALIDATION_HOURS: ${MIN_CURRENT_VALIDATION_HOURS:-168}
+    command: [ "python", "-m", "prediction_service.jobs" ]
+    restart: unless-stopped
+    profiles: [ "ml" ]
+
+  prediction-service:
+    image: enervision-prediction-service:local
+    build:
+      context: .
+      dockerfile: services/prediction-service/Dockerfile
+    volumes:
+      - ml_models:/models
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      REGISTERED_MODEL_NAME: ${REGISTERED_MODEL_NAME:-enervision-hourly-consumption}
     ports:
-      - "127.0.0.1:15432:5432"
+      - "127.0.0.1:${PREDICTION_SERVICE_PORT:-8000}:8000"
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
+      test: [ "CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=5).read()" ]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      start_period: 20s
+      retries: 6
+
+  scheduler:
+    command: [ "/usr/local/bin/etl-cron-start" ]
+    restart: unless-stopped
+    <<: *etl
+  web:
+    build:
+      context: app/web
+    ports:
+      - "127.0.0.1:4200:80"
 
 volumes:
   dbdata: {}
