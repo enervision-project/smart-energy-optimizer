@@ -1,0 +1,36 @@
+name: Infra CI
+
+on:
+  workflow_call:
+    secrets:
+      SONAR_TOKEN_INFRA_ROOT:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  sonar:
+    name: SonarQube Scan
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Cache des paquets SonarQube
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8
+        with:
+          projectBaseDir: .
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_INFRA_ROOT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
