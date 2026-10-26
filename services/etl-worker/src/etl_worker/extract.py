@@ -5,11 +5,12 @@ import base64
 import json
 import os
 from collections.abc import Sequence
-from datetime import UTC, datetime, timedelta
 from importlib.resources import files
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote
 from urllib.request import Request, urlopen
+
+from etl_worker.timestamps import parse_reading_timestamp
 
 _ALERT_FIELDS = frozenset({
     "alert_id", "timestamp", "site_id", "severity",
@@ -38,11 +39,9 @@ def _resolve_base_url(base_url: str | None, caller: str) -> str:
     return url
 
 
-def _get_json(base_url: str, path: str, timeout: float, params: dict[str, Any] | None = None) -> Any:
+def _get_json(base_url: str, path: str, timeout: float) -> Any:
     """GET JSON ; les erreurs HTTP, réseau et de décodage remontent à l'appelant."""
     url = f"{base_url}{path}"
-    if params:
-        url = f"{url}?{urlencode(params)}"
     with urlopen(Request(url, headers=_api_headers()), timeout=timeout) as response:
         return json.load(response)
 
@@ -80,71 +79,41 @@ def read_site_profiles() -> list[dict[str, Any]]:
 
 # --- Mesures ---------------------------------------------------------------
 
-def _reading_window(end_time: datetime | None) -> tuple[datetime, datetime]:
-    """Fenêtre d'une minute en UTC ; l'heure courante n'est lue qu'une fois pour le lot."""
-    reference = end_time if end_time is not None else datetime.now(UTC)
-    if reference.utcoffset() is None:
-        raise ValueError("end_time doit comporter un fuseau horaire.")
-    window_end = reference.astimezone(UTC).replace(second=0, microsecond=0)
-    return window_end - timedelta(minutes=1), window_end
-
-
-def _validate_reading(reading: dict[str, Any], site_id: str, window_start: datetime) -> None:
+def _validate_reading(reading: dict[str, Any], site_id: str) -> None:
     if reading.get("site_id") != site_id:
         raise ValueError(f"La mesure reçue ne correspond pas au site {site_id}.")
     try:
-        measured_at = datetime.fromisoformat(reading.get("timestamp"))
-    except (TypeError, ValueError) as error:
+        parse_reading_timestamp(reading.get("timestamp"))
+    except ValueError as error:
         raise ValueError(f"Timestamp invalide pour le site {site_id}.") from error
-    if measured_at.utcoffset() is None or measured_at != window_start:
-        raise ValueError(
-            f"Timestamp inattendu pour {site_id} : {window_start.isoformat()} attendu."
-        )
 
 
-def _fetch_reading(
-    base_url: str, site_id: str, start: datetime, end: datetime, timeout: float
-) -> dict[str, Any]:
+def _fetch_reading(base_url: str, site_id: str, timeout: float) -> dict[str, Any]:
     payload = _get_json(
-        base_url,
-        "/api/v1/readings",
-        timeout,
-        params={
-            "site_id": site_id,
-            "start_time": start.isoformat(),
-            "end_time": end.isoformat(),
-            "limit": 1,
-        },
+        base_url, f"/api/v1/sites/{quote(site_id, safe='')}/current", timeout,
     )
-    if not isinstance(payload, list) or len(payload) != 1 or not isinstance(payload[0], dict):
-        raise ValueError(f"Une seule mesure est attendue pour le site {site_id}.")
-    _validate_reading(payload[0], site_id, start)
-    return payload[0]
+    if not isinstance(payload, dict):
+        raise ValueError(f"Un objet de mesure est attendu pour le site {site_id}.")
+    _validate_reading(payload, site_id)
+    return payload
 
 
 def extract_readings(
     site_ids: Sequence[str],
     base_url: str | None = None,
     *,
-    end_time: datetime | None = None,
     timeout: float = 10.0,
 ) -> list[dict[str, Any]]:
-    """Retourne une mesure par site pour une minute commune en UTC.
+    """Retourne la mesure /current de chaque site, sans modifier aucun champ.
 
-    end_time est arrondi au début de sa minute ; la fenêtre couvre la minute
-    précédente. Sans end_time, l'heure UTC est lue une seule fois pour le lot.
-    Un end_time explicite doit comporter un fuseau horaire.
-    Les mesures sont conservées telles quelles ; un lot incomplet ou mal aligné échoue.
+    Les timestamps, leur précision et leurs éventuels fuseaux sont conservés
+    tels que reçus, tout comme les NULL, la qualité et les champs supplémentaires.
+    Une erreur réseau, un site incohérent ou un timestamp invalide annule le lot.
     """
     if not site_ids:
         return []
-
     api_base_url = _resolve_base_url(base_url, "extract_readings")
-    window_start, window_end = _reading_window(end_time)
-    return [
-        _fetch_reading(api_base_url, site_id, window_start, window_end, timeout)
-        for site_id in site_ids
-    ]
+    return [_fetch_reading(api_base_url, site_id, timeout) for site_id in site_ids]
 
 
 # --- Alertes ---------------------------------------------------------------

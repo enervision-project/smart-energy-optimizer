@@ -61,7 +61,7 @@ class LoadMockedTests(unittest.TestCase):
         row = cursor.executemany.call_args.args[1][0]
         self.assertEqual(
             row,
-            ("SITE001", READING["timestamp"], "office", 12.5, None, None, None, None,
+            ("SITE001", datetime.fromisoformat(READING["timestamp"]), "office", 12.5, None, None, None, None,
              None, None, [], "good"),
         )
 

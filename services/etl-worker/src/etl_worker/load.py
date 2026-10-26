@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
@@ -7,6 +8,7 @@ from typing import Any
 import psycopg
 
 from etl_worker.extract import extract_alerts
+from etl_worker.timestamps import parse_reading_timestamp
 
 _UPSERT_SITE = """
     INSERT INTO sites (site_id, site_name, site_type, location, capacity_kw, status)
@@ -72,51 +74,105 @@ _INSERT_READING = """
 """
 
 
+_PREVIOUS_CONSUMPTIONS = """
+    SELECT
+        (SELECT consumption_kw FROM readings_raws
+         WHERE site_id = %(site_id)s AND ts < %(ts)s
+           AND consumption_kw IS NOT NULL
+         ORDER BY ts DESC LIMIT 1),
+        (SELECT consumption_kwh FROM readings_raws
+         WHERE site_id = %(site_id)s AND ts < %(ts)s
+           AND consumption_kwh IS NOT NULL
+         ORDER BY ts DESC LIMIT 1)
+"""
+
+_CONSUMPTION_FIELDS = ("consumption_kw", "consumption_kwh")
+_logger = logging.getLogger(__name__)
+
+
+def _reading_row(reading: Mapping[str, Any]) -> tuple[Any, ...]:
+    return (
+        reading["site_id"], reading["timestamp"], reading["site_type"],
+        reading.get("consumption_kw"), reading.get("consumption_kwh"),
+        reading.get("voltage_v"), reading.get("current_a"),
+        reading.get("power_factor"), reading.get("temperature_celsius"),
+        reading.get("humidity_percent"), reading.get("null_reasons", []),
+        reading["data_quality"],
+    )
+
+
+def _fill_consumptions(cursor, reading: dict[str, Any]) -> None:
+    missing = [field for field in _CONSUMPTION_FIELDS if reading.get(field) is None]
+    if not missing:
+        return
+    cursor.execute(
+        _PREVIOUS_CONSUMPTIONS,
+        {"site_id": reading["site_id"], "ts": reading["timestamp"]},
+    )
+    previous = dict(zip(_CONSUMPTION_FIELDS, cursor.fetchone()))
+    for field in missing:
+        value = previous[field]
+        if value is None:
+            _logger.warning(
+                "%s %s : aucune valeur antérieure pour %s ; NULL conservé.",
+                reading["site_id"], reading["timestamp"].isoformat(), field,
+            )
+        else:
+            reading[field] = value
+            _logger.info(
+                "%s %s : %s repris depuis la dernière valeur non NULL.",
+                reading["site_id"], reading["timestamp"].isoformat(), field,
+            )
+
+
 def load_readings(
     readings: Sequence[Mapping[str, Any]],
     database_url: str | None = None,
     *,
     connect_timeout: int = 10,
+    fill_consumptions: bool = False,
 ) -> int:
-    """Insère les consommations et retourne le nombre de nouvelles mesures.
+    """Charge une copie des mesures, avec timestamps UTC sans fractions de seconde.
 
-    timestamp est stocké dans la colonne ts. Les valeurs nulles et les raisons
-    fournies par l'API, y compris site_type, sont conservées dans leurs colonnes.
-    Une clé (site_id, ts) existante est
-    ignorée, sans modification de ses valeurs ni de loaded_at.
-    Les sites doivent déjà exister en base. Tout le lot est annulé en cas
-    d'erreur. Une liste vide retourne 0 sans ouvrir de connexion.
+    Le mode fill_consumptions, activé par sync-readings, reprend chaque
+    consommation NULL depuis le même champ du même site strictement antérieur.
+    Sans antécédent, NULL est conservé. Les zéros sont des valeurs disponibles.
+    Le mode par défaut conserve les NULL pour les imports historiques existants.
+
+    Aucun objet source n'est modifié. Les autres indicateurs et les informations
+    de qualité restent ceux de l'API. La clé (site_id, ts) existante est ignorée ;
+    une erreur annule toute la transaction. Les lignes sont traitées dans l'ordre
+    chronologique afin que le report fonctionne également à l'intérieur du lot.
     """
     if not readings:
         return 0
-
     connection_url = (
         database_url if database_url is not None else os.environ.get("DATABASE_URL", "")
     ).strip()
     if not connection_url:
         raise ValueError("Renseigner DATABASE_URL ou passer une URL à load_readings.")
 
-    rows = [
-        (
-            reading["site_id"],
-            reading["timestamp"],
-            reading["site_type"],
-            reading.get("consumption_kw"),
-            reading.get("consumption_kwh"),
-            reading.get("voltage_v"),
-            reading.get("current_a"),
-            reading.get("power_factor"),
-            reading.get("temperature_celsius"),
-            reading.get("humidity_percent"),
-            reading.get("null_reasons", []),
-            reading["data_quality"],
-        )
+    copies = [
+        {
+            **reading,
+            "timestamp": parse_reading_timestamp(reading["timestamp"]).replace(microsecond=0),
+        }
         for reading in readings
     ]
+    if not fill_consumptions:
+        rows = [_reading_row(reading) for reading in copies]
+        with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+            cursor.executemany(_INSERT_READING, rows)
+            return cursor.rowcount
 
+    copies.sort(key=lambda reading: reading["timestamp"])
+    inserted = 0
     with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
-        cursor.executemany(_INSERT_READING, rows)
-        return cursor.rowcount
+        for reading in copies:
+            _fill_consumptions(cursor, reading)
+            cursor.execute(_INSERT_READING, _reading_row(reading))
+            inserted += cursor.rowcount
+    return inserted
 
 
 def read_site_ids(
