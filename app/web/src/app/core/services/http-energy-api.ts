@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
+import { ParcSummary } from '../models/parc-summary';
 import { LatestReading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
 import { RecommendationResponse } from '../models/recommendation';
 import { Site } from '../models/site';
@@ -61,6 +62,11 @@ export class HttpEnergyApi extends EnergyApi {
       params = params.set('to', filters.to.toISOString());
     }
     return this.http.get<Page<Alert>>(`${BASE_URL}/alerts`, { params });
+  }
+
+  /** Route de core-api (module telemetry). */
+  getParcSummary(): Observable<ParcSummary> {
+    return this.http.get<ParcSummary>(`${BASE_URL}/stats/summary`);
   }
 
   getAlertSummary(siteId?: string): Observable<AlertSummary> {
