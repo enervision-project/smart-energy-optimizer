@@ -80,7 +80,6 @@ extra:
 nav:
   - Accueil: index.md
   - ...
-  - Fonctionnement du Prediction Service: doc-technique/prediction-service.md
   - ETL Worker: '!include ./services/etl-worker/mkdocs.yml'
   - Prediction Service: '!include ./services/prediction-service/mkdocs.yml'
   - Core API: '!include ./services/core-api/mkdocs.yml'
