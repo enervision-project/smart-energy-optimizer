@@ -14,7 +14,6 @@ import {
 } from '../../core/models/reading';
 import { reloadOnError } from '../../core/resources/reload-on-error';
 import { EnergyApi } from '../../core/services/energy-api';
-import { summarize } from './reading-summary';
 import { Recommendations } from './recommendations/recommendations';
 import { noDataPlugin } from './no-data-plugin';
 import { imputationLabel, nullReasonLabel, sensorStatuses } from './sensor-status';

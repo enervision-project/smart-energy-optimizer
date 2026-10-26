@@ -88,32 +88,6 @@
   overflow-x: auto;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-
-  th {
-    padding: 8px;
-    border-bottom: 1px solid #dde2da;
-    font-weight: 600;
-    text-align: left;
-    color: #5b6573;
-    white-space: nowrap;
-  }
-  td {
-    padding: 10px 8px;
-    border-bottom: 1px solid #eef1ec;
-  }
-  .num {
-    text-align: right;
-    white-space: nowrap;
-  }
-  tr.old td {
-    color: #8a929c;
-  }
-}
-
 .badge {
   display: inline-block;
   padding: 2px 10px;

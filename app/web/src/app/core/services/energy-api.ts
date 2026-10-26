@@ -1,6 +1,6 @@
 import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
-import { LatestReading, Reading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
+import { LatestReading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
 import { RecommendationResponse } from '../models/recommendation';
 import { Site } from '../models/site';
 

@@ -23,23 +23,6 @@ h1 {
   gap: 12px;
 }
 
-.picker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
-  color: #5b6573;
-
-  select {
-    padding: 8px 10px;
-    border: 1px solid #c8cfc4;
-    border-radius: 8px;
-    background: #fff;
-    font: inherit;
-    color: #1f2a37;
-  }
-}
-
 .meta {
   margin: 0 0 16px;
   font-size: 0.9rem;
@@ -110,19 +93,9 @@ h2 {
   }
 }
 
-.card {
-  padding: 16px 20px;
-  background: #fff;
-  border: 1px solid #dde2da;
-  border-radius: 10px;
-}
-
 .recommendations {
+  display: block;
   margin-bottom: 20px;
-}
-
-.alerts {
-  margin-top: 20px;
 }
 
 .side {
