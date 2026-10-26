@@ -1,6 +1,5 @@
-# Dedicated monitoring EC2: Prometheus + Loki + Grafana (infra/monitoring/).
-# Alloy, on the app EC2, pushes metrics and logs over the VPC private network.
-# No public access: Grafana through an SSM tunnel (see output grafana_tunnel).
+# Dedicated EC2 for monitoring stack
+# Alloy pushes metrics and logs over the VPC private network
 
 # --- Network: only the app security group can push
 resource "aws_security_group" "monitoring" {
