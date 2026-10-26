@@ -1,6 +1,6 @@
 # web — front EnerVision
 
-Application Angular 22 (composants standalone, signals, zoneless) : détail d'un site et alertes ; vue du parc et prévisions à venir. Elle consomme l'API de [core-api](../../services/core-api/README.md).
+Application Angular 22 (composants standalone, signals, zoneless) : vue du parc, détail d'un site et alertes ; prévisions à venir. Elle consomme l'API de [core-api](../../services/core-api/README.md).
 
 La conception (architecture, connexion) est décrite dans la documentation MkDocs : [`docs/`](docs/index.md).
 

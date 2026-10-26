@@ -19,7 +19,7 @@ flowchart LR
 | Route                  | Page             | Données                                                        |
 |------------------------|------------------|----------------------------------------------------------------|
 | `/login`               | Connexion        | `POST /auth/login`                                             |
-| `/parc`                | Vue du parc      | (à venir)                                                      |
+| `/parc`                | Vue du parc      | Consommation actuelle et charge du parc, avertissement des sites sans données, courbe des 24 dernières heures, alertes de la dernière heure, sites triés par charge ; rafraîchis chaque minute                                                      |
 | `/sites`, `/sites/:id` | Détail d'un site | Site, et profil, dernière mesure, courbe brute / imputée avec la qualité de chaque pas, état des capteurs, synthèse ; rafraîchis chaque minute; mesures horaires et [recommandations](recommendation.md) |
 | `/previsions`          | Prévisions       | (à venir)                                                      |
 | `/alertes`             | Alertes          | Alertes paginées et filtrées, compteurs de la dernière heure   |
