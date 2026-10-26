@@ -185,7 +185,7 @@ export class Site {
     effect(() => {
       const first = this.siteOptions()[0];
       if (!this.id() && first) {
-        this.router.navigate(['/sites', first.siteId], { replaceUrl: true });
+        void this.router.navigate(['/sites', first.siteId], { replaceUrl: true });
       }
     });
     reloadOnError(this.latest, READING_REFRESH_MS);
