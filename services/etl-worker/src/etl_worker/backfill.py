@@ -33,7 +33,13 @@ def backfill_window(hours: int, now: datetime | None = None) -> tuple[datetime, 
 
 
 def split_range(start: datetime, end: datetime) -> list[tuple[datetime, datetime]]:
-    """Découpe [start, end) en morceaux d'au plus HISTORY_MAX_MINUTES minutes."""
+    """Découpe [start, end) en morceaux d'au plus HISTORY_MAX_MINUTES minutes.
+
+    Les bornes passent en UTC : la base renvoie des dates dans le fuseau de session
+    (Europe/Paris), et Python ajoute un timedelta en heure locale, ce qui fausse la
+    durée d'un morceau qui traverse un changement d'heure (1060 minutes au lieu de 1000).
+    """
+    start, end = start.astimezone(UTC), end.astimezone(UTC)
     step = timedelta(minutes=HISTORY_MAX_MINUTES)
     chunks = []
     while start < end:
