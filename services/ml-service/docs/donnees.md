@@ -62,18 +62,18 @@ donne 1 à toute heure, notamment pour les sites fonctionnant en continu.
 
 L'ordre des colonnes est vérifié par `training/data.py`.
 
-| Colonne | Utilisation |
-| --- | --- |
-| `timestamp` | Clé temporelle, découpage et alignement des prédictions ; pas une entrée directe du modèle. |
-| `site_id` | Identification du site ; encodage catégoriel dans le pipeline. |
-| `hour` | Heure, de 0 à 23. |
-| `day_of_week` | Jour de la semaine, de 0 à 6. |
-| `month` | Mois, de 1 à 12. |
-| `is_working_hours` | Flag 0/1 recalculé depuis les métadonnées. |
-| `lag_24h` | Consommation du même site à la même heure la veille. |
-| `lag_168h` | Consommation du même site à la même heure sept jours auparavant. |
-| `temperature_celsius` | Conservée dans le schéma existant, exclue de la campagne sans météo. |
-| `consumption_kwh` | Cible à prévoir ; aucune valeur NULL conservée. |
+| Colonne               | Utilisation                                                                                 |
+|-----------------------|---------------------------------------------------------------------------------------------|
+| `timestamp`           | Clé temporelle, découpage et alignement des prédictions ; pas une entrée directe du modèle. |
+| `site_id`             | Identification du site ; encodage catégoriel dans le pipeline.                              |
+| `hour`                | Heure, de 0 à 23.                                                                           |
+| `day_of_week`         | Jour de la semaine, de 0 à 6.                                                               |
+| `month`               | Mois, de 1 à 12.                                                                            |
+| `is_working_hours`    | Flag 0/1 recalculé depuis les métadonnées.                                                  |
+| `lag_24h`             | Consommation du même site à la même heure la veille.                                        |
+| `lag_168h`            | Consommation du même site à la même heure sept jours auparavant.                            |
+| `temperature_celsius` | Conservée dans le schéma existant, exclue de la campagne sans météo.                        |
+| `consumption_kwh`     | Cible à prévoir ; aucune valeur NULL conservée.                                             |
 
 Le modèle utilise les cinq variables communes `site_id`, `hour`, `day_of_week`, `month`
 et `is_working_hours`, puis zéro, un ou deux lags selon la variante. Le calendrier décrit
@@ -100,11 +100,11 @@ supprimer des observations selon les lags sélectionnés.
 
 ## Découpage chronologique
 
-| Jeu | Début inclus | Fin exclue | Rôle |
-| --- | --- | --- | --- |
-| Train | 2023-01-01 | 2024-07-01 | Apprendre les prétraitements et le modèle. |
-| Validation | 2024-07-01 | 2024-10-01 | Comparer les variables et hyperparamètres. |
-| Test | 2024-10-01 | 2025-01-01 | Évaluer finalement le candidat retenu. |
+| Jeu        | Début inclus | Fin exclue | Rôle                                       |
+|------------|--------------|------------|--------------------------------------------|
+| Train      | 2023-01-01   | 2024-07-01 | Apprendre les prétraitements et le modèle. |
+| Validation | 2024-07-01   | 2024-10-01 | Comparer les variables et hyperparamètres. |
+| Test       | 2024-10-01   | 2025-01-01 | Évaluer finalement le candidat retenu.     |
 
 Il n'y a pas de mélange aléatoire. Les lags d'une ligne utilisent une consommation
 antérieure, éventuellement située dans la période précédente. Les lags 24 h et 7 jours
