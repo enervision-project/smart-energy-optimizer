@@ -53,6 +53,14 @@ describe('HttpEnergyApi (mesures)', () => {
     http.expectOne('/api/v1/stats/summary').flush({});
   });
 
+  it('demande les prévisions d’un site sur la période', () => {
+    api.getPredictions('SITE001', from, to).subscribe();
+    const req = http.expectOne((r) => r.url === '/api/v1/sites/SITE001/predictions');
+    expect(req.request.params.get('from')).toBe('2026-10-26T08:00:00.000Z');
+    expect(req.request.params.get('to')).toBe('2026-10-26T10:00:00.000Z');
+    req.flush({});
+  });
+
   it('demande la synthèse d’un site sur la période', () => {
     api.getReadingSummary('SITE001', from, to).subscribe();
     const req = http.expectOne((r) => r.url === '/api/v1/sites/SITE001/readings/summary');

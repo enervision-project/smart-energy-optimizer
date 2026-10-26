@@ -1,6 +1,7 @@
 import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
 import { ParcSummary } from '../models/parc-summary';
+import { PredictionSeries } from '../models/prediction';
 import { LatestReading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
 import { RecommendationResponse } from '../models/recommendation';
 import { Site } from '../models/site';
@@ -28,4 +29,6 @@ export abstract class EnergyApi {
   abstract getRecommendations(siteId: string): Observable<RecommendationResponse | null>;
   /** Consommation actuelle des sites visibles et sites sans mesure récente. */
   abstract getParcSummary(): Observable<ParcSummary>;
+  /** Prévisions horaires du site sur `[from, to)` ; core-api aligne les bornes sur l'heure UTC. */
+  abstract getPredictions(siteId: string, from: Date, to: Date): Observable<PredictionSeries>;
 }

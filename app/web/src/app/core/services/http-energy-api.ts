@@ -3,6 +3,7 @@ import { inject, Service } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
 import { ParcSummary } from '../models/parc-summary';
+import { PredictionSeries } from '../models/prediction';
 import { LatestReading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
 import { RecommendationResponse } from '../models/recommendation';
 import { Site } from '../models/site';
@@ -67,6 +68,12 @@ export class HttpEnergyApi extends EnergyApi {
   /** Route de core-api (module telemetry). */
   getParcSummary(): Observable<ParcSummary> {
     return this.http.get<ParcSummary>(`${BASE_URL}/stats/summary`);
+  }
+
+  getPredictions(siteId: string, from: Date, to: Date): Observable<PredictionSeries> {
+    return this.http.get<PredictionSeries>(`${BASE_URL}/sites/${siteId}/predictions`, {
+      params: { from: from.toISOString(), to: to.toISOString() },
+    });
   }
 
   getAlertSummary(siteId?: string): Observable<AlertSummary> {

@@ -10,6 +10,7 @@ import {
   Page,
 } from '../models/alert';
 import { ParcSiteLoad, ParcSummary } from '../models/parc-summary';
+import { PredictionPoint, PredictionSeries } from '../models/prediction';
 import {
   DATA_QUALITIES,
   DataQuality,
@@ -66,6 +67,9 @@ const SENSOR_FAILURE_SITE_ID = 'SITE002';
 const LOSS_MINUTES = 180;
 const TEMPERATURE_FAILURE_MINUTES = 20;
 const GAP_MINUTES_AGO: [number, number] = [600, 660];
+/** Modèle enregistré dans MLflow (variable REGISTERED_MODEL_NAME de prediction-jobs). */
+const PREDICTION_MODEL = 'enervision-hourly-consumption';
+const PREDICTION_MODEL_VERSION = '3';
 const STEP_MS: Record<ReadingStep, number> = {
   '1m': MINUTE_MS,
   '15m': 15 * MINUTE_MS,
@@ -288,6 +292,52 @@ export class MockEnergyApi extends EnergyApi {
   }
 
   /** Aucune donnée de mock pour les recommandations : l'application s'appuie uniquement sur l'API réelle. */
+  /**
+   * Prévisions comme les publie `prediction-jobs` : une série chaque heure pour les 24 heures suivantes.
+   * Les heures passées gardent la prévision de leur série ; au-delà de l'heure en cours + 24 h, rien n'est publié.
+   * Valeurs : profil du site avec un bruit différent des mesures, pour que prévu et mesuré se distinguent.
+   */
+  getPredictions(siteId: string, from: Date, to: Date): Observable<PredictionSeries> {
+    const found = SITES.find((s) => s.siteId === siteId);
+    if (!found) {
+      return throwError(() => new Error(`Site inconnu : ${siteId}`));
+    }
+    const currentHour = floor(Date.now(), HOUR_MS);
+    const covered = currentHour + 25 * HOUR_MS;
+    const start = floor(from.getTime(), HOUR_MS);
+    const end = ceil(to.getTime(), HOUR_MS);
+    const points: PredictionPoint[] = [];
+    for (let t = start; t < end; t += HOUR_MS) {
+      const run = Math.min(t - HOUR_MS, currentHour) + 5 * MINUTE_MS;
+      points.push(
+        t < covered
+          ? {
+              ts: new Date(t).toISOString(),
+              predictionKwh: round(consumption(found, new Date(t), t / MINUTE_MS + 7), 3),
+              runId: `run-${new Date(run).toISOString()}`,
+              modelName: PREDICTION_MODEL,
+              modelVersion: PREDICTION_MODEL_VERSION,
+              generatedAt: new Date(run).toISOString(),
+            }
+          : {
+              ts: new Date(t).toISOString(),
+              predictionKwh: null,
+              runId: null,
+              modelName: null,
+              modelVersion: null,
+              generatedAt: null,
+            },
+      );
+    }
+    return of({
+      siteId,
+      step: '1h',
+      from: new Date(start).toISOString(),
+      to: new Date(end).toISOString(),
+      points,
+    });
+  }
+
   getRecommendations(): Observable<RecommendationResponse | null> {
     return of(null);
   }
