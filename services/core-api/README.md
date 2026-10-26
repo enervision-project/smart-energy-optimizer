@@ -20,6 +20,7 @@ flowchart TD
     APP --> TELEM
     APP --> CONF
     DIAG -->|sites visibles| CONF
+    TELEM -->|sites visibles| CONF
     USER --> COMMON
     DIAG --> COMMON
     TELEM --> COMMON
@@ -32,7 +33,7 @@ flowchart TD
 | `common`        | Code transverse partagé : utilisateur courant, rôles, `@AdminOnly` | `com.enervision.common` |
 | `user`          | Gestion des utilisateurs                                    | `com.enervision.user`        |
 | `diagnostic`    | Alertes et recommandations                                  | `com.enervision.diagnostic`  |
-| `telemetry`     | Données de télémétrie (appels au ML-service via RestClient) | `com.enervision.telemetry`   |
+| `telemetry`     | Mesures des sites et consommation du parc (lecture de `readings_raws`) | `com.enervision.telemetry`   |
 | `configuration` | Sites, profils de référence et visibilité des sites par utilisateur | `com.enervision.configuration` |
 
 ### Structure Maven
@@ -150,6 +151,10 @@ Authentification **stateless par jeton JWT** (Bearer, signé en HS256), avec Spr
 | `GET` | `/api/v1/sites/{siteId}` | Connecté : site et son profil de référence (`profile` à `null` si aucun profil n'est chargé) |
 | `GET` | `/api/v1/alerts` | Connecté : alertes des sites visibles, paginées, de la plus récente à la plus ancienne (dernière heure par défaut ; filtres `siteId`, `severity`, `type`, `from`, `to`) |
 | `GET` | `/api/v1/alerts/summary` | Connecté : nombre d'alertes de la dernière heure par sévérité (filtre `siteId`) |
+| `GET` | `/api/v1/sites/{siteId}/readings` | Connecté : courbe d'un site visible, un point par pas (`step` = `1m`, `15m`, `1h` ; 48 dernières heures par défaut ; `from`, `to`) |
+| `GET` | `/api/v1/sites/{siteId}/readings/latest` | Connecté : dernière mesure du site (204 si aucune) |
+| `GET` | `/api/v1/sites/{siteId}/readings/summary` | Connecté : énergie, pic et disponibilité sur une période (48 dernières heures par défaut) |
+| `GET` | `/api/v1/stats/summary` | Connecté : consommation actuelle des sites visibles et sites sans données récentes |
 
 Les appels authentifiés envoient l'en-tête `Authorization: Bearer <accessToken>`. Le jeton contient l'id de l'utilisateur (`sub`), son email et ses rôles (`roles`). La doc interactive est sur http://localhost:8080/swagger-ui.html (bouton « Authorize »).
 

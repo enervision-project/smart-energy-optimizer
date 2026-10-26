@@ -9,7 +9,16 @@ import {
   AlertType,
   Page,
 } from '../models/alert';
-import { DataQuality, Reading } from '../models/reading';
+import {
+  DATA_QUALITIES,
+  DataQuality,
+  LatestReading,
+  ReadingPoint,
+  ReadingSeries,
+  ReadingStep,
+  ReadingSummary,
+} from '../models/reading';
+import { RecommendationResponse } from '../models/recommendation';
 import { Site } from '../models/site';
 import { EnergyApi } from './energy-api';
 
@@ -42,10 +51,25 @@ const PROFILES: Record<
   hospital: { base: 0.55, peak: 0.75, hours: [8, 20], weekdaysOnly: false },
 };
 
-/** Site en perte réseau sur les 3 dernières heures : toutes les mesures à null, qualité `critical`. */
+/**
+ * Site en perte réseau sur les 3 dernières heures : mesures reçues mais toutes à null, qualité `critical` ;
+ * la consommation des 15 premières minutes de la panne est imputée (`previous_value`).
+ */
 const NETWORK_LOSS_SITE_ID = 'SITE003';
-/** Site avec une panne des capteurs de consommation (`degraded`) puis de température (`partial`). */
+/**
+ * Site avec des pannes de 2 minutes du capteur de consommation (`degraded`, imputées en `linear`), une panne du
+ * capteur de température sur les 20 dernières minutes (`partial`) et une coupure de collecte d'une heure,
+ * de 10 h à 9 h avant maintenant (aucune mesure reçue).
+ */
 const SENSOR_FAILURE_SITE_ID = 'SITE002';
+const LOSS_MINUTES = 180;
+const TEMPERATURE_FAILURE_MINUTES = 20;
+const GAP_MINUTES_AGO: [number, number] = [600, 660];
+const STEP_MS: Record<ReadingStep, number> = {
+  '1m': MINUTE_MS,
+  '15m': 15 * MINUTE_MS,
+  '1h': HOUR_MS,
+};
 
 /** Seuils fixes par site observés sur GET /api/v1/alerts de l'API Mock. */
 const ALERT_THRESHOLDS: Record<string, number> = {
@@ -92,17 +116,105 @@ export class MockEnergyApi extends EnergyApi {
     return found ? of(found) : throwError(() => new Error(`Site inconnu : ${siteId}`));
   }
 
-  getReadings(siteId: string, from: Date, to: Date): Observable<Reading[]> {
+  getReadingSeries(
+    siteId: string,
+    from: Date,
+    to: Date,
+    step: ReadingStep,
+  ): Observable<ReadingSeries> {
     const found = SITES.find((s) => s.siteId === siteId);
     if (!found) {
       return throwError(() => new Error(`Site inconnu : ${siteId}`));
     }
-    const lossStart = Math.floor(Date.now() / HOUR_MS) * HOUR_MS - 3 * HOUR_MS;
-    const readings: Reading[] = [];
-    for (let t = from.getTime(), i = 0; t < to.getTime(); t += HOUR_MS, i++) {
-      readings.push(reading(found, new Date(t), i, t >= lossStart));
+    const now = Date.now();
+    const width = STEP_MS[step];
+    const start = floor(from.getTime(), width);
+    const end = ceil(to.getTime(), width);
+    const elapsedUntil = floor(now, MINUTE_MS);
+    const points: ReadingPoint[] = [];
+    for (let ts = start; ts < end; ts += width) {
+      const until = Math.min(ts + width, elapsedUntil);
+      points.push(
+        aggregate(ts, minutes(found, ts, until, now), Math.max(0, (until - ts) / MINUTE_MS)),
+      );
     }
-    return of(readings);
+    return of({
+      siteId,
+      step,
+      from: new Date(start).toISOString(),
+      to: new Date(end).toISOString(),
+      points,
+    });
+  }
+
+  getLatestReading(siteId: string): Observable<LatestReading | null> {
+    const found = SITES.find((s) => s.siteId === siteId);
+    if (!found) {
+      return throwError(() => new Error(`Site inconnu : ${siteId}`));
+    }
+    const now = Date.now();
+    const row = mockMinute(found, floor(now, MINUTE_MS) - MINUTE_MS, now);
+    if (!row) {
+      return of(null);
+    }
+    const { ts, imputationMethod, ...values } = row;
+    return of({
+      ...values,
+      siteId,
+      ts: new Date(ts).toISOString(),
+      ageSeconds: Math.floor((now - ts) / 1000),
+      imputationMethod,
+    });
+  }
+
+  getReadingSummary(siteId: string, from: Date, to: Date): Observable<ReadingSummary> {
+    const found = SITES.find((s) => s.siteId === siteId);
+    if (!found) {
+      return throwError(() => new Error(`Site inconnu : ${siteId}`));
+    }
+    const now = Date.now();
+    const start = floor(from.getTime(), MINUTE_MS);
+    const end = ceil(to.getTime(), MINUTE_MS);
+    const elapsedEnd = Math.min(end, floor(now, MINUTE_MS));
+    const rows = minutes(found, start, elapsedEnd, now);
+    const hours = new Map<number, number[]>();
+    let peak: MockMinute | null = null;
+    for (const r of rows) {
+      const hour = floor(r.ts, HOUR_MS);
+      hours.set(hour, [
+        ...(hours.get(hour) ?? []),
+        ...(r.consumptionKw === null ? [] : [r.consumptionKw]),
+      ]);
+      if (r.consumptionKw !== null && (!peak || r.consumptionKw > peak.consumptionKw!)) {
+        peak = r;
+      }
+    }
+    const hourly = [...hours.values()].filter((kw) => kw.length).map((kw) => average(kw)!);
+    const minutesExpected = Math.max(0, (elapsedEnd - start) / MINUTE_MS);
+    const withConsumption = rows.filter((r) => r.consumptionKw !== null).length;
+    return of({
+      siteId,
+      from: new Date(start).toISOString(),
+      to: new Date(end).toISOString(),
+      energyKwh: hourly.length
+        ? round(
+            hourly.reduce((a, b) => a + b, 0),
+            2,
+          )
+        : null,
+      hoursWithData: hourly.length,
+      hoursExpected:
+        elapsedEnd > start ? (ceil(elapsedEnd, HOUR_MS) - floor(start, HOUR_MS)) / HOUR_MS : 0,
+      peakKw: peak?.consumptionKw ?? null,
+      peakAt: peak ? new Date(peak.ts).toISOString() : null,
+      availabilityPercent: minutesExpected
+        ? round((100 * withConsumption) / minutesExpected)
+        : null,
+      minutesExpected,
+      minutesReceived: rows.length,
+      minutesWithConsumption: withConsumption,
+      minutesImputed: rows.filter((r) => r.consumptionKwImputed !== null).length,
+    });
   }
 
   getAlerts(filters: AlertFilters, page: number, size: number): Observable<Page<Alert>> {
@@ -138,6 +250,11 @@ export class MockEnergyApi extends EnergyApi {
     ) as Record<AlertSeverity, number>;
     return of({ since: since.toISOString(), total: recent.length, bySeverity });
   }
+
+  /** Aucune donnée de mock pour les recommandations : l'application s'appuie uniquement sur l'API réelle. */
+  getRecommendations(): Observable<RecommendationResponse | null> {
+    return of(null);
+  }
 }
 
 /** Alertes datées par rapport à maintenant, de la plus récente à la plus ancienne. */
@@ -172,55 +289,149 @@ function site(
   return { siteId, siteType, siteName, location, capacityKw, status: 'active' };
 }
 
-function reading(s: Site, date: Date, index: number, inLossWindow: boolean): Reading {
-  const kw = consumption(s, date, index);
-  const voltage = round(400 + 3 * noise(index, 1));
-  const powerFactor = round(0.93 + 0.02 * noise(index, 2), 3);
-  const full: Reading = {
-    site_id: s.siteId,
-    ts: date.toISOString(),
-    consumption_kw: kw,
-    consumption_kwh: kw,
-    voltage_v: voltage,
-    current_a: round((kw * 1000) / (Math.sqrt(3) * voltage * powerFactor)),
-    power_factor: powerFactor,
-    temperature_celsius: round(15 + 5 * Math.sin(((date.getHours() - 9) / 24) * 2 * Math.PI)),
-    humidity_percent: round(60 + 8 * noise(index, 3)),
-    data_quality: 'good',
-  };
-
-  if (s.siteId === NETWORK_LOSS_SITE_ID && inLossWindow) {
-    return withNulls(full, 'critical', [
-      'consumption_kw',
-      'consumption_kwh',
-      'voltage_v',
-      'current_a',
-      'power_factor',
-      'temperature_celsius',
-      'humidity_percent',
-    ]);
-  }
-  if (s.siteId === SENSOR_FAILURE_SITE_ID && index >= 8 && index < 11) {
-    return withNulls(full, 'degraded', [
-      'consumption_kw',
-      'consumption_kwh',
-      'voltage_v',
-      'current_a',
-      'power_factor',
-    ]);
-  }
-  if (s.siteId === SENSOR_FAILURE_SITE_ID && index >= 30 && index < 34) {
-    return withNulls(full, 'partial', ['temperature_celsius']);
-  }
-  return full;
+/** Ligne de `readings_raws` simulée. */
+interface MockMinute {
+  ts: number;
+  source: string;
+  consumptionKw: number | null;
+  consumptionKwImputed: number | null;
+  imputationMethod: string | null;
+  voltageV: number | null;
+  currentA: number | null;
+  powerFactor: number | null;
+  temperatureCelsius: number | null;
+  humidityPercent: number | null;
+  nullReasons: string[];
+  dataQuality: DataQuality;
 }
 
-function withNulls(r: Reading, quality: DataQuality, fields: (keyof Reading)[]): Reading {
-  const copy: Record<string, unknown> = { ...r, data_quality: quality };
-  for (const f of fields) {
-    copy[f] = null;
+/** Minutes reçues de `[from, until)`, sans les minutes de la coupure de collecte. */
+function minutes(s: Site, from: number, until: number, now: number): MockMinute[] {
+  const rows: MockMinute[] = [];
+  for (let t = from; t < until; t += MINUTE_MS) {
+    const row = mockMinute(s, t, now);
+    if (row) {
+      rows.push(row);
+    }
   }
-  return copy as unknown as Reading;
+  return rows;
+}
+
+/** Mesure de la minute `t`, ou `null` si elle n'a jamais été reçue. */
+function mockMinute(s: Site, t: number, now: number): MockMinute | null {
+  const minutesAgo = (floor(now, MINUTE_MS) - t) / MINUTE_MS;
+  if (
+    s.siteId === SENSOR_FAILURE_SITE_ID &&
+    minutesAgo > GAP_MINUTES_AGO[0] &&
+    minutesAgo <= GAP_MINUTES_AGO[1]
+  ) {
+    return null;
+  }
+  const index = t / MINUTE_MS;
+  const kw = consumption(s, new Date(t), index);
+  const voltage = round(400 + 3 * noise(index, 1));
+  const powerFactor = round(0.93 + 0.02 * noise(index, 2), 3);
+  const full: MockMinute = {
+    ts: t,
+    source: 'current',
+    consumptionKw: kw,
+    consumptionKwImputed: null,
+    imputationMethod: null,
+    voltageV: voltage,
+    currentA: round((kw * 1000) / (Math.sqrt(3) * voltage * powerFactor)),
+    powerFactor,
+    temperatureCelsius: round(15 + 5 * Math.sin(((new Date(t).getHours() - 9) / 24) * 2 * Math.PI)),
+    humidityPercent: round(60 + 8 * noise(index, 3)),
+    nullReasons: [],
+    dataQuality: 'good',
+  };
+
+  if (s.siteId === NETWORK_LOSS_SITE_ID && minutesAgo <= LOSS_MINUTES) {
+    const lossStart = floor(now, MINUTE_MS) - LOSS_MINUTES * MINUTE_MS;
+    const imputed = minutesAgo > LOSS_MINUTES - 15;
+    return {
+      ...full,
+      consumptionKw: null,
+      consumptionKwImputed: imputed
+        ? consumption(s, new Date(lossStart - MINUTE_MS), lossStart / MINUTE_MS - 1)
+        : null,
+      imputationMethod: imputed ? 'previous_value' : null,
+      voltageV: null,
+      currentA: null,
+      powerFactor: null,
+      temperatureCelsius: null,
+      humidityPercent: null,
+      nullReasons: ['network_loss'],
+      dataQuality: 'critical',
+    };
+  }
+  if (s.siteId !== SENSOR_FAILURE_SITE_ID) {
+    return full;
+  }
+  let row = full;
+  if (minutesAgo <= TEMPERATURE_FAILURE_MINUTES) {
+    row = {
+      ...row,
+      temperatureCelsius: null,
+      nullReasons: ['temperature_sensor_failure'],
+      dataQuality: 'partial',
+    };
+  }
+  if (index % 47 < 2) {
+    const before = consumption(s, new Date(t - (index % 47) * MINUTE_MS - MINUTE_MS), index - 1);
+    const after = consumption(s, new Date(t + (2 - (index % 47)) * MINUTE_MS), index + 1);
+    row = {
+      ...row,
+      consumptionKw: null,
+      consumptionKwImputed: round(before + ((after - before) * ((index % 47) + 1)) / 3, 2),
+      imputationMethod: 'linear',
+      nullReasons: ['consumption_sensor_failure', ...row.nullReasons],
+      dataQuality: 'degraded',
+    };
+  }
+  return row;
+}
+
+/** Point de courbe calculé comme core-api : moyennes, pire qualité, raisons des NULL et compteurs. */
+function aggregate(ts: number, rows: MockMinute[], minutesExpected: number): ReadingPoint {
+  const worst = Math.max(-1, ...rows.map((r) => DATA_QUALITIES.indexOf(r.dataQuality)));
+  return {
+    ts: new Date(ts).toISOString(),
+    consumptionKw: average(rows.map((r) => r.consumptionKw)),
+    consumptionKwImputed: average(rows.map((r) => r.consumptionKw ?? r.consumptionKwImputed)),
+    voltageV: average(rows.map((r) => r.voltageV)),
+    currentA: average(rows.map((r) => r.currentA)),
+    powerFactor: average(
+      rows.map((r) => r.powerFactor),
+      3,
+    ),
+    temperatureCelsius: average(rows.map((r) => r.temperatureCelsius)),
+    humidityPercent: average(rows.map((r) => r.humidityPercent)),
+    dataQuality: worst < 0 ? null : DATA_QUALITIES[worst],
+    nullReasons: [...new Set(rows.flatMap((r) => r.nullReasons))].sort((a, b) =>
+      a.localeCompare(b),
+    ),
+    minutesExpected,
+    minutesReceived: rows.length,
+    minutesBackfilled: 0,
+    minutesImputed: rows.filter((r) => r.consumptionKwImputed !== null).length,
+    imputationMethods: [
+      ...new Set(rows.flatMap((r) => (r.imputationMethod ? [r.imputationMethod] : []))),
+    ].sort((a, b) => a.localeCompare(b)),
+  };
+}
+
+function average(values: (number | null)[], digits = 2): number | null {
+  const present = values.filter((v): v is number => v !== null);
+  return present.length ? round(present.reduce((a, b) => a + b, 0) / present.length, digits) : null;
+}
+
+function floor(t: number, width: number): number {
+  return Math.floor(t / width) * width;
+}
+
+function ceil(t: number, width: number): number {
+  return Math.ceil(t / width) * width;
 }
 
 /** Courbe déterministe : talon + activité selon le profil du type de site + bruit, avec une pointe en fin de matinée pour les usines. */

@@ -60,8 +60,25 @@ class AggregateHourConfigurationTests(unittest.TestCase):
         clock.now.assert_called_once_with(UTC)
         self.assertEqual(
             cursor.execute.call_args.args[1],
-            {"start": START, "end": START + timedelta(hours=1)},
+            {"first": START, "last": START},
         )
+
+    @patch("etl_worker.transform.psycopg.connect")
+    def test_several_hours_end_with_the_last_completed_hour(self, connect):
+        cursor = connect.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value
+
+        aggregate_hour("postgresql://test", end_time=END, hours=6)
+
+        self.assertEqual(
+            cursor.execute.call_args.args[1],
+            {"first": START - timedelta(hours=5), "last": START},
+        )
+
+    @patch("etl_worker.transform.psycopg.connect")
+    def test_rejects_less_than_one_hour_before_connecting(self, connect):
+        with self.assertRaisesRegex(ValueError, "hours"):
+            aggregate_hour("postgresql://test", end_time=END, hours=0)
+        connect.assert_not_called()
 
 
 @unittest.skipUnless(
@@ -102,6 +119,7 @@ class AggregateHourPostgresTests(unittest.TestCase):
                 humidity_percent DOUBLE PRECISION,
                 null_reasons TEXT[] NOT NULL DEFAULT '{}',
                 data_quality TEXT NOT NULL, loaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                source TEXT NOT NULL DEFAULT 'current' CHECK (source IN ('current', 'readings', 'backfill')),
                 PRIMARY KEY (site_id, ts)
             );
             CREATE TABLE readings_hours (
@@ -109,7 +127,10 @@ class AggregateHourPostgresTests(unittest.TestCase):
                 ts TIMESTAMPTZ NOT NULL, consumption_kwh NUMERIC(14, 2),
                 voltage_v NUMERIC(14, 2), current_a NUMERIC(14, 2),
                 power_factor NUMERIC(14, 2), temperature_celsius NUMERIC(14, 2),
-                humidity_percent NUMERIC(14, 2), PRIMARY KEY (site_id, ts)
+                humidity_percent NUMERIC(14, 2),
+                minutes_received SMALLINT, minutes_consumption SMALLINT,
+                minutes_backfilled SMALLINT,
+                PRIMARY KEY (site_id, ts)
             );
         """)
         self.database_url = make_conninfo(
@@ -262,6 +283,41 @@ class AggregateHourPostgresTests(unittest.TestCase):
         aggregate_hour(self.database_url, end_time=END)
         row = self.stored_hours()[0]
         self.assertTrue(all(row[field] is None for field in METRICS))
+        # 0 distingue « rien reçu » de « capteurs en panne ».
+        self.assertEqual(
+            (row["minutes_received"], row["minutes_consumption"], row["minutes_backfilled"]),
+            (0, 0, 0),
+        )
+
+    def test_completeness_counts_received_measured_and_backfilled_minutes(self):
+        readings = self.readings(range(50))
+        for reading in readings[:8]:
+            reading["consumption_kw"] = None
+        load_readings(readings[:45], self.database_url)
+        load_readings(readings[45:], self.database_url, source="backfill")
+
+        aggregate_hour(self.database_url, end_time=END)
+
+        row = self.stored_hours()[0]
+        self.assertEqual(
+            (row["minutes_received"], row["minutes_consumption"], row["minutes_backfilled"]),
+            (50, 42, 5),
+        )
+
+    def test_several_hours_are_recalculated_in_one_batch(self):
+        self.start = START - timedelta(hours=2)
+        load_readings(self.readings(range(30)), self.database_url)
+        self.start = START
+        load_readings(self.readings(range(60)), self.database_url)
+
+        self.assertEqual(aggregate_hour(self.database_url, end_time=END, hours=3), 3)
+
+        rows = self.stored_hours()
+        self.assertEqual(
+            [(row["ts"], row["minutes_received"]) for row in rows],
+            [(START - timedelta(hours=2), 30), (START - timedelta(hours=1), 0), (START, 60)],
+        )
+        self.assertIsNone(rows[1]["consumption_kwh"])
 
     def test_no_sites_means_no_hourly_rows(self):
         self.connection.execute("DELETE FROM sites")

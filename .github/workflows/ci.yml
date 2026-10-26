@@ -54,6 +54,8 @@ jobs:
               - 'services/etl-worker/**'
             prediction-service:
               - 'services/prediction-service/**'
+              - 'services/ml-service/training/**'
+              - 'services/ml-service/configs/hgb_production.yaml'
               - '.github/workflows/_ci-prediction-service.yml'
             infra:
                   - 'infra/**'

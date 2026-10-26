@@ -17,7 +17,7 @@ from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 
 from etl_worker.bronze import write_readings_bronze
-from etl_worker.load import load_readings, load_sites
+from etl_worker.load import load_readings, load_sites, read_missing_ranges
 from etl_worker.timestamps import parse_reading_timestamp
 
 START = datetime(2026, 10, 26, 8, 3, 16, tzinfo=UTC)
@@ -61,7 +61,7 @@ class CurrentReadingUnitTests(unittest.TestCase):
         self.assertEqual(row[1], MINUTE)  # Secondes et fractions supprimées.
         self.assertEqual(row[3:5], (0, 0.25))
         self.assertTrue(all(value is None for value in row[5:10]))
-        self.assertEqual(row[10:], (source["null_reasons"], "partial"))
+        self.assertEqual(row[10:], (source["null_reasons"], "partial", "current"))
 
     @patch("etl_worker.load.psycopg.connect")
     def test_absent_history_keeps_null_and_emits_a_warning(self, connect):
@@ -102,6 +102,7 @@ class CurrentReadingPostgresTests(unittest.TestCase):
                 humidity_percent DOUBLE PRECISION,
                 null_reasons TEXT[] NOT NULL DEFAULT '{}', data_quality TEXT NOT NULL,
                 loaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                source TEXT NOT NULL DEFAULT 'current' CHECK (source IN ('current', 'readings', 'backfill')),
                 PRIMARY KEY (site_id, ts)
             );
         """)
@@ -175,6 +176,39 @@ class CurrentReadingPostgresTests(unittest.TestCase):
         self.assertEqual(row["ts"], MINUTE)
         self.assertEqual((row["consumption_kw"], row["consumption_kwh"]), (12.567891234, 0.123456789))
 
+    def test_source_is_stored_and_backfill_never_replaces_a_current_reading(self):
+        load_readings([reading(kw=10, kwh=10)], self.database_url, source="current")
+        inserted = load_readings(
+            [reading(kw=99, kwh=99), reading(1, kw=11, kwh=11)], self.database_url, source="backfill",
+        )
+        self.assertEqual(inserted, 1)
+        self.assertEqual(
+            [(row["ts"], row["consumption_kw"], row["source"]) for row in self.stored()],
+            [(MINUTE, 10, "current"), (MINUTE + timedelta(minutes=1), 11, "backfill")],
+        )
+
+    def test_missing_ranges_group_consecutive_minutes_per_site(self):
+        present = [m for m in range(120) if m not in (10, 20, 21) and not 30 <= m < 90]
+        readings = [reading(m, kw=None if m == 5 else 1, kwh=1) for m in present]
+        load_readings(readings, self.database_url)
+
+        ranges = read_missing_ranges(MINUTE, MINUTE + timedelta(minutes=120), self.database_url)
+
+        def at(minute):
+            return MINUTE + timedelta(minutes=minute)
+
+        # Minute 5 reçue avec une consommation NULL : ce n'est pas un trou.
+        self.assertEqual(ranges, [
+            ("SITE001", at(10), at(11)),
+            ("SITE001", at(20), at(22)),
+            ("SITE001", at(30), at(90)),
+            ("SITE002", at(0), at(120)),
+        ])
+
+    def test_missing_ranges_require_minute_bounds(self):
+        with self.assertRaises(ValueError):
+            read_missing_ranges(START, START + timedelta(minutes=5), self.database_url)
+
     def test_failure_rolls_back_entire_batch(self):
         with self.assertRaises(psycopg.errors.ForeignKeyViolation):
             self.load_current([reading(kw=10, kwh=1), reading(1, site="UNKNOWN", kw=20, kwh=2)])
@@ -195,9 +229,10 @@ class CurrentReadingPostgresTests(unittest.TestCase):
 
         with (
             patch.object(worker, "_require_site_ids", return_value=["SITE001"]),
-            patch.object(worker, "extract_readings", return_value=source),
+            patch.object(worker, "extract_readings", return_value=(source, {})),
             patch.object(worker, "write_readings_bronze", side_effect=archive),
             patch.object(worker, "load_readings", side_effect=load),
+            patch.object(worker, "impute_consumption", return_value=0),
             redirect_stdout(io.StringIO()),
         ):
             worker.cmd_sync_readings(Namespace())

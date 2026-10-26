@@ -2,7 +2,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
-import { Reading } from '../models/reading';
+import { LatestReading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
+import { RecommendationResponse } from '../models/recommendation';
 import { Site } from '../models/site';
 import { API_BASE_URL as BASE_URL } from './api';
 import { EnergyApi } from './energy-api';
@@ -19,10 +20,25 @@ export class HttpEnergyApi extends EnergyApi {
     return this.http.get<Site>(`${BASE_URL}/sites/${siteId}`);
   }
 
-  /** Route provisoire, calquée sur l'API Mock : core-api n'expose pas encore les mesures (module telemetry). */
-  getReadings(siteId: string, from: Date, to: Date): Observable<Reading[]> {
-    return this.http.get<Reading[]>(`${BASE_URL}/readings`, {
-      params: { site_id: siteId, start_time: from.toISOString(), end_time: to.toISOString() },
+  /** Routes de core-api (module telemetry). */
+  getReadingSeries(
+    siteId: string,
+    from: Date,
+    to: Date,
+    step: ReadingStep,
+  ): Observable<ReadingSeries> {
+    return this.http.get<ReadingSeries>(`${BASE_URL}/sites/${siteId}/readings`, {
+      params: { from: from.toISOString(), to: to.toISOString(), step },
+    });
+  }
+
+  getLatestReading(siteId: string): Observable<LatestReading | null> {
+    return this.http.get<LatestReading | null>(`${BASE_URL}/sites/${siteId}/readings/latest`);
+  }
+
+  getReadingSummary(siteId: string, from: Date, to: Date): Observable<ReadingSummary> {
+    return this.http.get<ReadingSummary>(`${BASE_URL}/sites/${siteId}/readings/summary`, {
+      params: { from: from.toISOString(), to: to.toISOString() },
     });
   }
 
@@ -51,5 +67,9 @@ export class HttpEnergyApi extends EnergyApi {
     return this.http.get<AlertSummary>(`${BASE_URL}/alerts/summary`, {
       params: siteId ? { siteId } : {},
     });
+  }
+
+  getRecommendations(siteId: string): Observable<RecommendationResponse | null> {
+    return this.http.get<RecommendationResponse | null>(`${BASE_URL}/recommendations/${siteId}`);
   }
 }

@@ -1,60 +1,60 @@
 # Prediction Service
 
-Service interne qui sert le modèle de prévision de consommation (XGBoost) en HTTP.
-Il n'est pas exposé publiquement : joignable depuis les autres conteneurs (`http://prediction-service:8000`)
-et, sur l'EC2, via `127.0.0.1:8000` (tunnel SSM).
+Service interne de prévision de consommation horaire. `prediction-service` sert le champion MLflow en mémoire ; `prediction-jobs` exécute l'entraînement quotidien et écrit les séries de prévisions dans PostgreSQL. Les deux conteneurs partagent le volume `/models`. MLflow utilise sa base PostgreSQL dédiée et les artefacts S3 déjà configurés.
 
-## Endpoints
+## API
 
-| Méthode | Chemin     | Rôle                                                   |
-| ------- | ---------- | ------------------------------------------------------ |
-| `POST`  | `/predict` | Prédit la consommation à partir d'une ligne de features |
-| `GET`   | `/health`  | État du service et version du modèle chargé            |
+| Méthode | Chemin | Rôle |
+| --- | --- | --- |
+| `POST` | `/predict` | Prévoit la consommation d'un site pour une heure à partir des features fournies. |
+| `GET` | `/health` | Indique si un modèle est chargé et sa version. |
 
-### `POST /predict`
-
-| Champ                 | Type        | Contrainte                    |
-| --------------------- | ----------- | ----------------------------- |
-| `site_id`             | texte       | `SITE\d{3,}`, connu du modèle |
-| `hour`                | entier      | 0–23                          |
-| `day_of_week`         | entier      | 0–6 (lundi = 0)               |
-| `month`               | entier      | 1–12                          |
-| `lag_24h`             | décimal     | ≥ 0, optionnel (manquant)     |
-| `lag_168h`            | décimal     | ≥ 0, optionnel (manquant)     |
-| `temperature_celsius` | décimal     | −60–60, optionnel (manquant)  |
-| `is_working_hours`    | entier      | 0 ou 1                        |
+Le modèle de production HGB utilise `site_id`, `hour`, `day_of_week` (lundi = 0), `month` et `is_working_hours`. Les deux champs de lag restent optionnels pour la compatibilité avec les anciens modèles, mais le HGB de production les ignore. `temperature_celsius` est refusé par le contrat API.
 
 ```bash
 curl -s http://127.0.0.1:8000/predict -H 'Content-Type: application/json' -d '{
   "site_id": "SITE001", "hour": 14, "day_of_week": 2, "month": 10,
-  "lag_24h": 12.5, "lag_168h": 11.0, "temperature_celsius": 18.2, "is_working_hours": 1
+  "is_working_hours": 1
 }'
-# {"prediction": 12.3, "model_version": "2026-10-23"}
 ```
 
-Réponses : `200`, `422` (validation ou site inconnu), `503` (aucun modèle chargé).
+`/predict` renvoie `503` avant la première promotion d'un champion ; l'API reste démarrée. Un modèle déjà chargé continue de servir pendant les entraînements et les pannes MLflow. Le service cherche régulièrement la version `champion` du Registry et garde un cache versionné dans `/models/versions/`.
 
-## Artefacts du modèle
+## Cycle quotidien
 
-Le répertoire `MODEL_DIR` (`/models`, volume Docker `ml_models`) contient :
+- À **01:00 Europe/Paris**, `prediction-jobs` déclenche un entraînement HGB. Au démarrage, il déclenche un rattrapage si le dernier entraînement réussi dans MLflow date strictement de plus de 25 heures.
+- Le dataset réunit `train.parquet` et `validation.parquet` historiques du préfixe S3 d'amorçage avec les nouvelles heures de `readings_hours` dès que chaque site historique dispose d'au moins 168 heures SQL valides. Avant ce seuil, l'entraînement utilise seulement l'historique. `test.parquet` reste réservé à l'évaluation hors ligne. Les 14 derniers jours disponibles forment la validation chronologique.
+- Le challenger est comparé au champion sur **les mêmes lignes**. Il est promu si `val_macro_nmae_pct_challenger <= 0,96 × val_macro_nmae_pct_champion`, avec un score défini et positif pour le champion. Le premier candidat valide devient champion s'il n'existe pas encore de version.
+- À **01:05 Europe/Paris**, le job de prévisions utilise le champion disponible, même si l'entraînement continue. Il calcule 24 heures successives en UTC à partir du prochain début d'heure et publie le lot complet dans `prediction_runs` et `predictions`.
 
-- `model.json` : booster XGBoost (`Booster.save_model`), colonnes dans l'ordre du tableau ci-dessus ;
-- `model_meta.json` : `{"version": "...", "site_ids": ["SITE001", "SITE002"]}`. La position d'un site
-  dans `site_ids` est la valeur numérique de `site_id` utilisée à l'entraînement.
+L'historique des lots et des versions est conservé. La lecture par `core-api` et Angular fera l'objet d'une phase ultérieure.
 
-## Configuration
+## Préparation des données initiales
 
-| Variable      | Défaut    | Rôle                                  |
-| ------------- | --------- | ------------------------------------- |
-| `MODEL_DIR`   | `/models` | Répertoire des artefacts              |
-| `LOG_LEVEL`   | `INFO`    |                                       |
-| `ENABLE_DOCS` | `true`    | Swagger sur `/docs` (faux en prod)    |
+En local, `prediction-jobs` lit `.data/ml/splits` monté sous `/bootstrap`. En production, `TRAINING_BOOTSTRAP_URI` pointe vers `s3://<bucket-datalake>/ml/datasets/bootstrap/v1`. Le script `scripts/ml/upload-bootstrap.sh <bucket-datalake> v1` copie les trois Parquet, les relit et vérifie leur SHA-256. L'identité AWS du poste doit disposer d'un droit d'écriture sur ce préfixe ; le rôle EC2 ne reçoit que la lecture. Ce transfert est à faire une fois avant le premier entraînement en production.
+
+## Paramètres
+
+| Variable | Valeur habituelle | Usage |
+| --- | --- | --- |
+| `DATABASE_URL` | URL PostgreSQL de l'application | Lecture `readings_hours`/`site_profiles`, jobs et prévisions ; utilisée par `prediction-jobs`. |
+| `MLFLOW_TRACKING_URI` | `http://mlflow:5000` | Tracking et Model Registry interne. |
+| `REGISTERED_MODEL_NAME` | `enervision-hourly-consumption` | Nom stable dans le Registry. |
+| `TRAINING_BOOTSTRAP_URI` | `/bootstrap` local, S3 en production | Source des Parquet historiques. |
+| `TRAINING_TIMEZONE` | `Europe/Paris` | Heure des jobs et features calendaires. |
+| `VALIDATION_DAYS` | `14` | Fenêtre de validation chronologique. |
+| `MIN_CURRENT_VALIDATION_HOURS` | `168` | Heures SQL minimales par site avant de les intégrer au snapshot d'entraînement. |
+| `MODEL_DIR` | `/models` | Cache local du champion. |
+| `MODEL_REFRESH_SECONDS` | `60` | Vérification périodique de l'alias dans l'API. |
 
 ## Développement
 
 ```bash
+docker compose --profile ml up -d db migrate mlflow prediction-service prediction-jobs
 cd services/prediction-service
-pip install -e '.[dev]'
-ruff check . && ruff format --check .
-pytest --cov=src
+uv sync --extra dev
+ruff check src tests
+pytest -q
 ```
+
+Les migrations Liquibase doivent réussir avant le démarrage de `prediction-jobs`. Consulter ses logs pour les erreurs d'accès S3/SQL, les runs MLflow et la publication des prévisions.

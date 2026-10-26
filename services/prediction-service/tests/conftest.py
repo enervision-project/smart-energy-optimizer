@@ -46,7 +46,6 @@ def sklearn_model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
         "day_of_week",
         "month",
         "is_working_hours",
-        "temperature_celsius",
     ]
     frame = pd.DataFrame(
         {
@@ -55,7 +54,6 @@ def sklearn_model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
             "day_of_week": rng.integers(0, 7, 200),
             "month": rng.integers(1, 13, 200),
             "is_working_hours": rng.integers(0, 2, 200),
-            "temperature_celsius": rng.random(200) * 30,
         }
     )
     preprocessing = ColumnTransformer(
@@ -114,6 +112,5 @@ def payload() -> dict:
         "month": 10,
         "lag_24h": 12.5,
         "lag_168h": 11.0,
-        "temperature_celsius": 18.2,
         "is_working_hours": 1,
     }

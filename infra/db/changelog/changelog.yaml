@@ -6,3 +6,5 @@ databaseChangeLog:
   - include: { file: changes/002_initial_schema.sql, relativeToChangelogFile: true }
   - include: { file: changes/003_upgrade_legacy_schema.sql, relativeToChangelogFile: true }
   - include: { file: changes/004_create_site_profiles_and_users_sites.sql, relativeToChangelogFile: true }
+  - include: { file: changes/005_readings_source.sql, relativeToChangelogFile: true }
+  - include: { file: changes/006_prediction_jobs_and_forecasts.sql, relativeToChangelogFile: true }

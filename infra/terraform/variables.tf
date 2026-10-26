@@ -30,6 +30,18 @@ variable "data_volume_size" {
   default     = 20
 }
 
+variable "monitoring_instance_type" {
+  description = "Monitoring EC2 (arm64): Prometheus + Loki + Grafana."
+  type        = string
+  default     = "t4g.small"
+}
+
+variable "monitoring_volume_size" {
+  description = "Root volume size (GB) of the monitoring EC2 (15 d metrics + 7 d logs)."
+  type        = number
+  default     = 30
+}
+
 variable "energy_api_base_url" {
   description = "URL de l'API énergie (API Mock de l'école), joignable depuis l'EC2."
   type        = string

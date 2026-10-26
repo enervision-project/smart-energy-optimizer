@@ -1,4 +1,4 @@
-# Alertes (module diagnostic)
+# Alertes
 
 Conception du module `diagnostic` de core-api pour la partie alertes (EPIC-4).
 Décisions prises le 2026-10-22.
@@ -163,4 +163,4 @@ Le jeton expire au bout d'une heure (`JWT_EXPIRATION`) : en refaire un et relanc
 - **PO** : fermer ou réécrire #49, fermer #47 (doublon de #51), préciser #19 ou le rattacher à #51.
 - **Front** : fait dans la même branche. Page `/alertes` (filtres site, sévérité, type et période, compteurs par sévérité, pagination, relecture toutes les 30 s) et badge dans le menu avec le nombre d'alertes de la dernière heure. Le modèle `Site` du front est aligné sur `GET /api/v1/sites` de core-api (camelCase). Le login front et l'envoi du jeton (`auth-interceptor`) restent à faire : sans eux, `HttpEnergyApi` reçoit des `401` de core-api (voir « Tester en local » pour contourner).
 - **ETL** : préciser dans la doc de `sync-alerts` que l'API Mock renvoie un échantillon aléatoire et non des alertes persistantes.
-- **Prod** : core-api n'est pas encore déployé (`services.json`, `compose.prod.yaml`, route `/api` dans Caddy).
+- **Prod** : core-api n'est pas encore déployé (`services.json`, `../../../../compose.prod.yaml`, route `/api` dans Caddy).

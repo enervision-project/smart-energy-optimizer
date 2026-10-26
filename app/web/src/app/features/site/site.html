@@ -1,14 +1,40 @@
 <header class="page-header">
-  <h1>Sites</h1>
-  <label class="picker">
-    <span>Site</span>
-    <select (change)="selectSite($event)">
-      <option value="" disabled [selected]="!id()">Choisir un site…</option>
-      @for (s of siteOptions(); track s.siteId) {
-        <option [value]="s.siteId" [selected]="s.siteId === id()">{{ s.siteName }}</option>
-      }
-    </select>
-  </label>
+  <h1>Détail d’un site</h1>
+  <div class="controls">
+    <label class="picker">
+      <span>Site</span>
+      <select (change)="selectSite($event)">
+        <option value="" disabled [selected]="!id()">Choisir un site…</option>
+        @for (s of siteOptions(); track s.siteId) {
+          <option [value]="s.siteId" [selected]="s.siteId === id()">{{ s.siteName }}</option>
+        }
+      </select>
+    </label>
+    @if (id()) {
+      <label class="picker">
+        <span>Période</span>
+        <select data-testid="period" (change)="selectPeriod($event)">
+          @for (p of periods; track p.hours) {
+            <option [value]="p.hours" [selected]="p.hours === periodHours()">{{ p.label }}</option>
+          }
+        </select>
+      </label>
+      <label class="picker">
+        <span>Pas</span>
+        <select data-testid="step" (change)="selectStep($event)">
+          @for (s of steps; track s) {
+            <option
+              [value]="s"
+              [selected]="s === step()"
+              [disabled]="s === '1m' && periodHours() > oneMinuteMaxHours"
+            >
+              {{ stepLabels[s] }}
+            </option>
+          }
+        </select>
+      </label>
+    }
+  </div>
 </header>
 
 @if (!id()) {
@@ -20,11 +46,41 @@
     <p class="meta">{{ siteTypeLabel() }} · {{ s.location }} · capacité {{ s.capacityKw }} kW</p>
   }
 
+  <app-recommendations class="recommendations" [siteId]="id()!" />
+
+  <section class="latest" aria-labelledby="latest-title">
+    <h2 id="latest-title">
+      Dernière mesure
+      @if (freshness(); as f) {
+        <span class="freshness" [class.stale]="f.stale" data-testid="freshness">
+          {{ f.at }} · il y a {{ f.age }}
+        </span>
+      }
+    </h2>
+    @if (latest.error()) {
+      <p class="error" role="alert">Dernière mesure indisponible.</p>
+    } @else if (latest.isLoading() && !latest.hasValue()) {
+      <p class="hint">Chargement…</p>
+    } @else {
+      <ul class="cards">
+        @for (c of cards(); track c.key) {
+          <li class="card measure" [class]="c.state" [attr.data-testid]="'measure-' + c.key">
+            <span class="label">{{ c.label }}</span>
+            <strong class="value">{{ c.value }}</strong>
+            <span class="status">{{ c.status }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
   <div class="grid">
     <section class="card chart" aria-labelledby="chart-title">
-      <h2 id="chart-title">Consommation horaire — 48 dernières heures</h2>
-      @if (measures.error()) {
+      <h2 id="chart-title">Consommation (kW) — valeur brute et valeur imputée</h2>
+      @if (series.error()) {
         <p class="error" role="alert">Mesures indisponibles.</p>
+      } @else if (series.isLoading() && !series.hasValue()) {
+        <p class="hint">Chargement…</p>
       } @else {
         <div class="canvas-wrapper">
           <canvas
@@ -32,28 +88,73 @@
             type="line"
             [data]="chartData()"
             [options]="chartOptions"
-            aria-label="Courbe de consommation horaire sur 48 heures"
+            [plugins]="chartPlugins"
+            [attr.aria-label]="
+              'Courbe de consommation sur ' + periodLabel() + ', pas de ' + stepLabels[step()]
+            "
           ></canvas>
         </div>
+        <p class="band-title" id="quality-title">
+          Qualité des données (good · partial · degraded · critical)
+        </p>
+        <div class="quality-band" data-testid="quality-band" aria-labelledby="quality-title">
+          @for (cell of qualityCells(); track cell.ts) {
+            <span class="cell" [class]="cell.quality" [title]="cell.title"></span>
+          }
+        </div>
         <p class="hint">
-          Les trous correspondent aux heures sans mesure de consommation (qualité degraded ou
-          critical).
+          Trait plein : valeur mesurée · pointillés : valeur imputée · hachures : période sans
+          mesure. Survol : qualité, méthode d’imputation et raisons des valeurs manquantes.
         </p>
       }
     </section>
 
-    <aside class="card summary" aria-labelledby="summary-title">
-      <h2 id="summary-title">Synthèse 48 h</h2>
-      <dl>
-        <dt>Énergie</dt>
-        <dd data-testid="energy">{{ summary().energy }}</dd>
-        <dt>Pic</dt>
-        <dd data-testid="peak">{{ summary().peak }}</dd>
-        <dt>Disponibilité des données</dt>
-        <dd data-testid="availability">{{ summary().availability }}</dd>
-        <dt>Qualité des mesures</dt>
-        <dd data-testid="quality">{{ summary().quality }}</dd>
-      </dl>
+    <aside class="side">
+      <section class="card sensors" aria-labelledby="sensors-title">
+        <h2 id="sensors-title">État des capteurs</h2>
+        <ul>
+          @for (s of sensors(); track s.key) {
+            <li [attr.data-testid]="'sensor-' + s.key">
+              <span>{{ s.label }}</span>
+              <span class="badge" [class]="s.state">
+                @switch (s.state) {
+                  @case ('ok') {
+                    OK
+                  }
+                  @case ('failing') {
+                    En panne
+                  }
+                  @default {
+                    Inconnu
+                  }
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="card summary" aria-labelledby="summary-title">
+        <h2 id="summary-title">Synthèse {{ periodLabel() }}</h2>
+        @if (summary.error()) {
+          <p class="error" role="alert">Synthèse indisponible.</p>
+        } @else if (summaryView(); as v) {
+          <dl>
+            <dt>Énergie</dt>
+            <dd data-testid="energy">{{ v.energy }}</dd>
+            <dt>Pic</dt>
+            <dd data-testid="peak">{{ v.peak }}</dd>
+            <dt>Disponibilité des données</dt>
+            <dd data-testid="availability">{{ v.availability }}</dd>
+            <dt>Heures avec mesure</dt>
+            <dd data-testid="hours">{{ v.hours }}</dd>
+            <dt>Consommation imputée</dt>
+            <dd data-testid="imputed">{{ v.imputed }}</dd>
+          </dl>
+        } @else {
+          <p class="hint">Chargement…</p>
+        }
+      </section>
     </aside>
   </div>
 
