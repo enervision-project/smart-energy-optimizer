@@ -9,31 +9,32 @@ from typing import Any
 import boto3
 
 
-# Une mesure par ligne (JSON Lines), sans modification des champs reçus.
-# Clé partitionnée par date et heure UTC de la minute mesurée :
-#   bronze/readings/minutes/date=2026-10-21/hour=08/2026-10-21T08-08Z.jsonl
-# Rejouer la même minute écrase le même objet (pas de doublon).
-# Sans BRONZE_BUCKET (poste local), rien n'est écrit et None est retourné.
 def write_readings_bronze(
     readings: Sequence[Mapping[str, Any]],
     bucket: str | None = None,
     *,
     client: Any = None,
+    collected_at: datetime | None = None,
 ) -> str | None:
+    """Archive les JSON d'origine ; seul le classement utilise l'heure de collecte.
+
+    Chaque réponse garde son propre timestamp exact, ses NULL et tous ses champs.
+    Une clé précise à la microseconde évite d'écraser deux collectes d'une même
+    minute. Sans BRONZE_BUCKET, rien n'est écrit.
+    """
     bucket_name = (
         bucket if bucket is not None else os.environ.get("BRONZE_BUCKET", "")
     ).strip()
     if not bucket_name or not readings:
         return None
 
-    timestamps = {reading["timestamp"] for reading in readings}
-    if len(timestamps) != 1:
-        raise ValueError("Les mesures d'un lot bronze doivent porter le même timestamp.")
-    minute = datetime.fromisoformat(timestamps.pop()).astimezone(UTC)
-
+    captured_at = collected_at if collected_at is not None else datetime.now(UTC)
+    if captured_at.utcoffset() is None:
+        raise ValueError("collected_at doit comporter un fuseau horaire.")
+    captured_at = captured_at.astimezone(UTC)
     key = (
-        f"bronze/readings/minutes/date={minute:%Y-%m-%d}/hour={minute:%H}/"
-        f"{minute:%Y-%m-%dT%H-%M}Z.jsonl"
+        f"bronze/readings/minutes/date={captured_at:%Y-%m-%d}/hour={captured_at:%H}/"
+        f"{captured_at:%Y-%m-%dT%H-%M-%S.%f}Z.jsonl"
     )
     body = "".join(
         json.dumps(reading, ensure_ascii=False) + "\n" for reading in readings

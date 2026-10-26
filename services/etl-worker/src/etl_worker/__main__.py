@@ -2,7 +2,7 @@
 
 import argparse
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 from etl_worker.bronze import write_readings_bronze
 from etl_worker.extract import extract_readings, extract_sites, read_site_profiles
@@ -48,12 +48,13 @@ def cmd_extract_readings(args: argparse.Namespace) -> None:
 
 
 def cmd_sync_readings(args: argparse.Namespace) -> None:
+    collected_at = datetime.now(UTC)
     readings = extract_readings(_require_site_ids())
     # Bronze d'abord : la donnée brute est archivée même si la base échoue.
-    bronze_key = write_readings_bronze(readings)
+    bronze_key = write_readings_bronze(readings, collected_at=collected_at)
     if bronze_key is not None:
         print(f"Bronze : {bronze_key}.")
-    inserted = load_readings(readings)
+    inserted = load_readings(readings, fill_consumptions=True)
     print(
         f"Mesures reçues : {len(readings)} ; insérées : {inserted} ; "
         f"déjà présentes : {len(readings) - inserted}."

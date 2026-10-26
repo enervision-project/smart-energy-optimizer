@@ -4,7 +4,7 @@ import io
 import json
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from etl_worker.__main__ import main
 
@@ -122,7 +122,7 @@ class WorkerCommandTests(unittest.TestCase):
 
         self.extract_sites.assert_not_called()
         self.extract_readings.assert_called_once_with(["SITE001", "SITE002"])
-        self.load_readings.assert_called_once_with(readings)
+        self.load_readings.assert_called_once_with(readings, fill_consumptions=True)
         self.load_profiles.assert_not_called()
         self.assertIn("insérées : 1 ; déjà présentes : 1", output)
 
@@ -136,7 +136,7 @@ class WorkerCommandTests(unittest.TestCase):
 
         output = self.run_command("sync-readings")
 
-        self.write_bronze.assert_called_once_with(readings)
+        self.write_bronze.assert_called_once_with(readings, collected_at=ANY)
         self.assertIn(key, output)
 
     def test_bronze_failure_skips_database_load(self):
