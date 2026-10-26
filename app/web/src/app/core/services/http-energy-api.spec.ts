@@ -48,6 +48,11 @@ describe('HttpEnergyApi (mesures)', () => {
     expect(result).toBeNull();
   });
 
+  it('demande la consommation actuelle du parc', () => {
+    api.getParcSummary().subscribe();
+    http.expectOne('/api/v1/stats/summary').flush({});
+  });
+
   it('demande la synthèse d’un site sur la période', () => {
     api.getReadingSummary('SITE001', from, to).subscribe();
     const req = http.expectOne((r) => r.url === '/api/v1/sites/SITE001/readings/summary');

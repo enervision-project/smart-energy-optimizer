@@ -1,24 +1,32 @@
 import { DataQuality } from './reading';
 
-/** Situation d'un site dans la synthèse du parc. `null` quand le site n'a pas de mesure récente. */
-export interface ParcSiteSummary {
-  site_id: string;
-  site_name: string;
-  current_consumption_kw: number | null;
-  capacity_kw: number;
-  load_percent: number | null;
-  data_quality: DataQuality;
+/** Consommation actuelle d'un site dans GET /api/v1/stats/summary de core-api. */
+export interface ParcSiteLoad {
+  siteId: string;
+  siteName: string;
+  /** Valeur brute de la dernière mesure, ou sa valeur imputée si le capteur est en panne ; `null` sans mesure récente. */
+  currentConsumptionKw: number | null;
+  /** Vrai quand `currentConsumptionKw` est une estimation. */
+  consumptionImputed: boolean;
+  capacityKw: number;
+  loadPercent: number | null;
+  /** Qualité de la dernière mesure, `null` sans mesure récente (moins de 3 min). */
+  dataQuality: DataQuality | null;
+  ts: string | null;
+  ageSeconds: number | null;
 }
 
 /**
- * Synthèse instantanée du parc (même forme que GET /api/v1/stats/summary de l'API Mock).
- * Les sites sans mesure sont exclus de `total_consumption_kw` : la vue doit le signaler.
+ * Consommation actuelle des sites visibles (même forme que `/stats/summary` de l'API Mock, en camelCase).
+ * Les sites de `sitesWithoutData` sont exclus de `totalConsumptionKw` : la vue doit le signaler.
  */
 export interface ParcSummary {
   timestamp: string;
-  total_sites: number;
-  total_consumption_kw: number;
-  total_capacity_kw: number;
-  average_load_percent: number;
-  sites: ParcSiteSummary[];
+  totalSites: number;
+  totalConsumptionKw: number;
+  /** Capacité de tous les sites visibles. */
+  totalCapacityKw: number;
+  averageLoadPercent: number | null;
+  sitesWithoutData: string[];
+  sites: ParcSiteLoad[];
 }

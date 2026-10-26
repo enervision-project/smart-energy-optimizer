@@ -9,6 +9,7 @@ import {
   AlertType,
   Page,
 } from '../models/alert';
+import { ParcSiteLoad, ParcSummary } from '../models/parc-summary';
 import {
   DATA_QUALITIES,
   DataQuality,
@@ -214,6 +215,41 @@ export class MockEnergyApi extends EnergyApi {
       minutesReceived: rows.length,
       minutesWithConsumption: withConsumption,
       minutesImputed: rows.filter((r) => r.consumptionKwImputed !== null).length,
+    });
+  }
+
+  /** Dernière minute collectée de chaque site, calculée comme core-api (valeur imputée si le capteur est en panne). */
+  getParcSummary(): Observable<ParcSummary> {
+    const now = Date.now();
+    const sites: ParcSiteLoad[] = SITES.map((s) => {
+      const row = mockMinute(s, floor(now, MINUTE_MS) - MINUTE_MS, now);
+      const kw = row ? (row.consumptionKw ?? row.consumptionKwImputed) : null;
+      return {
+        siteId: s.siteId,
+        siteName: s.siteName,
+        currentConsumptionKw: kw,
+        consumptionImputed: !!row && row.consumptionKw === null && kw !== null,
+        capacityKw: s.capacityKw,
+        loadPercent: kw === null ? null : round((100 * kw) / s.capacityKw),
+        dataQuality: row?.dataQuality ?? null,
+        ts: row ? new Date(row.ts).toISOString() : null,
+        ageSeconds: row ? Math.floor((now - row.ts) / 1000) : null,
+      };
+    });
+    const withData = sites.filter((s) => s.currentConsumptionKw !== null);
+    const total = round(
+      withData.reduce((sum, s) => sum + s.currentConsumptionKw!, 0),
+      2,
+    );
+    const capacity = SITES.reduce((sum, s) => sum + s.capacityKw, 0);
+    return of({
+      timestamp: new Date(now).toISOString(),
+      totalSites: sites.length,
+      totalConsumptionKw: total,
+      totalCapacityKw: capacity,
+      averageLoadPercent: round((100 * total) / capacity),
+      sitesWithoutData: sites.filter((s) => s.currentConsumptionKw === null).map((s) => s.siteId),
+      sites,
     });
   }
 
