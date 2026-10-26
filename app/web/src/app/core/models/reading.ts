@@ -32,6 +32,8 @@ export interface ReadingPoint {
   /** Minutes du pas déjà écoulées. */
   minutesExpected: number;
   minutesReceived: number;
+  /** Minutes avec une consommation brute : couverture de la courbe mesurée. */
+  minutesWithConsumption: number;
   minutesBackfilled: number;
   minutesImputed: number;
   imputationMethods: string[];

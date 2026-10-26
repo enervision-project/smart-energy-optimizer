@@ -20,7 +20,7 @@ flowchart LR
 |---|---|---|
 | `/login` | Connexion | `POST /auth/login` |
 | `/parc` | Vue du parc | (à venir) |
-| `/sites`, `/sites/:id` | Détail d'un site | Site et profil, dernière mesure, courbe brute / imputée avec la qualité de chaque pas, état des capteurs, synthèse ; rafraîchis chaque minute |
+| `/sites`, `/sites/:id` | Détail d'un site | Site et profil, dernière mesure, courbe brute / imputée avec la couverture de la consommation de chaque pas, état des capteurs, synthèse ; rafraîchis chaque minute |
 | `/previsions` | Prévisions | (à venir) |
 | `/alertes` | Alertes | Alertes paginées et filtrées, compteurs de la dernière heure |
 

@@ -92,17 +92,21 @@
             "
           ></canvas>
         </div>
-        <p class="band-title" id="quality-title">
-          Qualité des données (good · partial · degraded · critical)
-        </p>
-        <div class="quality-band" data-testid="quality-band" aria-labelledby="quality-title">
-          @for (cell of qualityCells(); track cell.ts) {
-            <span class="cell" [class]="cell.quality" [title]="cell.title"></span>
+        <p class="band-title" id="coverage-title">Couverture de la consommation</p>
+        <div class="coverage-band" data-testid="coverage-band" aria-labelledby="coverage-title">
+          @for (cell of coverageCells(); track cell.ts) {
+            <span class="cell" [class]="cell.state" [title]="cell.title"></span>
           }
         </div>
+        <ul class="legend">
+          <li><span class="swatch measured"></span>{{ coverageLabels.measured }} (≥ 90 %)</li>
+          <li><span class="swatch partial"></span>{{ coverageLabels.partial }}</li>
+          <li><span class="swatch none"></span>{{ coverageLabels.none }}</li>
+        </ul>
         <p class="hint">
-          Trait plein : valeur mesurée · pointillés : valeur imputée · hachures : période sans
-          mesure. Survol : qualité, méthode d’imputation et raisons des valeurs manquantes.
+          Courbe : trait plein = valeur mesurée, pointillés = valeur imputée, hachures = période
+          sans mesure. Survol de la courbe : qualité, méthode d’imputation et raisons des valeurs
+          manquantes.
         </p>
       }
     </section>

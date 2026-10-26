@@ -86,19 +86,24 @@ describe('Site', () => {
     expect(text(el, 'sensor-consumption')).toContain('Inconnu');
   });
 
-  it('montre la qualité de chaque pas, périodes sans mesure comprises', async () => {
+  it('montre la couverture de la consommation de chaque pas', async () => {
     const el = await render(SENSOR_FAILURE_SITE_ID);
-    const band = el.querySelector('[data-testid="quality-band"]') as HTMLElement;
+    const band = el.querySelector('[data-testid="coverage-band"]') as HTMLElement;
     // 48 h au pas de 15 min, la coupure d'une heure occupe au moins 3 pas entiers.
     expect(band.querySelectorAll('.cell').length).toBeGreaterThanOrEqual(192);
     expect(band.querySelectorAll('.cell.none').length).toBeGreaterThanOrEqual(3);
-    expect(band.querySelectorAll('.cell.degraded').length).toBeGreaterThan(0);
+    // Pannes de 2 minutes du capteur de consommation : 13 minutes mesurées sur 15, sous les 90 %.
+    expect(band.querySelectorAll('.cell.partial').length).toBeGreaterThan(0);
+    expect(band.querySelectorAll('.cell.measured').length).toBeGreaterThan(100);
+    expect(band.querySelector('.cell.none')?.getAttribute('title')).toContain(
+      'aucune mesure reçue',
+    );
 
-    // 3 h de perte réseau : 12 pas de 15 min, 13 quand la panne n'est pas alignée sur le quart d'heure.
+    // 3 h de perte réseau : aucune consommation mesurée sur 12 ou 13 pas (panne non alignée sur le quart d'heure).
     const loss = await render(NETWORK_LOSS_SITE_ID);
-    const critical = loss.querySelectorAll('[data-testid="quality-band"] .cell.critical').length;
-    expect(critical).toBeGreaterThanOrEqual(12);
-    expect(critical).toBeLessThanOrEqual(13);
+    const none = loss.querySelectorAll('[data-testid="coverage-band"] .cell.none').length;
+    expect(none).toBeGreaterThanOrEqual(12);
+    expect(none).toBeLessThanOrEqual(13);
   });
 
   it('détaille au survol la qualité, l’imputation et les valeurs manquantes du pas', async () => {
@@ -109,9 +114,9 @@ describe('Site', () => {
       items: { dataIndex: number }[],
     ) => string[];
     const cells = [
-      ...(fixture.nativeElement as HTMLElement).querySelectorAll('.quality-band .cell'),
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll('.coverage-band .cell'),
     ];
-    const degraded = cells.findIndex((c) => c.classList.contains('degraded'));
+    const degraded = cells.findIndex((c) => c.getAttribute('title')?.includes('estimées'));
 
     const lines = afterBody([{ dataIndex: degraded }]);
     expect(lines[0]).toBe('Qualité : degraded');

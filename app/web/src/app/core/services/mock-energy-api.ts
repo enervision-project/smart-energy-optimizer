@@ -407,6 +407,7 @@ function aggregate(ts: number, rows: MockMinute[], minutesExpected: number): Rea
     ),
     minutesExpected,
     minutesReceived: rows.length,
+    minutesWithConsumption: rows.filter((r) => r.consumptionKw !== null).length,
     minutesBackfilled: 0,
     minutesImputed: rows.filter((r) => r.consumptionKwImputed !== null).length,
     imputationMethods: [

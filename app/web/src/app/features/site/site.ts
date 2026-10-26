@@ -86,6 +86,14 @@ const QUALITY_LABELS: Record<string, string> = {
   none: 'aucune mesure',
 };
 
+/** Part des minutes écoulées avec une consommation brute à partir de laquelle un pas est « mesuré ». */
+const MEASURED_COVERAGE = 0.9;
+const COVERAGE_LABELS = {
+  measured: 'mesurée',
+  partial: 'partielle',
+  none: 'aucune mesure',
+} as const;
+
 const number = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
 const dateTime = new Intl.DateTimeFormat('fr-FR', {
   day: '2-digit',
@@ -271,14 +279,31 @@ export class Site {
 
   protected readonly sensors = computed(() => sensorStatuses(this.latestReading()));
 
-  protected readonly qualityCells = computed(() =>
+  protected readonly coverageLabels = COVERAGE_LABELS;
+
+  /**
+   * Couverture de la consommation par pas : « mesurée » (au moins 90 % des minutes écoulées ont une valeur
+   * brute), « partielle » (le reste est estimé ou manquant) ou « aucune mesure ». Le détail par capteur reste
+   * dans le survol de la courbe et dans l'état des capteurs.
+   */
+  protected readonly coverageCells = computed(() =>
     this.points().map((p) => {
-      const quality = p.minutesReceived === 0 ? 'none' : (p.dataQuality ?? 'none');
-      return {
-        ts: p.ts,
-        quality,
-        title: `${dateTime.format(new Date(p.ts))} : ${QUALITY_LABELS[quality]}`,
-      };
+      const state: keyof typeof COVERAGE_LABELS =
+        p.minutesWithConsumption === 0
+          ? 'none'
+          : p.minutesWithConsumption >= MEASURED_COVERAGE * p.minutesExpected
+            ? 'measured'
+            : 'partial';
+      let detail: string;
+      if (p.minutesReceived === 0) {
+        detail = 'aucune mesure reçue';
+      } else {
+        detail = `${p.minutesWithConsumption} / ${p.minutesExpected} min mesurées`;
+        if (p.minutesImputed) {
+          detail += `, ${p.minutesImputed} estimées (${p.imputationMethods.map(imputationLabel).join(', ')})`;
+        }
+      }
+      return { ts: p.ts, state, title: `${dateTime.format(new Date(p.ts))} : ${detail}` };
     }),
   );
 

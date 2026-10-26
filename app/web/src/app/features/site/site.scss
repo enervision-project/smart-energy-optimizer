@@ -126,7 +126,7 @@ h2 {
   color: #5b6573;
 }
 
-.quality-band {
+.coverage-band {
   display: flex;
   height: 12px;
   overflow: hidden;
@@ -137,21 +137,40 @@ h2 {
     flex: 1;
     min-width: 0;
   }
-  .good {
-    background: #fff;
+}
+
+.measured {
+  background: #b7dccf;
+}
+.partial {
+  background: #f2c879;
+}
+.none {
+  background: repeating-linear-gradient(45deg, #fff 0 3px, #c8cfc4 3px 5px);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  color: #5b6573;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
-  .partial {
-    background: #d8dcd5;
-  }
-  .degraded {
-    background: #8d958a;
-  }
-  .critical {
-    background: #1f2a37;
-  }
-  .none {
-    background: repeating-linear-gradient(45deg, #fff 0 3px, #c8cfc4 3px 5px);
-  }
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #c8cfc4;
+  border-radius: 2px;
 }
 
 .sensors ul {
