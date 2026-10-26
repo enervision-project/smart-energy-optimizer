@@ -32,7 +32,7 @@ jobs:
     name: Changed services
     # tant que l'infra n'est pas créée (variable absente), rien n'est construit ni déployé
     if: vars.AWS_DEPLOY_ROLE_ARN != ''
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     permissions:
       contents: read        # checkout du dépôt
       id-token: write       # OIDC AWS (lecture du dernier commit déployé)
@@ -71,7 +71,7 @@ jobs:
   build:
     needs: changes
     if: needs.changes.outputs.builds != '[]'
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     permissions:
       contents: read        # checkout du dépôt
       id-token: write       # OIDC AWS (push ECR)
@@ -124,7 +124,7 @@ jobs:
       && needs.changes.result == 'success'
       && contains(fromJSON('["success", "skipped"]'), needs.build.result)
       && needs.changes.outputs.services != '[]'
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     # manual approval: the job waits for a required reviewer of the production environment
     # (Settings > Environments). The AWS role trusts its OIDC sub (…:environment:production).
     environment:

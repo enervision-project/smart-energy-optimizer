@@ -6,7 +6,7 @@
 # Meme image pour les migrations et le serveur. Le profil "ml" est conserve : MLflow ne demarre
 # pas avec un `up` sans argument, seul deploy.sh le demarre quand il est deploye explicitement.
 x-mlflow-prod: &mlflow-prod
-  build: !reset null
+  build: !reset "null"
   image: ${ECR_REGISTRY}/enervision/mlflow:${MLFLOW_TAG:-latest}
   environment: &mlflow-prod-env
     MLFLOW_DB_NAME: ${MLFLOW_DB_NAME:?MLFLOW_DB_NAME doit etre fourni par SSM}
@@ -14,87 +14,82 @@ x-mlflow-prod: &mlflow-prod
     MLFLOW_DB_PASSWORD: ${MLFLOW_DB_PASSWORD:?MLFLOW_DB_PASSWORD doit etre fourni par SSM}
 
 services:
-  # seul point d'entrée public : HTTPS (Let's Encrypt) vers les services internes
-  proxy:
-    image: docker.io/library/caddy:2.11-alpine
-    environment:
-      DOMAIN: ${DOMAIN}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp" # HTTP/3
-    volumes:
-      - ./infra/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddydata:/data # certificats
-    depends_on: [web]
-    restart: unless-stopped
-
-  web:
-    build: !reset null
-    image: ${ECR_REGISTRY}/enervision/web:${WEB_TAG:-latest}
-    # joignable uniquement via proxy
-    ports: !reset []
-    restart: unless-stopped
-
   core-api:
-    build: !reset null
     image: ${ECR_REGISTRY}/enervision/core-api:${CORE_API_TAG:-latest}
-    # joignable uniquement via proxy (/api/*)
-    ports: !reset []
-    # EC2 de 2 Go partagée : JVM limitée à 75 % du conteneur
-    mem_limit: 512m
+    build: !reset "null"
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
       # pas de documentation OpenAPI / Swagger UI en production
       SPRINGDOC_API_DOCS_ENABLED: "false"
       SPRINGDOC_SWAGGER_UI_ENABLED: "false"
+    # joignable uniquement via proxy (/api/*)
+    ports: !reset []
     restart: unless-stopped
-
-  prediction-service:
-    build: !reset null
-    image: ${ECR_REGISTRY}/enervision/prediction-service:${PREDICTION_SERVICE_TAG:-latest}
-    # jamais derrière Caddy : seul l'hôte (tunnel SSM) et les autres conteneurs y accèdent
+    # EC2 de 2 Go partagée : JVM limitée à 75 % du conteneur
     mem_limit: 512m
-    environment:
-      ENABLE_DOCS: "false"
-    restart: unless-stopped
 
-  prediction-jobs:
-    build: !reset null
-    image: ${ECR_REGISTRY}/enervision/prediction-service:${PREDICTION_SERVICE_TAG:-latest}
-    mem_limit: 2g
-    cpus: 2.0
-    environment:
-      TRAINING_BOOTSTRAP_URI: ${TRAINING_BOOTSTRAP_URI:?TRAINING_BOOTSTRAP_URI doit etre fourni par SSM}
-    volumes: !override
-      - ml_models:/models
+  db:
+    ports: !reset []
     restart: unless-stopped
 
   etl-worker:
-    build: !reset null
     image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
+    build: !reset "null"
     restart: unless-stopped
-
-  scheduler:
-    build: !reset null
-    image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
-    restart: unless-stopped
-
-  mlflow-init:
-    <<: *mlflow-prod
 
   mlflow:
-    <<: *mlflow-prod
+    volumes: !reset []
     environment:
       <<: *mlflow-prod-env
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:?AWS_DEFAULT_REGION doit etre fourni par SSM}
       MLFLOW_ARTIFACTS_DESTINATION: ${MLFLOW_ARTIFACTS_DESTINATION:?MLFLOW_ARTIFACTS_DESTINATION doit etre fourni par SSM}
-    # Les artefacts sont sur S3 ; seul le port local 127.0.0.1 du Compose de base
-    # reste accessible sur l'EC2 pour un tunnel SSM. Aucun acces public via Caddy.
-    volumes: !reset []
+    <<: *mlflow-prod
 
-  db:
-    # base non exposée sur l'hôte en production
+  mlflow-init:
+    <<: *mlflow-prod
+
+  prediction-jobs:
+    image: ${ECR_REGISTRY}/enervision/prediction-service:${PREDICTION_SERVICE_TAG:-latest}
+    build: !reset "null"
+    volumes: !override
+      - ml_models:/models
+    environment:
+      TRAINING_BOOTSTRAP_URI: ${TRAINING_BOOTSTRAP_URI:?TRAINING_BOOTSTRAP_URI doit etre fourni par SSM}
+    restart: unless-stopped
+    cpus: 2.0
+    mem_limit: 2g
+
+  prediction-service:
+    image: ${ECR_REGISTRY}/enervision/prediction-service:${PREDICTION_SERVICE_TAG:-latest}
+    build: !reset "null"
+    environment:
+      ENABLE_DOCS: "false"
+    restart: unless-stopped
+    # jamais derrière Caddy : seul l'hôte (tunnel SSM) et les autres conteneurs y accèdent
+    mem_limit: 512m
+  proxy:
+    image: docker.io/library/caddy:2.11-alpine
+    depends_on: [ web ]
+    volumes:
+      - ./infra/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data # certificats
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+      - "0.0.0.0:443:443/udp" # HTTP/3
+    restart: unless-stopped
+
+  scheduler:
+    image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
+    build: !reset "null"
+    restart: unless-stopped
+
+  web:
+    image: ${ECR_REGISTRY}/enervision/web:${WEB_TAG:-latest}
+    build: !reset "null"
+    # joignable uniquement via proxy
     ports: !reset []
     restart: unless-stopped
 

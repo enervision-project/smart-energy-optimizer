@@ -12,7 +12,7 @@ permissions:
 jobs:
   sonar:
     name: SonarQube Scan
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -34,3 +34,62 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_INFRA_ROOT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  hadolint:
+    name: Lint Dockerfiles
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3
+        with:
+          dockerfile: '{Dockerfile,Dockerfile.training}'
+          recursive: true
+
+  actionlint:
+    name: Lint .github
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+        run: |
+          BASE="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          curl --proto '=https' --proto-redir '=https' -sSLO "${BASE}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --proto '=https' --proto-redir '=https' -sSLO "${BASE}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          sha256sum --ignore-missing --check "actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          tar -xzf "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" actionlint
+          sudo install -m 0755 actionlint /usr/local/bin/actionlint
+
+      - name: Validate workflows
+        run: actionlint -color
+
+  dclint:
+    name: Lint Docker Compose
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+
+      - name: Run DCLint
+        uses: docker-compose-linter/dclint-github-action@18659f6a7956706cb67cf9c1ad5e55f4352cbc17 # v1
+        with:
+          recursive: true
+
+
+
