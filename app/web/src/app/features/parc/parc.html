@@ -1,9 +1,14 @@
 <header class="page-header">
-  <h1>Vue d'ensemble du parc</h1>
+  <h1>Vue d’ensemble du parc</h1>
+  @if (updatedAt(); as at) {
+    <span class="updated" data-testid="updated">Mis à jour à {{ at }}</span>
+  }
 </header>
 
 @if (summaryResource.error()) {
   <p class="error" role="alert">Synthèse du parc indisponible.</p>
+} @else if (summaryResource.isLoading() && !summaryResource.hasValue()) {
+  <p class="hint">Chargement…</p>
 } @else {
   <section class="kpis" aria-label="Indicateurs du parc">
     @for (kpi of kpis(); track kpi.label) {
@@ -12,30 +17,70 @@
   </section>
 
   @if (missing().length) {
-    <p class="warning" role="status">
+    <p class="warning" role="status" data-testid="missing">
       <strong>Données incomplètes</strong> — {{ missing().join(', ') }}
-      {{ missing().length > 1 ? 'sont exclus' : 'est exclu' }} du total : aucune mesure récente.
+      {{ missing().length > 1 ? 'sont exclus' : 'est exclu' }} du total : aucune mesure récente de
+      consommation.
     </p>
   }
+}
 
+<div class="grid">
   <section class="card" aria-labelledby="chart-title">
-    <h2 id="chart-title">Consommation du parc — 24 dernières heures</h2>
-    @if (readingsResource.error()) {
+    <h2 id="chart-title">Consommation du parc — {{ windowHours }} dernières heures</h2>
+    @if (seriesResource.error()) {
       <p class="error" role="alert">Mesures indisponibles.</p>
+    } @else if (seriesResource.isLoading() && !seriesResource.hasValue()) {
+      <p class="hint">Chargement…</p>
     } @else {
       <app-consumption-chart
         [labels]="chartLabels()"
-        [values]="series().totals"
+        [values]="parc().totals"
         [capacity]="capacity()"
-        [flagged]="series().incomplete"
-        description="Courbe de consommation horaire du parc sur 24 heures"
+        [flagged]="parc().incomplete"
+        [description]="'Courbe de consommation horaire du parc sur ' + windowHours + ' heures'"
       />
       <p class="hint">
-        Points orange : au moins un site n'a pas remonté de mesure, le total est sous-estimé.
+        Somme des consommations mesurées. Points orange : au moins un site n’a pas de valeur sur
+        l’heure, le total est sous-estimé.
       </p>
     }
   </section>
 
+  <section class="card alerts" aria-labelledby="alerts-title">
+    <h2 id="alerts-title">
+      Alertes actives
+      @if (alertPage(); as page) {
+        ({{ page.page.totalElements }})
+      }
+    </h2>
+    @if (alertsResource.error()) {
+      <p class="error" role="alert">Alertes indisponibles.</p>
+    } @else if (alertPage(); as page) {
+      @if (page.content.length) {
+        <ul>
+          @for (a of page.content; track a.alertId) {
+            <li data-testid="alert">
+              <span class="severity" [class]="a.severity">{{ severityLabel(a.severity) }}</span>
+              <span class="alert-body">
+                <strong>{{ a.siteName }}</strong>
+                <span>{{ a.message }}</span>
+              </span>
+              <time [attr.datetime]="a.timestamp">{{ formatTime(a.timestamp) }}</time>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="hint">Aucune alerte dans la dernière heure.</p>
+      }
+      <a class="all-alerts" routerLink="/alertes">Voir toutes les alertes →</a>
+    } @else {
+      <p class="hint">Chargement…</p>
+    }
+  </section>
+</div>
+
+@if (summaryResource.hasValue()) {
   <section class="card" aria-labelledby="sites-title">
     <h2 id="sites-title">Sites ({{ rows().length }}) — triés par charge</h2>
     <div class="table-wrapper">
@@ -46,36 +91,36 @@
             <th scope="col">Conso. actuelle</th>
             <th scope="col">Charge</th>
             <th scope="col">Qualité</th>
-            <th scope="col">Tendance 24 h</th>
+            <th scope="col">Tendance {{ windowHours }} h</th>
           </tr>
         </thead>
         <tbody>
-          @for (row of rows(); track row.site_id) {
+          @for (row of rows(); track row.siteId) {
             <tr>
               <th scope="row">
-                <a [routerLink]="['/sites', row.site_id]">{{ row.site_name }}</a>
-                <span class="site-id">{{ row.site_id }}</span>
+                <a [routerLink]="['/sites', row.siteId]">{{ row.siteName }}</a>
+                <span class="site-id">{{ row.siteId }}</span>
               </th>
               <td>{{ row.consumption }}</td>
               <td>
-                @if (row.load_percent !== null) {
+                @if (row.loadPercent !== null) {
                   <span class="load">
                     <span class="bar" aria-hidden="true"
                       ><span [style.width.%]="row.barWidth"></span
                     ></span>
-                    {{ formatPercent(row.load_percent) }}
+                    {{ formatPercent(row.loadPercent) }}
                   </span>
                 } @else {
                   n/d
                 }
               </td>
               <td>
-                <span [class]="'badge badge-' + row.data_quality">{{ row.data_quality }}</span>
+                <span [class]="'badge badge-' + row.quality">{{ row.quality }}</span>
               </td>
               <td>
                 <app-sparkline
                   [values]="row.trend"
-                  [description]="'Tendance sur 24 heures de ' + row.site_name"
+                  [description]="'Tendance sur ' + windowHours + ' heures de ' + row.siteName"
                 />
               </td>
             </tr>

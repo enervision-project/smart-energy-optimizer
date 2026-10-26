@@ -1,43 +1,57 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
+import { throwError } from 'rxjs';
 import { EnergyApi } from '../../core/services/energy-api';
 import { MockEnergyApi } from '../../core/services/mock-energy-api';
-import { Parc } from './parc';
+import { MAX_ALERTS, Parc } from './parc';
 
-/** Dans le mock, SITE003 (Data Center Marseille) n'a plus de mesure depuis 3 heures. */
+/**
+ * Dans le mock : SITE003 (Data Center Marseille) est en perte réseau, sans consommation ni imputation sur la
+ * dernière minute ; SITE002 a une panne du capteur de température ; 7 alertes ont moins d'une heure.
+ */
 describe('Parc', () => {
-  let el: HTMLElement;
+  let fixture: ComponentFixture<Parc>;
+  let api: MockEnergyApi;
+
+  async function render(): Promise<HTMLElement> {
+    fixture = TestBed.createComponent(Parc);
+    await fixture.whenStable();
+    return fixture.nativeElement as HTMLElement;
+  }
 
   beforeEach(async () => {
+    api = new MockEnergyApi();
     await TestBed.configureTestingModule({
       imports: [Parc],
       providers: [
         provideRouter([]),
         provideCharts(withDefaultRegisterables()),
-        { provide: EnergyApi, useClass: MockEnergyApi },
+        { provide: EnergyApi, useValue: api },
       ],
     }).compileComponents();
-
-    const fixture: ComponentFixture<Parc> = TestBed.createComponent(Parc);
-    await fixture.whenStable();
-    el = fixture.nativeElement as HTMLElement;
   });
 
-  it('affiche les indicateurs du parc', () => {
+  it('affiche les indicateurs du parc', async () => {
+    const el = await render();
     const kpis = [...el.querySelectorAll('app-kpi-card')].map((k) => k.textContent);
     expect(kpis).toHaveLength(3);
     expect(kpis[0]).toContain('6 / 7 sites remontés');
     expect(kpis[1]).toMatch(/capacité 4\s130 kW/);
-    expect(kpis[2]).toContain('6 / 7 OK');
+    expect(kpis[2]).toContain('5 / 7 OK');
     expect(kpis[2]).toContain('1 critical');
+    expect(el.querySelector('[data-testid="updated"]')?.textContent).toContain('Mis à jour à');
   });
 
-  it('signale le site exclu du total', () => {
-    expect(el.querySelector('.warning')?.textContent).toContain('Data Center Marseille est exclu');
+  it('signale le site exclu du total', async () => {
+    const el = await render();
+    expect(el.querySelector('[data-testid="missing"]')?.textContent).toContain(
+      'Data Center Marseille est exclu',
+    );
   });
 
-  it('liste les 7 sites par charge décroissante, ceux sans mesure en dernier', () => {
+  it('liste les 7 sites par charge décroissante, ceux sans valeur en dernier', async () => {
+    const el = await render();
     const rows = [...el.querySelectorAll('tbody tr')];
     expect(rows).toHaveLength(7);
     const last = rows[6];
@@ -51,8 +65,33 @@ describe('Parc', () => {
     expect(loads).toEqual([...loads].sort((a, b) => b - a));
   });
 
-  it('mène au détail de chaque site', () => {
+  it('mène au détail de chaque site', async () => {
+    const el = await render();
     const link = el.querySelector<HTMLAnchorElement>('tbody a[href="/sites/SITE001"]');
     expect(link?.textContent).toBe('Bureau Paris La Défense');
+  });
+
+  it('affiche les dernières alertes et le lien vers la page des alertes', async () => {
+    const el = await render();
+    expect(el.querySelectorAll('[data-testid="alert"]').length).toBe(MAX_ALERTS);
+    expect(el.querySelector('#alerts-title')?.textContent).toContain('(7)');
+    expect(el.querySelector('a.all-alerts')?.getAttribute('href')).toBe('/alertes');
+  });
+
+  it('signale une synthèse indisponible sans masquer la courbe', async () => {
+    vi.spyOn(api, 'getParcSummary').mockReturnValue(throwError(() => new Error('500')));
+    const el = await render();
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain(
+      'Synthèse du parc indisponible',
+    );
+    expect(el.querySelector('app-consumption-chart')).not.toBeNull();
+  });
+
+  it('signale des mesures indisponibles', async () => {
+    vi.spyOn(api, 'getReadingSeries').mockReturnValue(throwError(() => new Error('500')));
+    const el = await render();
+    expect(el.querySelector('#chart-title + [role="alert"]')?.textContent).toContain(
+      'Mesures indisponibles',
+    );
   });
 });
