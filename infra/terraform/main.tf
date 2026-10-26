@@ -211,6 +211,12 @@ resource "random_password" "mlflow_db" {
   special = false
 }
 
+# PostgreSQL role of the Postgres exporter (Alloy), created by the 007 Liquibase changeset
+resource "random_password" "monitoring_db" {
+  length  = 32
+  special = false
+}
+
 # mot de passe du premier ADMIN de core-api (créé au démarrage tant que la table users est vide)
 # lecture : aws ssm get-parameter --with-decryption --name /enervision/prod/env/ADMIN_PASSWORD
 resource "random_password" "admin" {
@@ -245,7 +251,8 @@ locals {
     MLFLOW_ARTIFACTS_DESTINATION = "s3://${aws_s3_bucket.datalake.bucket}/${local.mlflow_artifacts_prefix}"
     TRAINING_BOOTSTRAP_URI       = "s3://${aws_s3_bucket.datalake.bucket}/${local.ml_datasets_prefix}/bootstrap/v1"
     # Alloy pushes metrics and logs to the monitoring EC2 (VPC private IP)
-    MONITORING_HOST = aws_instance.monitoring.private_ip
+    MONITORING_HOST        = aws_instance.monitoring.private_ip
+    MONITORING_DB_PASSWORD = random_password.monitoring_db.result
   })
 }
 
