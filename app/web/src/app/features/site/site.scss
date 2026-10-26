@@ -17,6 +17,12 @@ h1 {
   font-size: 1.5rem;
 }
 
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .picker {
   display: flex;
   align-items: center;
@@ -25,7 +31,6 @@ h1 {
   color: #5b6573;
 
   select {
-    min-width: 280px;
     padding: 8px 10px;
     border: 1px solid #c8cfc4;
     border-radius: 8px;
@@ -36,7 +41,7 @@ h1 {
 }
 
 .meta {
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   font-size: 0.9rem;
   color: #5b6573;
 }
@@ -44,6 +49,54 @@ h1 {
 h2 {
   margin: 0 0 12px;
   font-size: 1rem;
+}
+
+.card {
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid #dde2da;
+  border-radius: 10px;
+}
+
+.freshness {
+  margin-left: 8px;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #5b6573;
+
+  &.stale {
+    color: #b23a48;
+  }
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.measure {
+  display: grid;
+  gap: 4px;
+
+  .label,
+  .status {
+    font-size: 0.8rem;
+    color: #5b6573;
+  }
+  .value {
+    font-size: 1.4rem;
+  }
+  &.failing .status,
+  &.stale .status {
+    color: #b23a48;
+  }
+  &.estimated .value {
+    font-style: italic;
+  }
 }
 
 .grid {
@@ -57,15 +110,9 @@ h2 {
   }
 }
 
-.card {
-  padding: 16px 20px;
-  background: #fff;
-  border: 1px solid #dde2da;
-  border-radius: 10px;
-}
-
-.alerts {
-  margin-top: 20px;
+.side {
+  display: grid;
+  gap: 20px;
 }
 
 .canvas-wrapper {
@@ -73,10 +120,69 @@ h2 {
   height: 360px;
 }
 
-.hint {
-  margin: 8px 0 0;
+.band-title {
+  margin: 12px 0 4px;
   font-size: 0.8rem;
   color: #5b6573;
+}
+
+.quality-band {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border: 1px solid #c8cfc4;
+  border-radius: 4px;
+
+  .cell {
+    flex: 1;
+    min-width: 0;
+  }
+  .good {
+    background: #fff;
+  }
+  .partial {
+    background: #d8dcd5;
+  }
+  .degraded {
+    background: #8d958a;
+  }
+  .critical {
+    background: #1f2a37;
+  }
+  .none {
+    background: repeating-linear-gradient(45deg, #fff 0 3px, #c8cfc4 3px 5px);
+  }
+}
+
+.sensors ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #dde2da;
+    font-size: 0.9rem;
+  }
+}
+
+.badge {
+  padding: 2px 10px;
+  border: 1px solid #c8cfc4;
+  border-radius: 999px;
+  font-size: 0.8rem;
+
+  &.failing {
+    border-color: #b23a48;
+    background: #fbeaec;
+    color: #b23a48;
+  }
+  &.unknown {
+    color: #5b6573;
+  }
 }
 
 .summary dl {
@@ -92,6 +198,17 @@ h2 {
     margin: 0 0 8px;
     font-weight: 600;
   }
+}
+
+.alerts {
+  display: block;
+  margin-top: 20px;
+}
+
+.hint {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: #5b6573;
 }
 
 .error {
