@@ -1,13 +1,13 @@
 """Complétion des consommations /current ; PostgreSQL isolé via TEST_DATABASE_URL."""
 
-from argparse import Namespace
-from copy import deepcopy
-from datetime import UTC, datetime, timedelta
-from contextlib import redirect_stdout
 import io
 import json
 import os
 import unittest
+from argparse import Namespace
+from contextlib import redirect_stdout
+from copy import deepcopy
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -202,7 +202,8 @@ class CurrentReadingPostgresTests(unittest.TestCase):
         self.assertEqual(source, before)
         stored = self.stored()[-1]
         self.assertEqual(stored["ts"], START + timedelta(minutes=1))
-        self.assertEqual((stored["consumption_kw"], stored["consumption_kwh"]), (10, 1))
+        # sync-readings n'active pas la complétion : le NULL reçu est stocké tel quel.
+        self.assertEqual((stored["consumption_kw"], stored["consumption_kwh"]), (None, None))
         self.assertIsNone(stored["voltage_v"])
         self.assertEqual(stored["null_reasons"], before[0]["null_reasons"])
 

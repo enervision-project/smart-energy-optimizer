@@ -122,7 +122,7 @@ class WorkerCommandTests(unittest.TestCase):
 
         self.extract_sites.assert_not_called()
         self.extract_readings.assert_called_once_with(["SITE001", "SITE002"])
-        self.load_readings.assert_called_once_with(readings, fill_consumptions=True)
+        self.load_readings.assert_called_once_with(readings)
         self.load_profiles.assert_not_called()
         self.assertIn("insérées : 1 ; déjà présentes : 1", output)
 

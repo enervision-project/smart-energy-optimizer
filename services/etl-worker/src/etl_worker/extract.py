@@ -93,7 +93,7 @@ def _fetch_reading(base_url: str, site_id: str, timeout: float) -> dict[str, Any
         base_url, f"/api/v1/sites/{quote(site_id, safe='')}/current", timeout,
     )
     if not isinstance(payload, dict):
-        raise ValueError(f"Un objet de mesure est attendu pour le site {site_id}.")
+        raise TypeError(f"Un objet de mesure est attendu pour le site {site_id}.")
     _validate_reading(payload, site_id)
     return payload
 

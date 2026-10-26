@@ -1,9 +1,9 @@
 """Vérifie l'archivage des réponses originales, sans accès à S3."""
 
-from copy import deepcopy
-from datetime import UTC, datetime, timedelta
 import json
 import unittest
+from copy import deepcopy
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from etl_worker.bronze import write_readings_bronze
