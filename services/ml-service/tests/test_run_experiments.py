@@ -1,7 +1,7 @@
 """Tests du lanceur sur des répertoires temporaires et des commandes simulées."""
 
 import base64
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 import importlib.util
 from io import StringIO
 import os
@@ -29,15 +29,12 @@ def make_project(root):
     (root / "services/ml-service/configs").mkdir(parents=True)
     (root / "compose.yaml").write_text("services: {}\n")
     (root / "services/ml-service/compose.training.yaml").write_text("services: {}\n")
-    for name in [
-        "ridge.yaml", "hist_gradient_boosting.yaml", "hgb_without_lags.yaml",
-        "hgb_search.yaml", "hgb_search_without_lags.yaml",
-    ]:
+    for name in ["hgb_search_no_weather.yaml", "hist_gradient_boosting_no_weather.yaml"]:
         (root / "services/ml-service/configs" / name).write_text("model: fixture\n")
-    raw = root / ".data/ml/raw"
-    (raw / "metadata").mkdir(parents=True)
-    (raw / "all_sites_combined.csv").write_text("source fixture,not opened by launcher\n")
-    (raw / "metadata/SITE001_metadata.json").write_text("{}\n")
+    splits = root / ".data/ml/splits"
+    splits.mkdir(parents=True)
+    for name in ["train", "validation"]:
+        (splits / f"{name}.parquet").write_bytes(b"fixture: read by the trainer, not the launcher")
     (root / ".env.example").write_text(EXAMPLE)
 
 
@@ -62,8 +59,10 @@ class RunExperimentsTests(unittest.TestCase):
             execute.assert_not_called()
             token.assert_not_called()
             self.assertFalse(root.exists())
-            self.assertIn("59 entraînements", output.getvalue())
-            self.assertIn("configs/hgb_search_without_lags.yaml", output.getvalue())
+            self.assertIn("96 entraînements HGB sans météo", output.getvalue())
+            self.assertIn("configs/hgb_search_no_weather.yaml", output.getvalue())
+            self.assertNotIn("ml-prepare", output.getvalue())
+            self.assertNotIn("test.parquet", output.getvalue())
 
     def test_missing_inputs_fail_before_configuration_or_docker(self):
         with TemporaryDirectory() as temporary:
@@ -83,7 +82,10 @@ class RunExperimentsTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "Installer Docker"):
                     launcher.run_workflow(root, "no-docker")
             self.assertFalse((root / ".env").exists())
-            self.assertFalse((root / ".data/ml/splits").exists())
+            self.assertEqual(
+                sorted(path.name for path in (root / ".data/ml/splits").iterdir()),
+                ["train.parquet", "validation.parquet"],
+            )
 
     def test_initial_env_has_private_permissions_and_secret_is_not_logged(self):
         with TemporaryDirectory() as temporary:
@@ -133,54 +135,95 @@ class RunExperimentsTests(unittest.TestCase):
                 original.replace("JWT_SECRET=", "JWT_SECRET=provided-by-shell").encode(),
             )
 
-    def test_all_campaigns_run_after_preparation_and_healthy_mlflow(self):
+    def test_only_no_weather_campaign_runs_with_existing_parquets_and_healthy_mlflow(self):
         with TemporaryDirectory(prefix="ml launcher ") as temporary:
             root = Path(temporary)
             make_project(root)
             existing_env = EXAMPLE.replace("JWT_SECRET=", "JWT_SECRET=existing")
             (root / ".env").write_text(existing_env)
-            csv = root / ".data/ml/raw/all_sites_combined.csv"
-            original_csv = csv.read_bytes()
+            splits = root / ".data/ml/splits"
+            originals = {path: path.read_bytes() for path in splits.iterdir()}
+            original_open = Path.open
+
+            def no_parquet_access(path, *args, **kwargs):
+                if path.suffix == ".parquet":
+                    raise AssertionError(f"Le lanceur ne doit pas ouvrir {path}")
+                return original_open(path, *args, **kwargs)
+
             with (
                 patch.dict(os.environ, {}, clear=True),
                 patch.object(launcher.shutil, "which", side_effect=lambda name: "/usr/bin/" + name),
                 patch.object(launcher.subprocess, "run", side_effect=simulated_run) as execute,
+                patch.object(Path, "open", no_parquet_access),
                 redirect_stdout(StringIO()) as output,
             ):
                 launcher.run_workflow(root, "all-tests")
             pipeline = [
                 call for call in execute.call_args_list if call.kwargs.get("check")
             ]
-            self.assertEqual(len(pipeline), 8)
+            self.assertEqual(len(pipeline), 3)
             commands = [list(call.args[0]) for call in pipeline]
             self.assertEqual(commands[0][-2:], ["build", "ml-trainer"])
-            self.assertEqual(commands[1][-1], "ml-prepare")
-            self.assertIn("--user", commands[1])
-            self.assertEqual(commands[2][-1], "mlflow")
-            self.assertIn("--wait", commands[2])
-            self.assertEqual([
-                command[command.index("--config") + 1] for command in commands[3:]
-            ], [
-                "configs/ridge.yaml", "configs/hist_gradient_boosting.yaml",
-                "configs/hgb_search.yaml", "configs/hgb_without_lags.yaml",
-                "configs/hgb_search_without_lags.yaml",
-            ])
-            ids = [command[command.index("--campaign-id") + 1] for command in commands[3:]]
-            self.assertEqual(set(ids), {
-                "all-tests-references", "all-tests-with-lags", "all-tests-without-lags",
-            })
+            self.assertEqual(commands[1][-1], "mlflow")
+            self.assertIn("--wait", commands[1])
+            search = commands[2]
+            self.assertEqual(search[search.index("--config") + 1], "configs/hgb_search_no_weather.yaml")
+            self.assertEqual(search[search.index("--campaign-id") + 1], "all-tests")
+            self.assertIn("training.search_hgb", search)
+            self.assertIn("--no-deps", search)
+            self.assertNotIn("--resume", search)
             for call in pipeline:
                 self.assertEqual(call.kwargs["cwd"], root)
                 self.assertEqual(call.kwargs["env"]["TRAINING_GIT_REVISION"], "fixture-commit")
                 self.assertEqual(call.kwargs["env"]["TRAINING_GIT_DIRTY"], "false")
-                self.assertNotIn("scheduler", call.args[0])
-                self.assertNotIn("test.parquet", call.args[0])
-            self.assertEqual(csv.read_bytes(), original_csv)
+                for forbidden in ["scheduler", "ml-prepare", "preparation", "test.parquet", "training.prepare_data"]:
+                    self.assertNotIn(forbidden, call.args[0])
+            self.assertEqual({path: path.read_bytes() for path in splits.iterdir()}, originals)
             self.assertEqual((root / ".env").read_text(), existing_env)
-            self.assertTrue((root / ".data/ml/splits").is_dir())
+            self.assertFalse((root / ".data/ml/raw").exists())
+            self.assertFalse((splits / "test.parquet").exists())
             self.assertIn("http://localhost:5007", output.getvalue())
+            self.assertIn("consommation-horaire-sans-meteo-v1", output.getvalue())
+            self.assertIn("campaign_id : all-tests", output.getvalue())
 
-    def test_preparation_failure_prevents_mlflow_and_training(self):
+    def test_missing_validation_fails_before_configuration_or_docker(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            make_project(root)
+            (root / ".data/ml/splits/validation.parquet").unlink()
+            with patch.object(launcher.subprocess, "run") as execute, redirect_stdout(StringIO()):
+                with self.assertRaisesRegex(FileNotFoundError, "validation.parquet"):
+                    launcher.run_workflow(root, "missing-validation")
+            execute.assert_not_called()
+            self.assertFalse((root / ".env").exists())
+
+    def test_resume_cli_targets_the_requested_campaign_without_preparation(self):
+        with (
+            patch.object(launcher, "__file__", "/project/services/ml-service/run_experiments.py"),
+            patch.object(launcher.subprocess, "run") as execute,
+            patch.object(launcher, "ensure_local_env") as configure,
+            redirect_stdout(StringIO()) as output,
+        ):
+            result = launcher.main(["--dry-run", "--campaign-id", "interrupted", "--resume"])
+        self.assertEqual(result, 0)
+        execute.assert_not_called()
+        configure.assert_not_called()
+        self.assertIn("--campaign-id interrupted --resume", output.getvalue())
+        self.assertEqual(output.getvalue().count("configs/hgb_search_no_weather.yaml"), 1)
+        self.assertNotIn("ml-prepare", output.getvalue())
+
+    def test_resume_without_campaign_id_is_rejected_before_any_work(self):
+        with (
+            patch.object(launcher, "run_workflow") as workflow,
+            redirect_stderr(StringIO()) as output,
+        ):
+            with self.assertRaises(SystemExit) as error:
+                launcher.main(["--resume"])
+        self.assertEqual(error.exception.code, 2)
+        workflow.assert_not_called()
+        self.assertIn("--resume nécessite --campaign-id", output.getvalue())
+
+    def test_mlflow_failure_prevents_training(self):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             make_project(root)
@@ -189,7 +232,7 @@ class RunExperimentsTests(unittest.TestCase):
             def failure(command, **kwargs):
                 if kwargs.get("check"):
                     attempted.append(list(command))
-                    if command[-1] == "ml-prepare":
+                    if command[-1] == "mlflow":
                         raise subprocess.CalledProcessError(7, command)
                 return simulated_run(command, **kwargs)
 
@@ -202,7 +245,7 @@ class RunExperimentsTests(unittest.TestCase):
                 with self.assertRaises(subprocess.CalledProcessError):
                     launcher.run_workflow(root, "failure")
             self.assertEqual(len(attempted), 2)
-            self.assertEqual(attempted[-1][-1], "ml-prepare")
+            self.assertEqual(attempted[-1][-1], "mlflow")
             self.assertFalse(any("--config" in command for command in attempted))
 
 

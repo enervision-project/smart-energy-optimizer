@@ -1,13 +1,12 @@
-"""Tout lancer sous Linux/WSL, avec Python standard et Docker Compose.
+"""Lancer les 96 essais HGB sans météo sous Linux/WSL avec Docker Compose.
 
 Depuis la racine :
     python3 services/ml-service/run_experiments.py
     python3 services/ml-service/run_experiments.py --dry-run
+    python3 services/ml-service/run_experiments.py --campaign-id mon-essai --resume
 
-Déposer d'abord le CSV combiné et les métadonnées dans .data/ml/raw.
-Un lancement complet régénère les trois Parquet et exécute toutes les campagnes
-Python existantes (59 entraînements avec les configurations actuelles).
-Les entraînements utilisent uniquement train et validation.
+Réutilise .data/ml/splits/train.parquet et validation.parquet, en lecture seule.
+Aucune préparation des données ; le jeu de test n'est ni requis ni utilisé.
 """
 
 from __future__ import annotations
@@ -79,46 +78,26 @@ def ensure_local_env(root: Path) -> str:
     return os.environ.get("MLFLOW_PORT") or env_value(text, "MLFLOW_PORT") or "5000"
 
 
-def build_steps(root: Path, campaign: str, host_user: str) -> list[Step]:
+def build_steps(root: Path, campaign: str, resume: bool = False) -> list[Step]:
     compose = (
-        "docker", "compose", "--profile", "training", "--profile", "preparation",
+        "docker", "compose", "--profile", "training",
         "-f", str(root / "compose.yaml"),
         "-f", str(root / "services/ml-service/compose.training.yaml"),
     )
-    single = (*compose, "run", "--rm", "--no-deps", "ml-trainer")
     search = (
         *compose, "run", "--rm", "--no-deps", "--entrypoint", "python",
         "ml-trainer", "-m", "training.search_hgb",
+        "--config", "configs/hgb_search_no_weather.yaml", "--campaign-id", campaign,
     )
-    reference_campaign = campaign + "-references"
+    if resume:
+        search = (*search, "--resume")
     return [
-        Step("Construire l'image de préparation et d'entraînement", (*compose, "build", "ml-trainer")),
-        Step("Générer les trois Parquet", (
-            *compose, "run", "--rm", "--no-deps", "--user", host_user, "ml-prepare",
-        )),
+        Step("Construire l'image d'entraînement", (*compose, "build", "ml-trainer")),
         Step("Démarrer MLflow et attendre son état sain", (
             "docker", "compose", "--profile", "ml", "-f", str(root / "compose.yaml"),
             "up", "-d", "--build", "--wait", "--wait-timeout", "180", "mlflow",
         )),
-        Step("Ridge avec les huit features", (
-            *single, "--config", "configs/ridge.yaml", "--campaign-id", reference_campaign,
-        )),
-        Step("HGB avec les huit features", (
-            *single, "--config", "configs/hist_gradient_boosting.yaml",
-            "--campaign-id", reference_campaign,
-        )),
-        Step("HGB avec lags : huit ablations et vingt-quatre configurations", (
-            *search, "--config", "configs/hgb_search.yaml",
-            "--campaign-id", campaign + "-with-lags",
-        )),
-        Step("HGB de référence sans les deux lags", (
-            *single, "--config", "configs/hgb_without_lags.yaml",
-            "--campaign-id", reference_campaign,
-        )),
-        Step("HGB sans lags : vingt-quatre configurations", (
-            *search, "--config", "configs/hgb_search_without_lags.yaml",
-            "--campaign-id", campaign + "-without-lags",
-        )),
+        Step("HGB sans météo : 24 configurations pour chacune des 4 variantes de lags", search),
     ]
 
 
@@ -126,25 +105,19 @@ def check_inputs(root: Path) -> None:
     required = [
         root / "compose.yaml",
         root / "services/ml-service/compose.training.yaml",
-        root / ".data/ml/raw/all_sites_combined.csv",
-        *(
-            root / "services/ml-service/configs" / name
-            for name in (
-                "ridge.yaml", "hist_gradient_boosting.yaml", "hgb_without_lags.yaml",
-                "hgb_search.yaml", "hgb_search_without_lags.yaml",
-            )
-        ),
+        root / ".data/ml/splits/train.parquet",
+        root / ".data/ml/splits/validation.parquet",
+        root / "services/ml-service/configs/hgb_search_no_weather.yaml",
+        root / "services/ml-service/configs/hist_gradient_boosting_no_weather.yaml",
     ]
     if not (root / ".env").is_file():
         required.append(root / ".env.example")
     missing = [str(path.relative_to(root)) for path in required if not path.is_file()]
-    metadata = root / ".data/ml/raw/metadata"
-    if not metadata.is_dir() or not any(metadata.glob("*_metadata.json")):
-        missing.append(".data/ml/raw/metadata/*_metadata.json")
     if missing:
         raise FileNotFoundError(
             "Fichiers requis manquants :\n  " + "\n  ".join(missing)
-            + "\nLe CSV et les métadonnées sont à récupérer séparément de Git."
+            + "\nLes Parquet train et validation sont à récupérer séparément de Git ; "
+            "ce lanceur ne les génère pas."
         )
 
 
@@ -182,13 +155,12 @@ def execution_environment(root: Path) -> dict[str, str]:
     return env
 
 
-def run_workflow(root: Path, campaign: str, dry_run: bool = False) -> None:
-    host_user = f"{os.getuid()}:{os.getgid()}" if hasattr(os, "getuid") else "UID:GID"
-    steps = build_steps(root, campaign, host_user)
+def run_workflow(root: Path, campaign: str, dry_run: bool = False, resume: bool = False) -> None:
+    steps = build_steps(root, campaign, resume)
     print(f"Projet : {root}\nCampagne : {campaign}", flush=True)
     print(
-        "Parcours complet : préparation des Parquet puis 59 entraînements "
-        "sur train et validation avec les configurations actuelles.",
+        "96 entraînements HGB sans météo : 24 configurations par variante de lags, "
+        "sur les Parquet train et validation existants.",
         flush=True,
     )
     if dry_run:
@@ -202,42 +174,42 @@ def run_workflow(root: Path, campaign: str, dry_run: bool = False) -> None:
     check_inputs(root)
     check_docker(root)
     port = ensure_local_env(root)
-    (root / ".data/ml/splits").mkdir(parents=True, exist_ok=True)
     env = execution_environment(root)
     for index, step in enumerate(steps, 1):
         print(f"\n[{index}/{len(steps)}] {step.label}", flush=True)
         subprocess.run(step.command, cwd=root, env=env, check=True)
     print(f"\nTerminé. MLflow : http://localhost:{port}", flush=True)
-    print("Expérience : consommation-horaire-parquet-v2", flush=True)
-    print(
-        "Filtrer les runs par le tag campaign_id :\n"
-        f"  {campaign}-references\n  {campaign}-with-lags\n  {campaign}-without-lags",
-        flush=True,
-    )
+    print("Expérience : consommation-horaire-sans-meteo-v1", flush=True)
+    print(f"Filtrer les runs par le tag campaign_id : {campaign}", flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Préparer les données et lancer toutes les campagnes ML avec Docker.",
+        description="Lancer les 96 essais HGB sans météo avec Docker.",
         epilog=(
-            "Python standard uniquement, sans venv. Déposer le CSV et les métadonnées "
-            "dans .data/ml/raw avant le lancement. Les sorties Parquet existantes sont "
-            "remplacées ; le test est préparé puis réservé à l'évaluation finale."
+            "Python standard uniquement, sans venv. Fournir les Parquet train et validation "
+            "dans .data/ml/splits. Aucun Parquet n'est généré ou remplacé ; "
+            "le jeu de test n'est ni requis ni utilisé."
         ),
     )
     parser.add_argument("--dry-run", action="store_true", help="Afficher le parcours sans aucun effet.")
     parser.add_argument(
-        "--campaign-id", help="Préfixe unique des campagnes MLflow ; généré automatiquement par défaut.",
+        "--campaign-id", help="Identifiant unique de campagne MLflow ; généré automatiquement par défaut.",
+    )
+    parser.add_argument(
+        "--resume", action="store_true", help="Reprendre les essais d'un --campaign-id existant.",
     )
     args = parser.parse_args(argv)
+    if args.resume and not args.campaign_id:
+        parser.error("--resume nécessite --campaign-id pour identifier la campagne à reprendre.")
     campaign = args.campaign_id or (
-        "offline-" + datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
+        "hgb-no-weather-" + datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
     )
     if not re.fullmatch(r"[A-Za-z0-9_-]+", campaign):
         parser.error("campaign-id doit contenir uniquement lettres, chiffres, tirets ou underscores.")
     root = Path(__file__).resolve().parents[2]
     try:
-        run_workflow(root, campaign, args.dry_run)
+        run_workflow(root, campaign, dry_run=args.dry_run, resume=args.resume)
     except subprocess.CalledProcessError as error:
         print(f"\nArrêt : une commande a échoué (code {error.returncode}).", flush=True)
         return error.returncode
@@ -246,6 +218,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     except KeyboardInterrupt:
         print("\nInterrompu. Les runs déjà terminés restent dans MLflow.", flush=True)
+        print(
+            f"Reprendre : python3 services/ml-service/run_experiments.py --campaign-id {campaign} --resume",
+            flush=True,
+        )
         return 130
     return 0
 
