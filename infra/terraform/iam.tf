@@ -48,7 +48,10 @@ data "aws_iam_policy_document" "app" {
     condition {
       test     = "StringLike"
       variable = "s3:prefix"
-      values   = [local.mlflow_artifacts_prefix, "${local.mlflow_artifacts_prefix}/*"]
+      values = [
+        local.mlflow_artifacts_prefix, "${local.mlflow_artifacts_prefix}/*",
+        local.ml_datasets_prefix, "${local.ml_datasets_prefix}/*",
+      ]
     }
   }
   statement {
@@ -57,6 +60,10 @@ data "aws_iam_policy_document" "app" {
       "s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload",
     ]
     resources = ["${aws_s3_bucket.datalake.arn}/${local.mlflow_artifacts_prefix}/*"]
+  }
+  statement {
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.datalake.arn}/${local.ml_datasets_prefix}/*"]
   }
 }
 

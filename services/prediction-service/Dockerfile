@@ -6,11 +6,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --no-create-home appuser \
     && mkdir /models && chown appuser /models
-ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MODEL_DIR=/models
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MODEL_DIR=/models PYTHONPATH=/app
 WORKDIR /app
 COPY services/prediction-service/pyproject.toml ./
 COPY services/prediction-service/src ./src
 RUN pip install --no-cache-dir .
+COPY services/ml-service/training ./training
+COPY services/ml-service/configs ./configs
 USER appuser
 EXPOSE 8000
 CMD ["prediction-service"]
