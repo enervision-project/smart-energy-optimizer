@@ -16,13 +16,13 @@ flowchart LR
 
 ## Pages
 
-| Route                  | Page             | Données                                                        |
-|------------------------|------------------|----------------------------------------------------------------|
-| `/login`               | Connexion        | `POST /auth/login`                                             |
-| `/parc`                | Vue du parc      | Consommation actuelle et charge du parc, avertissement des sites sans données, courbe des 24 dernières heures, alertes de la dernière heure, sites triés par charge ; rafraîchis chaque minute                                                      |
+| Route                  | Page             | Données                                                                                                                                                                                                  |
+| ---------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`               | Connexion        | `POST /auth/login`                                                                                                                                                                                       |
+| `/parc`                | Vue du parc      | Consommation actuelle et charge du parc, avertissement des sites sans données, courbe des 24 dernières heures, alertes de la dernière heure, sites triés par charge ; rafraîchis chaque minute           |
 | `/sites`, `/sites/:id` | Détail d'un site | Site, et profil, dernière mesure, courbe brute / imputée avec la qualité de chaque pas, état des capteurs, synthèse ; rafraîchis chaque minute; mesures horaires et [recommandations](recommendation.md) |
-| `/previsions`          | Prévisions       | (à venir)                                                      |
-| `/alertes`             | Alertes          | Alertes paginées et filtrées, compteurs de la dernière heure   |
+| `/previsions`          | Prévisions       | Mesuré des 12 dernières heures et prévision horaire des 24 suivantes (`?site=`), pic prévu, énergie prévue, modèle utilisé ; rafraîchis chaque minute                                                    |
+| `/alertes`             | Alertes          | Alertes paginées et filtrées, compteurs de la dernière heure                                                                                                                                             |
 
 Toutes les routes sauf `/login` exigent d'être connecté (voir [Connexion](authentification.md)). Le menu affiche aussi un badge avec le nombre d'alertes de la dernière heure, rouge s'il y en a une critique.
 
