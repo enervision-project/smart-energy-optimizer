@@ -14,6 +14,8 @@ import {
 } from '../../core/models/reading';
 import { reloadOnError } from '../../core/resources/reload-on-error';
 import { EnergyApi } from '../../core/services/energy-api';
+import { summarize } from './reading-summary';
+import { Recommendations } from './recommendations/recommendations';
 import { noDataPlugin } from './no-data-plugin';
 import { imputationLabel, nullReasonLabel, sensorStatuses } from './sensor-status';
 import { SiteAlerts } from './site-alerts/site-alerts';
@@ -99,7 +101,7 @@ function formatValue(value: number, digits: number): string {
 }
 
 @Component({
-  imports: [BaseChartDirective, SiteAlerts],
+  imports: [BaseChartDirective, Recommendations, SiteAlerts],
   selector: 'app-site',
   styleUrl: './site.scss',
   templateUrl: './site.html',

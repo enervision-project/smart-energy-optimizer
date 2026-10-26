@@ -3,6 +3,7 @@ import { inject, Service } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
 import { LatestReading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
+import { RecommendationResponse } from '../models/recommendation';
 import { Site } from '../models/site';
 import { API_BASE_URL as BASE_URL } from './api';
 import { EnergyApi } from './energy-api';
@@ -66,5 +67,9 @@ export class HttpEnergyApi extends EnergyApi {
     return this.http.get<AlertSummary>(`${BASE_URL}/alerts/summary`, {
       params: siteId ? { siteId } : {},
     });
+  }
+
+  getRecommendations(siteId: string): Observable<RecommendationResponse | null> {
+    return this.http.get<RecommendationResponse | null>(`${BASE_URL}/recommendations/${siteId}`);
   }
 }

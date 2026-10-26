@@ -18,6 +18,7 @@ import {
   ReadingStep,
   ReadingSummary,
 } from '../models/reading';
+import { RecommendationResponse } from '../models/recommendation';
 import { Site } from '../models/site';
 import { EnergyApi } from './energy-api';
 

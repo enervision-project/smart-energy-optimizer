@@ -1,6 +1,7 @@
 import { Observable } from 'rxjs';
 import { Alert, AlertFilters, AlertSummary, Page } from '../models/alert';
-import { LatestReading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
+import { LatestReading, Reading, ReadingSeries, ReadingStep, ReadingSummary } from '../models/reading';
+import { RecommendationResponse } from '../models/recommendation';
 import { Site } from '../models/site';
 
 /** Seul point d'accès aux données pour les pages : l'implémentation (mock ou HTTP) est choisie dans `app.config.ts`. */
@@ -22,4 +23,6 @@ export abstract class EnergyApi {
   abstract getAlerts(filters: AlertFilters, page: number, size: number): Observable<Page<Alert>>;
   /** Nombre d'alertes de la dernière heure par sévérité, pour tous les sites visibles ou un seul. */
   abstract getAlertSummary(siteId?: string): Observable<AlertSummary>;
+  /** Recommandations d'efficacité et de santé électrique pour un site. */
+  abstract getRecommendations(siteId: string): Observable<RecommendationResponse | null>;
 }

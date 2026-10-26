@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { RecommendationResponse } from '../models/recommendation';
+import { API_BASE_URL } from './api';
 import { HttpEnergyApi } from './http-energy-api';
 
 describe('HttpEnergyApi (mesures)', () => {
@@ -11,13 +13,22 @@ describe('HttpEnergyApi (mesures)', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [HttpEnergyApi, provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), HttpEnergyApi],
     });
     api = TestBed.inject(HttpEnergyApi);
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+  });
+
+  it('appelle GET /api/v1/sites pour récupérer la liste des sites', () => {
+    api.getSites().subscribe();
+    const req = http.expectOne(`${API_BASE_URL}/sites`);
+    expect(req.request.method).toBe('GET');
+    req.flush([]);
+  });
 
   it('demande la courbe d’un site avec la période et le pas', () => {
     api.getReadingSeries('SITE001', from, to, '15m').subscribe();
