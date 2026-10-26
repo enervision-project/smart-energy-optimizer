@@ -402,14 +402,16 @@ function aggregate(ts: number, rows: MockMinute[], minutesExpected: number): Rea
     temperatureCelsius: average(rows.map((r) => r.temperatureCelsius)),
     humidityPercent: average(rows.map((r) => r.humidityPercent)),
     dataQuality: worst < 0 ? null : DATA_QUALITIES[worst],
-    nullReasons: [...new Set(rows.flatMap((r) => r.nullReasons))].sort(),
+    nullReasons: [...new Set(rows.flatMap((r) => r.nullReasons))].sort((a, b) =>
+      a.localeCompare(b),
+    ),
     minutesExpected,
     minutesReceived: rows.length,
     minutesBackfilled: 0,
     minutesImputed: rows.filter((r) => r.consumptionKwImputed !== null).length,
     imputationMethods: [
       ...new Set(rows.flatMap((r) => (r.imputationMethod ? [r.imputationMethod] : []))),
-    ].sort(),
+    ].sort((a, b) => a.localeCompare(b)),
   };
 }
 
