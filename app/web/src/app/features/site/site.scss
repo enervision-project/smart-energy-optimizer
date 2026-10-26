@@ -110,6 +110,21 @@ h2 {
   }
 }
 
+.card {
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid #dde2da;
+  border-radius: 10px;
+}
+
+.recommendations {
+  margin-bottom: 20px;
+}
+
+.alerts {
+  margin-top: 20px;
+}
+
 .side {
   display: grid;
   gap: 20px;

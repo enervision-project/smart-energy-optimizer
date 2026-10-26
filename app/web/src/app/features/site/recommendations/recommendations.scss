@@ -1,0 +1,138 @@
+:host {
+  display: block;
+}
+
+.card {
+  padding: 16px 20px;
+  background: #fff;
+  border: 1px solid #dde2da;
+  border-radius: 10px;
+}
+
+h2 {
+  margin: 0 0 16px;
+  font-size: 1rem;
+}
+
+/* Couleurs selon la qualité de la donnée */
+.good {
+  --q-bg: #eef7f4;
+  --q-fg: #1f7a63;
+}
+
+.medium {
+  --q-bg: #fdf3dc;
+  --q-fg: #8a5a00;
+}
+
+.bad {
+  --q-bg: #fbeaec;
+  --q-fg: #b23a48;
+}
+
+.unknown {
+  --q-bg: #f3f4f6;
+  --q-fg: #5b6573;
+}
+
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.item-card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  border: 1px solid #dde2da;
+  border-left: 4px solid var(--q-fg);
+  border-radius: 10px;
+  background: #fff;
+
+  .item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1f2a37;
+  }
+
+  .badge {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--q-bg);
+    color: var(--q-fg);
+    white-space: nowrap;
+  }
+
+  .value {
+    margin: 8px 0 6px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2a37;
+  }
+
+  .short-recommendation {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #5b6573;
+  }
+
+  .toggle-btn {
+    align-self: flex-start;
+    margin-top: 8px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #1f7a63;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .long-recommendation {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid #dde2da;
+    border-radius: 8px;
+    background: #f8faf9;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #1f2a37;
+
+    p {
+      margin: 0;
+    }
+  }
+}
+
+.empty {
+  margin: 0;
+  color: #5b6573;
+  font-style: italic;
+}
+
+.error {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: #fbeaec;
+  color: #b23a48;
+  margin: 0;
+}

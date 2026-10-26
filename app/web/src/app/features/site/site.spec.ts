@@ -147,6 +147,11 @@ describe('Site', () => {
     );
   });
 
+  it('affiche le panneau de recommandations au-dessus du tableau de bord', async () => {
+    const el = await render(SENSOR_FAILURE_SITE_ID);
+    expect(el.querySelector('app-recommendations')).not.toBeNull();
+  });
+
   it('signale un site inconnu', async () => {
     const el = await render('inconnu');
     expect(el.querySelector('[role="alert"]')?.textContent).toContain('Site introuvable');

@@ -1,0 +1,55 @@
+<section class="card recommendations-section" aria-labelledby="recommendations-title">
+  <h2 id="recommendations-title">Recommandations</h2>
+
+  @if (recommendations.error()) {
+    <p class="error" role="alert">Recommandations indisponibles.</p>
+  } @else if (recommendations.isLoading()) {
+    <p class="empty">Chargement…</p>
+  } @else if (response(); as res) {
+    @if (res.items.length === 0) {
+      <p class="empty">Aucune recommandation disponible pour ce site.</p>
+    } @else {
+      <div class="items-grid">
+        @for (item of res.items; track item.type) {
+          <article class="item-card" [class]="item.quality" data-testid="recommendation-item">
+            <header class="item-header">
+              <span class="label" data-testid="recommendation-label">{{ item.label }}</span>
+              <span class="badge" [class]="item.quality" data-testid="recommendation-quality">
+                {{ qualityLabel(item.quality) }}
+              </span>
+            </header>
+            <p class="value" data-testid="recommendation-value">
+              {{ formatValue(item.value, item.unit) }}
+            </p>
+            <p class="short-recommendation" data-testid="recommendation-short">
+              {{ item.shortRecommendation }}
+            </p>
+            @if (item.longRecommendation) {
+              <button
+                type="button"
+                class="toggle-btn"
+                (click)="toggleExpand(item.type)"
+                [attr.aria-expanded]="isExpanded(item.type)"
+                [attr.aria-controls]="'rec-detail-' + item.type"
+                data-testid="toggle-more"
+              >
+                {{ isExpanded(item.type) ? 'Voir moins' : 'Voir plus' }}
+              </button>
+              @if (isExpanded(item.type)) {
+                <div
+                  [id]="'rec-detail-' + item.type"
+                  class="long-recommendation"
+                  data-testid="recommendation-long"
+                >
+                  <p>{{ item.longRecommendation }}</p>
+                </div>
+              }
+            }
+          </article>
+        }
+      </div>
+    }
+  } @else {
+    <p class="empty">Aucune recommandation disponible pour ce site.</p>
+  }
+</section>
