@@ -1,0 +1,5 @@
+site_name: ML Service
+nav:
+  - Présentation: index.md
+  - Données et préparation: donnees.md
+  - Entraînement et MLflow: entrainement.md
