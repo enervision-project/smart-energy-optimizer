@@ -129,6 +129,34 @@ def read_measured_hours(
         return [(row[0], row[1], float(row[2])) for row in cursor.fetchall()]
 
 
+def read_forecast_errors(
+    database_url: str, start: datetime, end: datetime, min_minutes: int = 10
+) -> list[tuple[str, float, float, float]]:
+    """Heures `[start, end)` mesurées avec la dernière prévision publiée avant chacune.
+
+    Lignes `(site, mesuré, champion seul, publié)`. Avant le changeset 008, la prévision brute
+    n'était pas enregistrée : la valeur publiée était alors celle du champion.
+    """
+    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+                SELECT DISTINCT ON (p.site_id, p.predicted_for)
+                       p.site_id, h.consumption_kwh,
+                       coalesce(p.model_prediction_kwh, p.prediction_kwh), p.prediction_kwh
+                FROM predictions p
+                JOIN prediction_runs r USING (run_id)
+                JOIN readings_hours h ON h.site_id = p.site_id AND h.ts = p.predicted_for
+                WHERE p.predicted_for >= %s AND p.predicted_for < %s
+                  AND r.generated_at < p.predicted_for
+                  AND h.consumption_kwh IS NOT NULL
+                  AND coalesce(h.minutes_consumption, 60) >= %s
+                ORDER BY p.site_id, p.predicted_for, r.generated_at DESC
+                """,
+            (start, end, min_minutes),
+        )
+        return [(row[0], float(row[1]), float(row[2]), float(row[3])) for row in cursor.fetchall()]
+
+
 def read_site_profiles(database_url: str) -> list[SiteProfile]:
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
         cursor.execute(

@@ -28,6 +28,8 @@ Le drift est un signal d'évolution. Il ne déclenche pas à lui seul le remplac
 
     Un challenger entraîné sur les données récentes devra battre le **champion recalé**, et non le champion brut.
 
+    Ces trois indicateurs sont déjà suivis heure par heure : `prediction-jobs` les écrit dans ses logs après chaque série (`monitoring.py`), et Grafana les affiche dans la ligne « Modèle (prévisions) » du dashboard (voir [Monitoring](monitoring.md)).
+
 ## 2. Accumuler des données propres sur plusieurs semaines
 
 Les nouvelles heures restent collectées par l'ETL. On attend d'avoir assez de recul pour couvrir plusieurs cycles de travail et disposer de périodes distinctes pour apprendre et comparer les modèles.

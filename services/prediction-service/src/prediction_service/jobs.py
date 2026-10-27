@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from prediction_service.forecast import generate_forecast
+from prediction_service.monitoring import log_forecast_errors
 from prediction_service.repository import claimed_job, latest_hour
 from prediction_service.settings import get_settings
 from prediction_service.training import last_successful_training, needs_catchup, train_challenger
@@ -27,10 +28,18 @@ def _forecast(schedule_key: str) -> None:
     expected = datetime.now(UTC).replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
     if newest is None or newest < expected:
         raise ValueError(f"Agrégat horaire trop ancien : {newest}, attendu au moins {expected}.")
+    published = False
     with claimed_job(settings.database_url, "forecast", schedule_key, "scheduled") as job_id:
         if job_id is not None:
             run_id = generate_forecast(settings, job_id)
             logger.info("Prévisions publiées : %s", run_id)
+            published = True
+    if published:
+        # Après publication, hors du job : un échec du suivi ne doit pas relancer les prévisions.
+        try:
+            log_forecast_errors(settings.database_url)
+        except Exception:
+            logger.exception("Suivi du modèle impossible")
 
 
 def forecast_key(now: datetime) -> str:

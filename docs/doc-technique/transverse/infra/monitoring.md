@@ -107,6 +107,38 @@ Dossier **EnerVision** dans Grafana. Sections :
 - **HTTP** : taux de 5xx et latence p95 (site entier via les métriques Caddy, API via les logs d'accès)
 - **ETL** : exécutions réussies et échecs par tâche du scheduler (lignes `Fin` / `Échec` de `etl-cron-job`)
 - **Logs** : lignes d'erreur par service et dernières erreurs
+- **Modèle (prévisions)** : suivi du modèle en production, lu dans les logs de `prediction-jobs`
+  (voir ci-dessous)
+
+### Ligne « Modèle (prévisions) »
+
+Après chaque série publiée (chaque heure à :05), `prediction-jobs` écrit deux lignes de log par
+site ; Loki les collecte, Grafana en extrait les valeurs (`regexp` puis `unwrap` LogQL). Aucune
+table ni accès réseau à PostgreSQL : seul le format des lignes compte.
+
+```text
+Recalage SITE001 : 0.765 (heures travaillées 0.789, autres 0.733, 168 h mesurées)
+Suivi modèle SITE001 : nMAE champion 33.1 %, publiée 5.2 %, biais publié +0.4 % (24 h)
+```
+
+| Panneau | Lecture |
+| :--- | :--- |
+| Séries publiées (3 h) | 3 attendues ; moins : job en panne ou agrégats horaires en retard |
+| Échecs des prévisions (24 h) | Tentatives en échec (`Prévisions impossibles`, nouvel essai à :20, :35, :50) et suivi impossible |
+| Ratios aux bornes (24 h) | Ratio de recalage ramené à 0,5 ou 1,5 : la correction ne suffit plus, données à vérifier |
+| Biais publié par site | Écart signé des prévisions affichées sur 24 h ; proche de 0 attendu |
+| Ratio de recalage par site | Mesuré / prévu par le champion sur 7 jours : **dérive de concept**. Loin de 1 : le modèle se trompe d'échelle ; saut brutal : changement récent ou collecte défaillante |
+| nMAE du champion seul | Erreur du modèle **avant** recalage, sur les 24 dernières heures : durablement haute, il faut réentraîner sur les données récentes |
+| nMAE publiée | Erreur des prévisions affichées (après recalage) : la qualité vue par l'utilisateur |
+
+Le recalage corrige l'échelle : l'erreur publiée reste bonne même quand le modèle dérive. Les deux
+nMAE se lisent donc ensemble (détail dans la section *Recalage de niveau* de la page
+« Fonctionnement du Prediction Service »).
+
+!!! warning "Format des lignes"
+    Les requêtes du dashboard dépendent du texte exact de ces deux lignes
+    (`forecast.py`, `monitoring.py`). Le test `tests/test_monitoring.py` de prediction-service
+    applique les `regexp` du dashboard aux lignes produites : il échoue si l'un change sans l'autre.
 
 ## Requêtes utiles (Explore)
 
@@ -115,6 +147,7 @@ Dossier **EnerVision** dans Grafana. Sections :
 | Logs d'un service | `{service="core-api"}` |
 | Erreurs d'un service | `{service="core-api"} \|~ "(?i)error\|exception"` |
 | Exécutions d'une tâche ETL | `{service="scheduler"} \|= "sync-readings"` |
+| Suivi du modèle (ratios, erreurs) | `{service="prediction-jobs"} \|~ "Recalage SITE\|Suivi modèle"` |
 | Requêtes API en erreur | `{service="proxy"} \| json \| request_uri=~"/api/.*" \| status >= 500` |
 | Mémoire d'un conteneur | `container_memory_working_set_bytes{container_label_com_docker_compose_service="core-api"}` |
 | Disque de l'EC2 app | `node_filesystem_avail_bytes{machine="app", fstype=~"xfs\|ext4"}` |
@@ -147,7 +180,8 @@ de monitoring, et `alloy` (fichiers `infra/alloy/`) sur l'EC2 app, comme les aut
 
 ## Limites connues
 
-- Pas d'alerting pour l'instant.
+- Pas d'alerting pour l'instant (les panneaux « Modèle » sont prêts à servir de base aux alertes).
+- Suivi du modèle limité à la rétention de Loki (7 jours) et à une valeur par heure.
 - L'EC2 de monitoring ne collecte pas encore ses propres métriques d'hôte (CPU, mémoire, disque) ni ses logs.
 - OOM kills non détectés (cAdvisor sans accès à `/dev/kmsg`) ; la mémoire proche de la limite est visible.
 - Pas de métriques HTTP pour `prediction-service` (non exposé derrière Caddy) ; ses logs sont dans Loki.
