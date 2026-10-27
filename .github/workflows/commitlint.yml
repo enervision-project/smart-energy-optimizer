@@ -18,6 +18,7 @@ permissions: {}
 jobs:
   commits:
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       contents: read        # checkout du dépôt
     steps:
@@ -42,6 +43,7 @@ jobs:
 
   branch-name:
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions: {}         # lit seulement le nom de branche de l'événement
     steps:
       - name: Nom de branche feature/…, fix/… ou renovate/…
