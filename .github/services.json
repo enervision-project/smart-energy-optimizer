@@ -43,6 +43,9 @@
     },
     "monitoring": {
       "paths": ["infra/monitoring/"]
+    },
+    "alloy": {
+      "paths": ["infra/alloy/"]
     }
   }
 }

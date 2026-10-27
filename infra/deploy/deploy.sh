@@ -53,10 +53,13 @@ if "$check_mlflow"; then
   up_options+=(--wait --wait-timeout 180)
 fi
 "${compose[@]}" up "${up_options[@]}" "${deploy_services[@]}"
-# compose does not track the mounted Caddyfile: graceful reload, no downtime
+# compose does not track mounted config files: reload them
 for svc in "${deploy_services[@]}"; do
   case "$svc" in
+    # graceful reload, no downtime
     proxy) "${compose[@]}" exec -T proxy caddy reload --config /etc/caddy/Caddyfile ;;
+    # not user-facing; the WAL and log positions survive the restart
+    alloy) "${compose[@]}" up -d --no-build --force-recreate alloy ;;
   esac
 done
 if "$check_mlflow"; then
