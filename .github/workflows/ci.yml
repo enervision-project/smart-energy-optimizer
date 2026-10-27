@@ -65,7 +65,7 @@ jobs:
                   - 'ml-datasets.dvc'
                   - '.dvc/config'
                   - 'services/ml-service/run_dvc.py'
-                  - 'services/ml-service/requirements-dvc.txt'
+                  - 'services/ml-service/requirements-dvc*'
                   - 'infra/**'
                   - '.github/workflows/**'
                   - '**/Dockerfile*'

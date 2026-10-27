@@ -23,6 +23,8 @@ def make_project(root, with_data=False):
     folder.mkdir(parents=True)
     (folder / "Dockerfile.dvc-tools").write_text("FROM fixture\n")
     (folder / "requirements-dvc.txt").write_text("fixture\n")
+    (folder / "requirements-dvc.lock").write_text("fixture")
+    (folder / "requirements-dvc-build.lock").write_text("fixture")
     (root / ".dvc").mkdir()
     (root / ".dvc/config").write_text("[core]\n")
     (root / ".data/ml").mkdir(parents=True)

@@ -10,12 +10,19 @@ import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
+from urllib.parse import urlsplit, unquote
 
 ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location("dataset_release", ROOT / "infra/deploy/dataset_release.py")
 release_tool = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(release_tool)
 REVISION = "a" * 40
+KEY = release_tool.PREFIX + "/v1/train.parquet"
+
+
+def parameter_value(command, name):
+    value = command[command.index(name) + 1]
+    return Path(unquote(urlsplit(value).path)).read_text()
 
 
 class MemoryStorage:
@@ -188,47 +195,57 @@ class DatasetReleaseTests(unittest.TestCase):
             target = Path(tmp) / "download"
             with patch.object(release_tool.subprocess, "run", return_value=denied):
                 with self.assertRaisesRegex(RuntimeError, "AccessDenied"):
-                    release_tool.S3("test-bucket").download("key", target)
+                    release_tool.S3("test-bucket").download(KEY, target)
             with patch.object(release_tool.subprocess, "run", return_value=missing):
-                self.assertFalse(release_tool.S3("test-bucket").download("key", target))
+                self.assertFalse(release_tool.S3("test-bucket").download(KEY, target))
 
     def test_scoped_list_permission_can_confirm_absence_after_get_403(self):
         denied = subprocess.CompletedProcess([], 254, "", "(AccessDenied) Forbidden")
         empty = subprocess.CompletedProcess([], 0, '{"Contents": []}', "")
+        responses = iter([denied, empty])
+        prefixes = []
+
+        def execute(command, **kwargs):
+            if "list-objects-v2" in command:
+                prefixes.append(parameter_value(command, "--prefix"))
+            return next(responses)
+
         with TemporaryDirectory() as tmp:
-            with patch.object(release_tool.subprocess, "run", side_effect=[denied, empty]) as run:
-                self.assertFalse(release_tool.S3("test-bucket").download("prefix/key", Path(tmp) / "out"))
-            args = run.call_args.args[0]
-            self.assertIn("list-objects-v2", args)
-            self.assertEqual(args[args.index("--prefix") + 1], "prefix/key")
+            with patch.object(release_tool.subprocess, "run", side_effect=execute) as run:
+                self.assertFalse(release_tool.S3("test-bucket").download(KEY, Path(tmp) / "out"))
+            self.assertEqual(prefixes, [KEY])
+            self.assertNotIn(KEY, run.call_args.args[0])
 
     def test_listing_existing_key_does_not_hide_a_real_get_denial(self):
         denied = subprocess.CompletedProcess([], 254, "", "(AccessDenied) Forbidden")
-        exists = subprocess.CompletedProcess([], 0, '{"Contents": [{"Key": "prefix/key"}]}', "")
+        exists = subprocess.CompletedProcess([], 0, json.dumps({"Contents": [{"Key": KEY}]}), "")
         with TemporaryDirectory() as tmp:
             with patch.object(release_tool.subprocess, "run", side_effect=[denied, exists]):
                 with self.assertRaisesRegex(RuntimeError, "AccessDenied"):
-                    release_tool.S3("test-bucket").download("prefix/key", Path(tmp) / "out")
+                    release_tool.S3("test-bucket").download(KEY, Path(tmp) / "out")
 
     def test_s3_put_is_conditional_and_permission_failure_propagates(self):
         okay = subprocess.CompletedProcess([], 0, "{}", "")
         with patch.object(release_tool.subprocess, "run", return_value=okay) as run:
-            release_tool.S3("test-bucket").upload_if_absent("key", Path("/tmp/source"))
+            release_tool.S3("test-bucket").upload_if_absent(KEY, Path("/tmp/source"))
         args = run.call_args.args[0]
-        self.assertEqual(args[args.index("--if-none-match") + 1], "*")
+        self.assertIn("--if-none-match=*", args)
+        self.assertNotIn(KEY, args)
+        self.assertFalse(run.call_args.kwargs["shell"])
         denied = subprocess.CompletedProcess([], 254, "", "(AccessDenied) Forbidden")
         with patch.object(release_tool.subprocess, "run", return_value=denied):
             with self.assertRaisesRegex(RuntimeError, "AccessDenied"):
-                release_tool.S3("test-bucket").upload_if_absent("key", Path("/tmp/source"))
+                release_tool.S3("test-bucket").upload_if_absent(KEY, Path("/tmp/source"))
 
     def test_cli_wrong_commit_does_not_contact_aws(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             release, _, _ = fixture(root)
-            path = root / "release.json"
+            path = root / "dataset-release.json"
             path.write_bytes(release_tool.json_bytes(release))
             with (
                 patch.object(release_tool.S3, "download") as download,
+                patch.object(release_tool, "PROJECT_ROOT", root),
                 redirect_stderr(StringIO()),
             ):
                 status = release_tool.main([
