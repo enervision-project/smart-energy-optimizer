@@ -38,6 +38,52 @@ def test_rolling_24_hours_remain_distinct_during_dst():
     assert labels.count(2) == 2
 
 
+@pytest.mark.parametrize(
+    "now",
+    [
+        datetime(2026, 10, 27, 6, 5, tzinfo=UTC),  # heure d'hiver (UTC+1)
+        datetime(2026, 7, 7, 6, 5, tzinfo=UTC),  # heure d'été (UTC+2)
+    ],
+)
+def test_forecast_features_follow_utc_hours_whatever_the_season(monkeypatch, tmp_path, now):
+    from prediction_service import forecast
+
+    recorded = []
+
+    class RecordingPredictor:
+        version = "7"
+
+        def __init__(self):
+            self.site_codes = {"SITE001": 0}
+
+        def predict(self, request):
+            recorded.append(request)
+            return 1.0
+
+    monkeypatch.setattr(forecast, "available_predictor", lambda *args: RecordingPredictor())
+    monkeypatch.setattr(
+        forecast,
+        "read_site_profiles",
+        lambda *args: [SiteProfile("SITE001", 8, 19, (1, 2, 3, 4, 5))],
+    )
+    monkeypatch.setattr(forecast, "save_forecast", lambda *args: UUID(int=1))
+    settings = Settings(model_dir=tmp_path, database_url="postgresql://unused")
+
+    generate_forecast(settings, UUID(int=2), now)
+
+    # Un seul site : une requête par heure prévue, dans l'ordre de next_24_hours.
+    by_utc_hour = {
+        instant.hour: request for instant, request in zip(next_24_hours(now), recorded, strict=True)
+    }
+    # Mardi, heures de travail 8 h-19 h UTC.
+    assert all(hour == request.hour for hour, request in by_utc_hour.items())
+    assert by_utc_hour[7].is_working_hours == 0
+    assert by_utc_hour[8].is_working_hours == 1
+    assert by_utc_hour[18].is_working_hours == 1
+    assert by_utc_hour[19].is_working_hours == 0
+    assert by_utc_hour[8].day_of_week == 1
+
+
 def test_forecast_uses_loaded_champion_while_training_is_irrelevant(monkeypatch, tmp_path):
     from prediction_service import forecast
 

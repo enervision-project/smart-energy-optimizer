@@ -4,7 +4,6 @@ import logging
 import math
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from prediction_service.registry import available_predictor
 from prediction_service.repository import read_site_profiles, save_forecast
@@ -34,19 +33,20 @@ def generate_forecast(settings: Settings, job_id: UUID, now: datetime | None = N
     )
     if unknown:
         logger.warning("Sites ignorés car inconnus du champion : %s", unknown)
-    zone = ZoneInfo(settings.training_timezone)
     rows = []
     for profile in known:
         for instant in hours:
-            local = instant.astimezone(zone)
+            # Calendrier en UTC, comme le CSV d'entraînement et l'API Mock : leurs heures
+            # de travail ne suivent pas l'heure d'été (sinon décalage d'1 h l'hiver, 2 h l'été).
+            utc = instant.astimezone(UTC)
             request = PredictRequest(
                 site_id=profile.site_id,
-                hour=local.hour,
-                day_of_week=local.weekday(),
-                month=local.month,
+                hour=utc.hour,
+                day_of_week=utc.weekday(),
+                month=utc.month,
                 is_working_hours=int(
-                    local.isoweekday() in profile.working_days
-                    and profile.working_hour_start <= local.hour < profile.working_hour_end
+                    utc.isoweekday() in profile.working_days
+                    and profile.working_hour_start <= utc.hour < profile.working_hour_end
                 ),
             )
             value = predictor.predict(request)
