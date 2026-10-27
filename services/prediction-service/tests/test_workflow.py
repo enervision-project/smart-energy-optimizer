@@ -66,6 +66,8 @@ def test_forecast_features_follow_utc_hours_whatever_the_season(monkeypatch, tmp
         "read_site_profiles",
         lambda *args: [SiteProfile("SITE001", 8, 19, (1, 2, 3, 4, 5))],
     )
+    # Pas d'historique : aucune prévision du passé, seulement les 24 heures à venir.
+    monkeypatch.setattr(forecast, "read_measured_hours", lambda *args: [])
     monkeypatch.setattr(forecast, "save_forecast", lambda *args: UUID(int=1))
     settings = Settings(model_dir=tmp_path, database_url="postgresql://unused")
 
@@ -108,6 +110,7 @@ def test_forecast_uses_loaded_champion_while_training_is_irrelevant(monkeypatch,
         "read_site_profiles",
         lambda *args: [SiteProfile("SITE001", 9, 18, (1, 2, 3, 4, 5))],
     )
+    monkeypatch.setattr(forecast, "read_measured_hours", lambda *args: [])
     monkeypatch.setattr(forecast, "save_forecast", save)
     settings = Settings(model_dir=tmp_path, database_url="postgresql://unused")
     assert generate_forecast(
@@ -115,7 +118,91 @@ def test_forecast_uses_loaded_champion_while_training_is_irrelevant(monkeypatch,
     ) == UUID(int=1)
     assert captured["args"][3] == "7"
     assert len(captured["args"][4]) == len(captured["args"][5]) == 24
-    assert all(np.isfinite(value) for _, _, value in captured["args"][5])
+    assert all(np.isfinite(value) for _, _, value, _, _ in captured["args"][5])
+    # Sans historique, la prévision du champion est publiée telle quelle (ratio 1).
+    assert all(value == raw and ratio == 1.0 for _, _, value, raw, ratio in captured["args"][5])
+
+
+def test_forecast_applies_the_level_ratio_of_the_last_week(monkeypatch, tmp_path):
+    from prediction_service import forecast
+
+    class FlatPredictor:
+        """100 kWh en heures travaillées, 50 sinon."""
+
+        version = "7"
+
+        def __init__(self):
+            self.site_codes = {"SITE001": 0}
+
+        def predict(self, request):
+            return 100.0 if request.is_working_hours else 50.0
+
+    now = datetime(2026, 10, 27, 6, 5, tzinfo=UTC)
+    profile = SiteProfile("SITE001", 8, 19, (1, 2, 3, 4, 5))
+    end = now.replace(minute=0)
+    # Semaine passée : le site consomme 76 % du prévu en journée, 80 % le reste du temps.
+    history = []
+    for back in range(1, 169):
+        hour = end - timedelta(hours=back)
+        working = forecast.calendar_request(profile, hour).is_working_hours
+        history.append(("SITE001", hour, 76.0 if working else 40.0))
+    windows = []
+
+    def measured(_url, start, stop):
+        windows.append((start, stop))
+        return history
+
+    captured = {}
+
+    def save(*args):
+        captured["rows"] = args[5]
+        return UUID(int=1)
+
+    monkeypatch.setattr(forecast, "available_predictor", lambda *args: FlatPredictor())
+    monkeypatch.setattr(forecast, "read_site_profiles", lambda *args: [profile])
+    monkeypatch.setattr(forecast, "read_measured_hours", measured)
+    monkeypatch.setattr(forecast, "save_forecast", save)
+    settings = Settings(model_dir=tmp_path, database_url="postgresql://unused")
+
+    generate_forecast(settings, UUID(int=2), now)
+
+    assert windows == [(end - timedelta(hours=168), end)]
+    by_hour = {hour.hour: (value, raw, ratio) for _, hour, value, raw, ratio in captured["rows"]}
+    assert by_hour[10] == pytest.approx((76.0, 100.0, 0.76))
+    assert by_hour[22] == pytest.approx((40.0, 50.0, 0.8))
+
+
+def test_recalibration_can_be_disabled(monkeypatch, tmp_path):
+    from prediction_service import forecast
+
+    class FlatPredictor:
+        version = "7"
+
+        def __init__(self):
+            self.site_codes = {"SITE001": 0}
+
+        def predict(self, _request):
+            return 100.0
+
+    def unexpected(*_args):
+        raise AssertionError("L'historique ne doit pas être lu.")
+
+    captured = {}
+    monkeypatch.setattr(forecast, "available_predictor", lambda *args: FlatPredictor())
+    monkeypatch.setattr(
+        forecast, "read_site_profiles", lambda *args: [SiteProfile("SITE001", 8, 19, (1,))]
+    )
+    monkeypatch.setattr(forecast, "read_measured_hours", unexpected)
+    monkeypatch.setattr(
+        forecast, "save_forecast", lambda *args: captured.setdefault("rows", args[5])
+    )
+    settings = Settings(
+        model_dir=tmp_path, database_url="postgresql://unused", level_recalibration=False
+    )
+
+    generate_forecast(settings, UUID(int=2), datetime(2026, 10, 27, 6, 5, tzinfo=UTC))
+
+    assert all(row[2:] == (100.0, 100.0, 1.0) for row in captured["rows"])
 
 
 @pytest.fixture

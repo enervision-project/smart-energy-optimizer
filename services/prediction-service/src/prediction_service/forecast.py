@@ -1,12 +1,19 @@
-"""Prévisions horaires avec le champion courant et publication atomique."""
+"""Prévisions horaires avec le champion courant, recalage de niveau et publication atomique."""
 
 import logging
 import math
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from prediction_service.recalibration import NEUTRAL, WINDOW_HOURS, LevelRatios, level_ratios
 from prediction_service.registry import available_predictor
-from prediction_service.repository import read_site_profiles, save_forecast
+from prediction_service.repository import (
+    SiteProfile,
+    read_measured_hours,
+    read_site_profiles,
+    save_forecast,
+)
 from prediction_service.schemas import PredictRequest
 from prediction_service.settings import Settings
 
@@ -16,6 +23,44 @@ logger = logging.getLogger(__name__)
 def next_24_hours(now: datetime) -> list[datetime]:
     start = now.astimezone(UTC).replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     return [start + timedelta(hours=offset) for offset in range(24)]
+
+
+def calendar_request(profile: SiteProfile, instant: datetime) -> PredictRequest:
+    # Calendrier en UTC, comme le CSV d'entraînement et l'API Mock : leurs heures
+    # de travail ne suivent pas l'heure d'été (sinon décalage d'1 h l'hiver, 2 h l'été).
+    utc = instant.astimezone(UTC)
+    return PredictRequest(
+        site_id=profile.site_id,
+        hour=utc.hour,
+        day_of_week=utc.weekday(),
+        month=utc.month,
+        is_working_hours=int(
+            utc.isoweekday() in profile.working_days
+            and profile.working_hour_start <= utc.hour < profile.working_hour_end
+        ),
+    )
+
+
+def site_ratios(
+    settings: Settings, predictor, profiles: list[SiteProfile], now: datetime
+) -> dict[str, LevelRatios]:
+    """Ratio mesuré / prévu par le champion de chaque site, sur les heures closes de la fenêtre."""
+    if not settings.level_recalibration:
+        return {profile.site_id: NEUTRAL for profile in profiles}
+    end = now.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+    measured = defaultdict(list)
+    for site_id, hour, value in read_measured_hours(
+        settings.database_url, end - timedelta(hours=WINDOW_HOURS), end
+    ):
+        measured[site_id].append((hour, value))
+    ratios = {}
+    for profile in profiles:
+        observations = []
+        for hour, value in measured[profile.site_id]:
+            request = calendar_request(profile, hour)
+            observations.append((request.is_working_hours, value, predictor.predict(request)))
+        ratios[profile.site_id] = level_ratios(observations)
+    return ratios
 
 
 def generate_forecast(settings: Settings, job_id: UUID, now: datetime | None = None) -> UUID:
@@ -33,26 +78,29 @@ def generate_forecast(settings: Settings, job_id: UUID, now: datetime | None = N
     )
     if unknown:
         logger.warning("Sites ignorés car inconnus du champion : %s", unknown)
+    ratios = site_ratios(settings, predictor, known, now)
     rows = []
     for profile in known:
-        for instant in hours:
-            # Calendrier en UTC, comme le CSV d'entraînement et l'API Mock : leurs heures
-            # de travail ne suivent pas l'heure d'été (sinon décalage d'1 h l'hiver, 2 h l'été).
-            utc = instant.astimezone(UTC)
-            request = PredictRequest(
-                site_id=profile.site_id,
-                hour=utc.hour,
-                day_of_week=utc.weekday(),
-                month=utc.month,
-                is_working_hours=int(
-                    utc.isoweekday() in profile.working_days
-                    and profile.working_hour_start <= utc.hour < profile.working_hour_end
-                ),
+        ratio = ratios[profile.site_id]
+        logger.info(
+            "Recalage %s : %.3f (heures travaillées %.3f, autres %.3f, %d h mesurées)",
+            profile.site_id,
+            ratio.overall,
+            ratio.working,
+            ratio.off,
+            ratio.hours,
+        )
+        if ratio.clamped:
+            logger.warning(
+                "Ratio de %s ramené dans les bornes : données à vérifier.", profile.site_id
             )
-            value = predictor.predict(request)
-            if not math.isfinite(value) or value < 0:
+        for instant in hours:
+            request = calendar_request(profile, instant)
+            raw = predictor.predict(request)
+            if not math.isfinite(raw) or raw < 0:
                 raise ValueError(f"Prévision invalide pour {profile.site_id} à {instant}")
-            rows.append((profile.site_id, instant, value))
+            applied = ratio.for_hour(request.is_working_hours)
+            rows.append((profile.site_id, instant, raw * applied, raw, applied))
     return save_forecast(
         settings.database_url,
         job_id,

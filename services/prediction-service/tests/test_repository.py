@@ -44,7 +44,7 @@ def test_forecast_batch_is_complete_and_committed_once(monkeypatch):
     connection = Connection()
     monkeypatch.setattr(repository.psycopg, "connect", lambda _url: connection)
     hours = [datetime(2026, 10, 26, 2, tzinfo=UTC) + timedelta(hours=i) for i in range(24)]
-    rows = [("SITE001", hour, 12.0) for hour in hours]
+    rows = [("SITE001", hour, 12.0, 15.0, 0.8) for hour in hours]
     with pytest.raises(ValueError, match="incomplet"):
         repository.save_forecast("db", UUID(int=1), "hourly", "7", hours, rows[:-1], 1)
     assert not connection.statements
@@ -57,6 +57,8 @@ def test_forecast_batch_is_complete_and_committed_once(monkeypatch):
     )
     assert len(connection.rows) == 24
     assert all(row[0] == run_id for row in connection.rows)
+    # valeur publiée, prévision brute du champion et ratio appliqué
+    assert connection.rows[0][3:] == (12.0, 15.0, 0.8)
     assert connection.commits == 1
 
 
