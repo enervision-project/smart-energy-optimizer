@@ -10,6 +10,7 @@ services:
     depends_on: [ loki, prometheus ]
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
       - grafana:/var/lib/grafana
     environment:
       # only used on the first start: later changes go through the Grafana UI or grafana-cli
