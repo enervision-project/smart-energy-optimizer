@@ -23,6 +23,7 @@ def test_training_and_forecast_claim_jobs(monkeypatch):
     monkeypatch.setattr(jobs, "claimed_job", claim)
     monkeypatch.setattr(jobs, "train_challenger", lambda *args: calls.append("trained"))
     monkeypatch.setattr(jobs, "generate_forecast", lambda *args: UUID(int=2))
+    monkeypatch.setattr(jobs, "log_forecast_errors", lambda *args: calls.append("monitored"))
     jobs._training("scheduled", "2026-10-26")
     monkeypatch.setattr(jobs, "latest_hour", lambda *args: None)
     with pytest.raises(ValueError, match="trop ancien"):
@@ -33,7 +34,39 @@ def test_training_and_forecast_claim_jobs(monkeypatch):
         ("training", "2026-10-26", "scheduled"),
         "trained",
         ("forecast", "2026-10-26T12:00Z", "scheduled"),
+        "monitored",
     ]
+
+
+def test_monitoring_runs_only_after_a_publication_and_never_fails_the_forecast(monkeypatch, caplog):
+    settings = Settings(database_url="postgresql://unused")
+    monkeypatch.setattr(jobs, "get_settings", lambda: settings)
+    monkeypatch.setattr(jobs, "latest_hour", lambda *args: datetime.now(UTC))
+    monkeypatch.setattr(jobs, "generate_forecast", lambda *args: UUID(int=2))
+    monitored = []
+
+    def broken_monitoring(*_args):
+        monitored.append(True)
+        raise RuntimeError("base indisponible")
+
+    monkeypatch.setattr(jobs, "log_forecast_errors", broken_monitoring)
+
+    @contextmanager
+    def already_published(*_args):
+        yield None
+
+    monkeypatch.setattr(jobs, "claimed_job", already_published)
+    jobs._forecast("2026-10-26T12:00Z")
+    assert not monitored
+
+    @contextmanager
+    def claim(*_args):
+        yield UUID(int=1)
+
+    monkeypatch.setattr(jobs, "claimed_job", claim)
+    jobs._forecast("2026-10-26T12:00Z")
+    assert monitored == [True]
+    assert "Suivi du modèle impossible" in caplog.text
 
 
 def test_forecast_key_is_the_current_utc_hour():
