@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     training_experiment: str = "consommation-horaire-production"
     training_bootstrap_uri: str = ""
     training_config: Path = Path("/app/configs/hgb_production.yaml")
+    # Réservés au futur cycle SQL ; le cycle actuel utilise les trois Parquet historiques.
     validation_days: int = 14
     min_current_validation_hours: int = 168
     training_timezone: str = "Europe/Paris"
