@@ -2,12 +2,14 @@ SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
 
 # Fuseau du conteneur : Europe/Paris (heure d'été/hiver).
-* * * * * appuser /usr/local/bin/etl-cron-job sync-readings >> /proc/1/fd/1 2>> /proc/1/fd/2
-* * * * * appuser /usr/local/bin/etl-cron-job sync-alerts >> /proc/1/fd/1 2>> /proc/1/fd/2
-0 16 * * * appuser /usr/local/bin/etl-cron-job sync-sites >> /proc/1/fd/1 2>> /proc/1/fd/2
+# Tâches lancées en root : seul root peut écrire dans /proc/1/fd/1 et 2 (logs du conteneur) ;
+# job.sh exécute ensuite la commande ETL sous appuser (setpriv).
+* * * * * root /usr/local/bin/etl-cron-job sync-readings >> /proc/1/fd/1 2>> /proc/1/fd/2
+* * * * * root /usr/local/bin/etl-cron-job sync-alerts >> /proc/1/fd/1 2>> /proc/1/fd/2
+0 16 * * * root /usr/local/bin/etl-cron-job sync-sites >> /proc/1/fd/1 2>> /proc/1/fd/2
 # Après sync-sites : un nouveau site reçoit son profil le jour même.
-1 16 * * * appuser /usr/local/bin/etl-cron-job sync-site-profiles >> /proc/1/fd/1 2>> /proc/1/fd/2
+1 16 * * * root /usr/local/bin/etl-cron-job sync-site-profiles >> /proc/1/fd/1 2>> /proc/1/fd/2
 # Rattrapage via /readings des minutes jamais reçues sur les 6 dernières heures.
-1 * * * * appuser /usr/local/bin/etl-cron-job backfill-readings >> /proc/1/fd/1 2>> /proc/1/fd/2
+1 * * * * root /usr/local/bin/etl-cron-job backfill-readings >> /proc/1/fd/1 2>> /proc/1/fd/2
 # Après le rattrapage : recalcule les 6 dernières heures pour intégrer les minutes comblées.
-2 * * * * appuser /usr/local/bin/etl-cron-job sync-hours >> /proc/1/fd/1 2>> /proc/1/fd/2
+2 * * * * root /usr/local/bin/etl-cron-job sync-hours >> /proc/1/fd/1 2>> /proc/1/fd/2
