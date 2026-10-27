@@ -27,7 +27,7 @@ Ce job analyse les fichiers modifiés et détermine quels composants nécessiten
     * Terraform
     * ETL Worker
 
-* **Filtres d'images (`scripts/ci/changed-services.py`)** : Uniquement sur les PR, un script Python vérifie quels services nécessitent un build d'image Docker en se basant sur la branche de base de la PR.
+* **Filtres d'images (`../../../scripts/ci/changed-services.py`)** : Uniquement sur les PR, un script Python vérifie quels services nécessitent un build d'image Docker en se basant sur la branche de base de la PR.
 
 ### 2. Exécution des sous-workflows
 

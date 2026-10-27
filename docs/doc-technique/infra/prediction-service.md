@@ -25,7 +25,7 @@ Le conteneur `prediction-jobs` doit rester démarré pour exécuter ces tâches.
 
 ## Entraînement quotidien
 
-1. Le job lit les trois fichiers historiques `train.parquet`, `validation.parquet` et `test.parquet` depuis `TRAINING_BOOTSTRAP_URI` : `/bootstrap` en local ou un préfixe S3 en production. Le script `scripts/ml/upload-bootstrap.sh` sert au transfert initial vers S3.
+1. Le job lit les trois fichiers historiques `train.parquet`, `validation.parquet` et `test.parquet` depuis `TRAINING_BOOTSTRAP_URI` : `/bootstrap` en local ou un préfixe S3 en production. Le script `../../../scripts/ml/upload-bootstrap.sh` sert au transfert initial vers S3.
 2. Il conserve les splits d'origine : Train du 2023-01-01 au 2024-07-01 exclu, Validation du 2024-07-01 au 2024-10-01 exclu, Test du 2024-10-01 au 2025-01-01 exclu. Les trois jeux doivent être chronologiques et couvrir les mêmes sites.
 3. Le modèle apprend uniquement sur `train.parquet`. Il est évalué séparément sur `validation.parquet`, puis sur `test.parquet` pour le test final. Aucune donnée SQL récente n'est utilisée pour entraîner ou évaluer les modèles pour l'instant. `validation.parquet` et `test.parquet` ne rejoignent pas le Train.
 4. Il entraîne un seul challenger `HistGradientBoostingRegressor` avec `max_leaf_nodes=31` et les features `site_id`, `hour`, `day_of_week`, `month` et `is_working_hours`. **Ni température ni lags** ne sont utilisés par ce modèle de production.
@@ -106,7 +106,7 @@ Mêmes règles que le recalage : heures mesurées sur au moins 10 minutes, même
 
 ### Résultats
 
-Backtest sur les heures mesurées en production du 21 au 27/10 : à chaque heure, prévision des 24 heures suivantes avec les seules mesures antérieures, ratio calculé par la fonction de production (`recalibration.level_ratios`). Détail, tableaux et graphiques dans le notebook `services/ml-service/notebook/02_recalage_niveau_prod.ipynb`.
+Backtest sur les heures mesurées en production du 21 au 27/10 : à chaque heure, prévision des 24 heures suivantes avec les seules mesures antérieures, ratio calculé par la fonction de production (`recalibration.level_ratios`). Détail, tableaux et graphiques dans le notebook `../../../services/ml-service/notebook/02_recalage_niveau_prod.ipynb`.
 
 | Variante | nMAE macro | Biais |
 | --- | --- | --- |

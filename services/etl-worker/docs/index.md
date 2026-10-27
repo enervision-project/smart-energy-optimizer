@@ -63,9 +63,11 @@ Le cron du conteneur est à l'heure de Paris (`TZ=Europe/Paris`) ; les données 
 - Chaque tâche passe par `etl-cron-job` (`cron/job.sh`) : un verrou `flock` par tâche empêche deux exécutions
   simultanées (la seconde est ignorée), et les lignes « Début », « Fin » ou « Échec … (code n) » sont écrites
   dans les logs du conteneur.
+- Cron lance les tâches en root, seul autorisé à écrire dans les logs du conteneur (`/proc/1/fd/1` et `2`) ;
+  `job.sh` exécute ensuite la commande ETL sous `appuser` (`setpriv`).
 - Au démarrage (`cron/start.sh`), le conteneur remplit `sites` si la table est vide (`init-sites`) et recharge
-  les profils, puis lance cron. Les variables d'environnement utiles sont recopiées dans `/run/etl-worker.env`,
-  que cron ne transmet pas sinon.
+  les profils, puis lance cron. Les variables d'environnement utiles sont recopiées dans
+  `/run/etl-worker/etl-worker.env`, que cron ne transmet pas sinon.
 
 ## Collecte des mesures (`sync-readings`)
 
@@ -198,7 +200,9 @@ l'heure qui précède cette référence.
 
 `GET /api/v1/alerts`, contrôle des huit champs attendus, puis insertion dans `alerts` avec
 `ON CONFLICT (alert_id) DO NOTHING` : une alerte déjà connue n'est jamais modifiée. Le `timestamp` sans fuseau
-est lu en UTC. Leur exploitation est décrite dans la documentation de core-api (module `diagnostic`).
+est lu en UTC. L'API Mock renvoie à chaque appel un **échantillon aléatoire** d'alertes, avec un identifiant
+nouveau à chaque fois : ce ne sont pas des alertes persistantes. Leur exploitation est décrite dans la
+documentation de core-api (module `diagnostic`).
 
 ## Configuration
 

@@ -10,7 +10,7 @@ flowchart TD
     USER("user<br/><i>comptes, connexion, JWT</i>")
     CONF("configuration<br/><i>sites, profils, visibilité</i>")
     DIAG("diagnostic<br/><i>alertes</i>")
-    TELEM("telemetry<br/><i>mesures, parc</i>")
+    TELEM("telemetry<br/><i>mesures, parc, prévisions</i>")
     COMMON("common<br/><i>CurrentUser, Role, @AdminOnly</i>")
 
     APP --> USER & CONF & DIAG & TELEM
@@ -23,7 +23,7 @@ flowchart TD
 | `user` | `POST /api/v1/auth/login`, `/api/v1/users/**` | [Sécurité](securite.md) |
 | `configuration` | `/api/v1/sites/**` | [Sécurité › visibilité des sites](securite.md#visibilite-des-sites) |
 | `diagnostic` | `/api/v1/alerts/**`, `/api/v1/recommendations/{siteId}` | [Alertes](module-diagnostic/alertes.md), [Recommandations](module-diagnostic/recommendations.md) |
-| `telemetry` | `/api/v1/sites/{siteId}/readings/**`, `/api/v1/stats/summary` | [Mesures](mesures.md) |
+| `telemetry` | `/api/v1/sites/{siteId}/readings/**`, `/api/v1/sites/{siteId}/predictions`, `/api/v1/stats/summary` | [Mesures et prévisions](mesures.md) |
 
 La documentation interactive des endpoints (Swagger UI) est disponible en local sur http://localhost:8080/swagger-ui.html ; elle est désactivée en production.
 
