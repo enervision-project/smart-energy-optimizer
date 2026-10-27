@@ -26,6 +26,7 @@ curl -s http://127.0.0.1:8000/predict -H 'Content-Type: application/json' -d '{
 - Les rôles des splits Parquet sont conservés au démarrage : `train.parquet` sert à l'ajustement et `validation.parquet` à l'évaluation. `test.parquet` n'est jamais lu par l'entraînement quotidien et reste réservé à l'évaluation finale hors ligne. Dès que chaque site historique dispose d'au moins 168 heures SQL valides, le job ajuste le modèle sur `train.parquet`, l'ancien `validation.parquet` (le HGB et ses hyperparamètres sont alors fixés), et les heures SQL antérieures à la fenêtre de validation. Les 14 derniers jours SQL deviennent la validation courante. Les comparaisons champion/challenger utilisent toujours les mêmes lignes.
 - Le challenger est comparé au champion sur **les mêmes lignes**. Il est promu si `val_macro_nmae_pct_challenger <= 0,96 × val_macro_nmae_pct_champion`, avec un score défini et positif pour le champion. Le premier candidat valide devient champion s'il n'existe pas encore de version.
 - **Chaque heure à :05**, le job de prévisions utilise le champion disponible, même pendant un entraînement. Il calcule 24 heures successives en UTC à partir du prochain début d'heure et publie le lot complet dans `prediction_runs` et `predictions`. Les 24 heures à venir sont donc toujours couvertes ; pour chaque heure, `core-api` lit la série complète la plus récente.
+- **Recalage de niveau** : avant publication, chaque prévision est multipliée par le ratio mesuré / prévu du site sur les 7 derniers jours (un ratio pour les heures travaillées, un pour les autres), car l'API Mock consomme 0,66 à 0,83 fois les niveaux du CSV d'entraînement. `predictions` garde la valeur publiée (`prediction_kwh`), la prévision brute du champion (`model_prediction_kwh`) et le ratio (`level_ratio`). Principe, garde-fous et résultats : section *Recalage de niveau* de la page « Fonctionnement du Prediction Service » ; code : `recalibration.py`.
 
 L'historique des lots et des versions est conservé. La lecture par `core-api` et Angular fera l'objet d'une phase ultérieure.
 
@@ -46,6 +47,7 @@ En local, `prediction-jobs` lit `.data/ml/splits` monté sous `/bootstrap`. En p
 | `MIN_CURRENT_VALIDATION_HOURS` | `168` | Paramètre réservé à une intégration future des données SQL ; ignoré dans le cycle historique actuel. |
 | `MODEL_DIR` | `/models` | Cache local du champion. |
 | `MODEL_REFRESH_SECONDS` | `60` | Vérification périodique de l'alias dans l'API. |
+| `LEVEL_RECALIBRATION` | `true` | Recalage de niveau des prévisions publiées ; `false` publie la prévision brute du champion (ratio 1 enregistré). |
 
 ## Développement
 

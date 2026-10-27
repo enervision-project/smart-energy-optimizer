@@ -139,6 +139,8 @@ services:
       TRAINING_TIMEZONE: ${TRAINING_TIMEZONE:-Europe/Paris}
       VALIDATION_DAYS: ${VALIDATION_DAYS:-14}
       MIN_CURRENT_VALIDATION_HOURS: ${MIN_CURRENT_VALIDATION_HOURS:-168}
+      # Recalage de niveau des prévisions ; false = prévision brute du champion publiée.
+      LEVEL_RECALIBRATION: ${LEVEL_RECALIBRATION:-true}
     command: [ "python", "-m", "prediction_service.jobs" ]
     restart: unless-stopped
     profiles: [ "ml" ]

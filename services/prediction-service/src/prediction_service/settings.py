@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # Planification de l'entraînement (01:00) ; les features calendaires sont en UTC.
     training_timezone: str = "Europe/Paris"
     model_refresh_seconds: int = 60
+    # Recalage de niveau des prévisions (recalibration.py) ; false = champion brut publié.
+    level_recalibration: bool = True
     log_level: str = "INFO"
     # Swagger / OpenAPI : désactivés en production
     enable_docs: bool = True
