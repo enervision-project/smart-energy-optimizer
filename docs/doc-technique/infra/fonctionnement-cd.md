@@ -146,19 +146,56 @@ sequenceDiagram
 Le serveur ne reçoit **jamais le code source** : seulement les fichiers compose et les images
 déjà construites.
 
+### Les étapes du job `Production`
+
+Après la validation manuelle (environment `production`), le job enchaîne :
+
+| Étape | Ce qu'elle fait |
+|---|---|
+| Datasets ML (DVC) | Seulement si `prediction-service` est déployé : voir [ci-dessous](#datasets-ml-dvc) |
+| Fichiers de la release | Copie `compose.yaml`, `compose.prod.yaml` et `infra/` (sans Terraform) dans `s3://enervision-deploy-<compte>/releases/<sha>/`, avec `dataset-release.json` le cas échéant |
+| Identifiants de l'API énergie | Recopie les secrets GitHub `ENERGY_API_USERNAME` / `ENERGY_API_PASSWORD` dans SSM : GitHub reste leur source de vérité |
+| Déploiement SSM | Lance `deploy.sh` sur l'EC2 `enervision-app` pour les services concernés, puis `infra/monitoring/deploy.sh` sur l'EC2 `enervision-monitoring` si `monitoring` est concerné |
+| Commit déployé | Enregistre le SHA dans `/enervision/prod/deployed-sha`, base de comparaison du prochain déploiement |
+
+### Datasets ML (DVC)
+
+Les Parquet d'entraînement sont versionnés avec DVC (`ml-datasets.dvc`) et stockés sur S3.
+Quand `prediction-service` est déployé, le job :
+
+1. récupère les Parquet (`services/ml-service/run_dvc.py pull`) ;
+2. prépare une **release de dataset** liée au commit (`infra/deploy/dataset_release.py prepare`) :
+   empreintes des trois fichiers et marqueur de complétude ;
+3. la publie sous `ml/datasets/bootstrap/` dans le datalake (`scripts/ml/upload-bootstrap.sh`),
+   puis vérifie la publication (`dataset_release.py verify`) ;
+4. après un déploiement réussi, enregistre son URI dans SSM (`/enervision/prod/env/TRAINING_BOOTSTRAP_URI`).
+
+Ainsi, `prediction-jobs` entraîne toujours sur le dataset correspondant exactement au code
+déployé.
+
 ### Sur l'EC2
 
-`../../../infra/deploy/deploy.sh` s'exécute dans `/opt/enervision` :
+`../../../infra/deploy/deploy.sh` s'exécute dans `/opt/enervision`, un seul à la fois (verrou) :
 
-1. reconstruit `.env` à partir des paramètres SSM `/enervision/prod/env/*` (mot de passe de la
-   base, URL de l'API…) ;
-2. met à jour le tag des **seuls services déployés** dans `deploy.env` (les autres gardent
-   leur version) ;
-3. supprime les images qu'aucun conteneur n'utilise (`docker image prune -af`), avant le pull et
+1. si `prediction-service` est déployé, **vérifie la release de dataset** sur S3 : commit,
+   marqueur de complétude et empreintes des trois Parquet ;
+2. reconstruit `.env` à partir des paramètres SSM `/enervision/prod/env/*` (droits `600`) ;
+3. prépare un `deploy.env` **candidat** avec le tag des seuls services déployés (les autres
+   gardent leur version) et, le cas échéant, l'URI du dataset ;
+4. supprime les images qu'aucun conteneur n'utilise (`docker image prune -af`) avant le pull et
    à la fin : sans ce nettoyage, chaque déploiement laisse une image par service et par commit
    sur `/var/lib/docker`, jusqu'à saturer le volume ;
-4. se connecte à ECR, puis `docker compose pull` et `docker compose up -d` sur ces services :
-   les autres conteneurs ne sont pas redémarrés.
+5. se connecte à ECR et `docker compose pull` les nouvelles images ;
+6. pour un nouveau dataset, **le charge à blanc** avec le code de `prediction-jobs` avant de
+   l'activer ;
+7. active le candidat (`deploy.env`) et `docker compose up -d` sur ces services : les autres
+   conteneurs ne sont pas redémarrés ;
+8. pour MLflow, lance un test de bout en bout (`smoke_test.py`).
+
+!!! warning "Retour arrière automatique des jobs ML"
+    Si une étape échoue après l'activation d'un nouveau dataset, `deploy.sh` restaure
+    l'ancien tag de `prediction-service` et l'ancienne URI, puis redémarre
+    `prediction-service` et `prediction-jobs` sur l'ancienne version.
 
 Un retour arrière vers un ancien commit retélécharge son image depuis ECR (20 dernières images
 gardées par service).
@@ -166,9 +203,17 @@ gardées par service).
 | Fichier sur l'EC2 | Contenu |
 |---|---|
 | `../../../compose.yaml`, `compose.prod.yaml`, `infra/` | copiés depuis S3 à chaque déploiement |
+| `dataset-release.json` | release du dataset ML, quand `prediction-service` est déployé |
 | `.env` | variables de production, reconstruit depuis SSM (droits `600`) |
-| `deploy.env` | registre ECR et tag déployé de chaque service |
+| `deploy.env` | registre ECR, tag déployé de chaque service et URI du dataset |
 | `/var/lib/docker` | volume EBS dédié : images et données TimescaleDB |
+
+### Sur l'EC2 de monitoring
+
+Seuls les fichiers `infra/monitoring/` sont copiés sur `enervision-monitoring`.
+`infra/monitoring/deploy.sh` reconstruit son `.env` depuis `/enervision/prod/monitoring/*`, puis
+recrée Prometheus, Loki, Grafana et Caddy pour qu'ils relisent leur configuration (voir
+[Monitoring](monitoring.md)).
 
 ## Sécurité : l'accès de GitHub à AWS (OIDC)
 
@@ -229,11 +274,15 @@ Même avec ce rôle, GitHub ne peut faire que le strict nécessaire :
 |---|---|
 | Pousser des images | les dépôts ECR `enervision/*` |
 | Déposer des fichiers | `s3://enervision-deploy-<compte>/releases/*` |
-| Envoyer une commande | l'instance `enervision-app`, document `AWS-RunShellScript` |
-| Lire et écrire un paramètre | `/enervision/prod/deployed-sha` |
+| Lire les datasets DVC, publier une release de dataset | `ml/datasets/dvc/*` (lecture) et `ml/datasets/bootstrap/*` (lecture, écriture) du datalake |
+| Envoyer une commande | les instances `enervision-app` et `enervision-monitoring`, document `AWS-RunShellScript` |
+| Lire et écrire un paramètre | `/enervision/prod/deployed-sha` et `/enervision/prod/env/TRAINING_BOOTSTRAP_URI` |
+| Écrire un paramètre | `/enervision/prod/env/ENERGY_API_USERNAME` et `ENERGY_API_PASSWORD` |
 
 GitHub **ne peut pas** lire les secrets de la base, créer ou supprimer des ressources, ni
-accéder au reste du compte.
+accéder au reste du compte. Les sauvegardes utilisent un rôle distinct
+(`enervision-github-backup`, voir [Sauvegardes](../transverse/infra/sauvegardes.md)), et le plan
+Terraform des PR un rôle en lecture seule (`enervision-github-plan`).
 
 ### Les autres protections
 
@@ -288,6 +337,8 @@ style AWS fill:#d0d4da,stroke:#333
 | `not authorized to perform: ssm:GetParametersByPath` | chemin lu différent de celui autorisé (`/env` et `/env/` sont deux ressources IAM différentes) | `deploy.sh` lit `/enervision/prod/env`, sans `/` final |
 | `instance enervision-app introuvable` | instance arrêtée ou renommée | `aws ec2 describe-instances --filters Name=tag:Name,Values=enervision-app` |
 | `failed to register layer: … no space left on device` | `/var/lib/docker` plein (anciennes images) | sur l'EC2 : `df -h /var/lib/docker`, `sudo docker image prune -af`, puis `gh run rerun <id> --failed` |
+| `Échec : restauration de la configuration précédente des jobs ML` | le nouveau dataset ou la nouvelle image de `prediction-service` n'a pas pu être activé | lire la sortie de la commande SSM dans le job `Production` ; l'ancienne version des jobs ML tourne toujours |
+| Le déploiement attend indéfiniment | validation manuelle de l'environment `production` | *Review deployments → Approve and deploy* dans le run du workflow `Deploy` |
 
 Commandes utiles :
 
