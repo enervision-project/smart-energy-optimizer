@@ -1,0 +1,109 @@
+name: Stack CI
+
+# Called by ci.yml: staging éphémère. Démarre la stack docker compose (db, migrate, core-api, web,
+# scheduler) sur le runner et la vérifie avec scripts/ci/stack-smoke.sh : migrations sur une base
+# vierge, collecte réelle de l'ETL sur l'API Mock, API authentifiée, front.
+# Le profil ml (MLflow, prediction-jobs) n'est pas démarré : il faut les Parquet historiques.
+
+on:
+  workflow_call:
+    secrets:
+      ENERGY_API_USERNAME:
+        required: true
+      ENERGY_API_PASSWORD:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  stack:
+    name: Démarrage et vérification de la stack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      # Mêmes contextes, Dockerfile et cache que _ci-images.yml et services.yml ;
+      # tags attendus par compose.yaml (--no-build au démarrage).
+      - name: Image core-api
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          file: services/core-api/Dockerfile
+          load: true
+          tags: enervision-core-api:latest
+          cache-from: type=gha,scope=core-api
+
+      - name: Image web
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: app/web
+          file: app/web/Dockerfile
+          load: true
+          tags: enervision-web:latest
+          cache-from: type=gha,scope=web
+
+      - name: Image etl-worker
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          file: services/etl-worker/Dockerfile
+          load: true
+          tags: enervision-etl-worker:local
+          cache-from: type=gha,scope=etl-worker
+
+      - name: Configuration de test (.env)
+        env:
+          ENERGY_API_BASE_URL: ${{ vars.ENERGY_API_BASE_URL }}
+          ENERGY_API_USERNAME: ${{ secrets.ENERGY_API_USERNAME }}
+          ENERGY_API_PASSWORD: ${{ secrets.ENERGY_API_PASSWORD }}
+        run: |
+          # Secrets jetables, propres à ce run ; .env n'est jamais publié.
+          db_password=$(openssl rand -hex 16)
+          {
+            echo "POSTGRES_USER=enervision"
+            echo "POSTGRES_PASSWORD=$db_password"
+            echo "POSTGRES_DB=enervision"
+            echo "DATABASE_URL=postgresql://enervision:$db_password@db:5432/enervision"
+            echo "JWT_SECRET=$(openssl rand -base64 32)"
+            echo "ADMIN_EMAIL=admin@enervision.ci"
+            echo "ADMIN_PASSWORD=$(openssl rand -hex 16)"
+            echo "ENERGY_API_BASE_URL=$ENERGY_API_BASE_URL"
+            echo "ENERGY_API_USERNAME=$ENERGY_API_USERNAME"
+            echo "ENERGY_API_PASSWORD=$ENERGY_API_PASSWORD"
+            echo "LOG_LEVEL=INFO"
+          } >.env
+          chmod 600 .env
+
+      - name: Démarrage de la stack
+        run: docker compose --env-file .env up -d --no-build db migrate core-api web scheduler
+
+      - name: Vérifications
+        run: bash scripts/ci/stack-smoke.sh
+
+      - name: Logs de la stack
+        if: ${{ always() }}
+        run: |
+          mkdir -p stack-logs
+          docker compose --env-file .env ps -a >stack-logs/ps.txt || true
+          for service in db migrate core-api web scheduler; do
+            docker compose --env-file .env logs --no-color "$service" >"stack-logs/$service.log" 2>&1 || true
+          done
+
+      - name: Publication des logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: stack-logs
+          path: stack-logs/
+          retention-days: 7
+
+      - name: Arrêt de la stack
+        if: ${{ always() }}
+        run: docker compose --env-file .env down -v

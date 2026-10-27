@@ -28,6 +28,7 @@ jobs:
       images: ${{ steps.images.outputs.builds || '[]' }}
       etl-worker: ${{ steps.filter.outputs.etl-worker }}
       prediction-service: ${{ steps.filter.outputs.prediction-service }}
+      stack: ${{ steps.filter.outputs.stack }}
       infra: ${{ steps.filter.outputs.infra }}
     steps:
       - name: Checkout repository
@@ -62,6 +63,15 @@ jobs:
               - 'services/ml-service/training/**'
               - 'services/ml-service/configs/hgb_production.yaml'
               - '.github/workflows/_ci-python.yml'
+            # staging éphémère : tout ce que la stack démarrée en CI embarque
+            stack:
+              - 'app/**'
+              - 'services/core-api/**'
+              - 'services/etl-worker/**'
+              - 'infra/db/changelog/**'
+              - 'compose.yaml'
+              - 'scripts/ci/stack-smoke.sh'
+              - '.github/workflows/_ci-stack.yml'
             infra:
                   - 'scripts/ml/**'
                   - 'ml-datasets.dvc'
@@ -146,6 +156,16 @@ jobs:
       SONAR_TOKEN_INFRA_ROOT: ${{ secrets.SONAR_TOKEN_INFRA_ROOT }}
 
 
+  # staging éphémère : la stack compose démarrée et vérifiée sur le runner (collecte réelle de l'ETL)
+  call-stack:
+    name: Stack
+    needs: changes
+    if: ${{ needs.changes.outputs.stack == 'true' || github.event_name == 'workflow_dispatch' }}
+    uses: ./.github/workflows/_ci-stack.yml
+    secrets:
+      ENERGY_API_USERNAME: ${{ secrets.ENERGY_API_USERNAME }}
+      ENERGY_API_PASSWORD: ${{ secrets.ENERGY_API_PASSWORD }}
+
   # pull requests only: on main, services.yml builds, publishes and deploys the images
   call-images:
     name: Docker images
@@ -161,7 +181,7 @@ jobs:
   # Single check to require in the main ruleset: the call-* jobs only
   # exist when their paths changed.
   mr-ok:
-    needs: [changes, call-frontend, call-core-api, call-terraform, call-images, call-etl-worker, call-prediction-service, call-infra]
+    needs: [changes, call-frontend, call-core-api, call-terraform, call-images, call-etl-worker, call-prediction-service, call-stack, call-infra]
     # Uniquement sur les Pull Requests
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
