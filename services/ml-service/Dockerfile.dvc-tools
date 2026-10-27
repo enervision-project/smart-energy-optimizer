@@ -1,3 +1,32 @@
+FROM docker.io/library/python:3.12-slim AS wheels
+
+COPY requirements-dvc-build.lock requirements-dvc.lock /tmp/
+RUN pip install --no-cache-dir --only-binary=:all: --require-hashes \
+      -r /tmp/requirements-dvc-build.lock \
+    && pip wheel --no-cache-dir --no-build-isolation --require-hashes \
+      --wheel-dir /wheels -r /tmp/requirements-dvc.lock
+
+# Certaines dépendances DVC n'ont pas de wheel publié (ANTLR 4.9.3).
+# Leur source et les outils de build sont verrouillés par empreinte ci-dessus.
+# Le runtime installe uniquement les wheels produits, avec leurs propres empreintes.
+RUN python - <<'PY'
+from email.parser import BytesParser
+from hashlib import sha256
+from pathlib import Path
+from zipfile import ZipFile
+
+requirements = []
+for wheel in sorted(Path("/wheels").glob("*.whl")):
+    with ZipFile(wheel) as archive:
+        names = [name for name in archive.namelist() if len(name.split("/")) == 2 and name.endswith(".dist-info/METADATA")]
+        if len(names) != 1:
+            raise ValueError("Invalid wheel metadata")
+        metadata = BytesParser().parsebytes(archive.read(names[0]))
+    digest = sha256(wheel.read_bytes()).hexdigest()
+    requirements.append(f"{metadata['Name']}=={metadata['Version']} --hash=sha256:{digest}")
+Path("/wheels/requirements.lock").write_text("\n".join(requirements) + "\n")
+PY
+
 FROM docker.io/library/python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 DVC_NO_ANALYTICS=1
@@ -6,8 +35,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements-dvc.txt /tmp/requirements-dvc.txt
-RUN pip install --no-cache-dir -r /tmp/requirements-dvc.txt
+COPY --from=wheels /wheels /wheels
+RUN pip install --no-cache-dir --no-index --only-binary=:all: --require-hashes \
+      --find-links=/wheels -r /wheels/requirements.lock \
+    && pip check \
+    && rm -rf /wheels
 
 ARG DVC_UID=10001
 ARG DVC_GID=10001

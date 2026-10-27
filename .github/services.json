@@ -32,7 +32,7 @@
         ".dvc/config",
         "services/ml-service/run_dvc.py",
         "services/ml-service/Dockerfile.dvc-tools",
-        "services/ml-service/requirements-dvc.txt",
+        "services/ml-service/requirements-dvc",
         "scripts/ml/"
       ],
       "build": { "context": ".", "dockerfile": "services/prediction-service/Dockerfile" }

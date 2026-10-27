@@ -52,6 +52,8 @@ def check_inputs(root: Path, command: str) -> None:
     required = [
         "services/ml-service/Dockerfile.dvc-tools",
         "services/ml-service/requirements-dvc.txt",
+        "services/ml-service/requirements-dvc.lock",
+        "services/ml-service/requirements-dvc-build.lock",
         ".dvc/config",
     ]
     if command != "version":
