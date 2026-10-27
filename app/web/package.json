@@ -8,6 +8,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "e2e": "playwright test",
     "lint": "ng lint",
     "format": "ng lint --fix"
   },
@@ -32,6 +33,7 @@
     "@angular/cli": "^22.2.3",
     "@angular/compiler-cli": "^22.2.0",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "angular-eslint": "22.6.0",
     "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
