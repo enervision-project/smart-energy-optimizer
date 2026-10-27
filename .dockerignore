@@ -1,4 +1,5 @@
 .git
+.dvc
 .data
 **/.venv
 **/node_modules

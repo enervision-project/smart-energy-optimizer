@@ -1,0 +1,6 @@
+outs:
+- md5: 40184a5a99e04ac76640f8556867aabc.dir
+  size: 2261608
+  nfiles: 3
+  hash: md5
+  path: .data/ml/splits
