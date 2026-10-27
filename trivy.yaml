@@ -1,0 +1,7 @@
+# trivy.yaml
+severity:
+  - HIGH
+  - CRITICAL
+
+vulnerability:
+  ignore-unfixed: true

@@ -19,6 +19,9 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -37,7 +40,25 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: false
+          load: true
           tags: enervision/${{ matrix.name }}:ci
           # same cache scope as services.yml: the main builds warm up the PR builds
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Scan vulnérabilités Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: enervision/${{ matrix.name }}:ci
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.name }}.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Remontée des alertes vers GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.name }}.sarif'
+          category: 'docker-${{ matrix.name }}'
