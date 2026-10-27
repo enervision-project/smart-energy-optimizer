@@ -27,7 +27,13 @@
       "paths": [
         "services/prediction-service/",
         "services/ml-service/training/",
-        "services/ml-service/configs/hgb_production.yaml"
+        "services/ml-service/configs/hgb_production.yaml",
+        "ml-datasets.dvc",
+        ".dvc/config",
+        "services/ml-service/run_dvc.py",
+        "services/ml-service/Dockerfile.dvc-tools",
+        "services/ml-service/requirements-dvc.txt",
+        "scripts/ml/"
       ],
       "build": { "context": ".", "dockerfile": "services/prediction-service/Dockerfile" }
     },
