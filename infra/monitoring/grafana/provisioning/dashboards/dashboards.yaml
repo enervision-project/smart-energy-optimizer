@@ -1,0 +1,12 @@
+# Dashboards loaded from JSON files at Grafana startup (infra/monitoring/grafana/dashboards).
+# Edits made in the UI are not saved to git: export the JSON and commit it.
+apiVersion: 1
+
+providers:
+  - name: enervision
+    folder: EnerVision
+    type: file
+    disableDeletion: true
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards
