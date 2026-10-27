@@ -4,7 +4,7 @@ set -eu
 export TZ=Europe/Paris
 # Cron ne transmet pas automatiquement l'environnement Docker aux tâches.
 # Le fichier privé est sourcé par job.sh ; shlex.quote protège les caractères spéciaux.
-umask 077
+umask 027
 python - <<'PY'
 import os
 import shlex
@@ -14,11 +14,13 @@ keys = (
     "DATABASE_URL", "ENERGY_API_BASE_URL", "ENERGY_API_USERNAME", "ENERGY_API_PASSWORD",
     "BRONZE_BUCKET", "AWS_DEFAULT_REGION", "LOG_LEVEL", "PYTHONUNBUFFERED", "TZ",
 )
-Path("/run/etl-worker.env").write_text(
+Path("/run/etl-worker/etl-worker.env").write_text(
     "".join(f"export {key}={shlex.quote(os.environ[key])}\n" for key in keys if key in os.environ),
     encoding="utf-8",
 )
 PY
+chown appuser:appuser /run/etl-worker/etl-worker.env
+chmod 0640 /run/etl-worker/etl-worker.env
 
 # Remplir la table au premier démarrage ; une table déjà remplie attendra 16 h.
 etl-worker init-sites
