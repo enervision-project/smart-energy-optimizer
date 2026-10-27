@@ -165,6 +165,34 @@ data "aws_iam_policy_document" "github_deploy" {
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.deploy.arn}/releases/*"]
   }
+  # Données choisies par DVC : lecture du cache et publication des snapshots uniquement.
+  statement {
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.datalake.arn]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values = [
+        "${local.ml_datasets_prefix}/dvc", "${local.ml_datasets_prefix}/dvc/*",
+        "${local.ml_datasets_prefix}/bootstrap", "${local.ml_datasets_prefix}/bootstrap/*",
+      ]
+    }
+  }
+  statement {
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.datalake.arn}/${local.ml_datasets_prefix}/dvc/*",
+      "${aws_s3_bucket.datalake.arn}/${local.ml_datasets_prefix}/bootstrap/*",
+    ]
+  }
+  statement {
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.datalake.arn}/${local.ml_datasets_prefix}/bootstrap/*"]
+  }
+  statement {
+    actions   = ["ssm:GetParameter", "ssm:PutParameter"]
+    resources = ["arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name}/prod/env/TRAINING_BOOTSTRAP_URI"]
+  }
   statement {
     actions   = ["ssm:SendCommand"]
     resources = [aws_instance.app.arn, aws_instance.monitoring.arn, "arn:aws:ssm:${var.region}::document/AWS-RunShellScript"]
