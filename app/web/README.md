@@ -30,13 +30,36 @@ Le compte `ADMIN_EMAIL` / `ADMIN_PASSWORD` est créé au démarrage de l'API si 
 
 ```bash
 npm test          # tests unitaires (Vitest)
+npm run e2e       # tests end-to-end (Playwright, voir plus bas)
 npm run lint      # ESLint
 npm run format    # ESLint avec correction automatique
 npx prettier --check src
 npm run build     # build de production dans dist/web
 ```
 
-La CI (`.github/workflows/ci.yml`) lance lint, tests, build et l'analyse SonarCloud à chaque PR qui modifie `app/web/`.
+La CI (`.github/workflows/ci.yml`) lance lint, tests, build et l'analyse SonarCloud à chaque PR qui modifie `app/web/`, et en parallèle les tests end-to-end.
+
+### Tests end-to-end (Playwright)
+
+`e2e/` contient deux projets, chacun avec son `ng serve` lancé par Playwright (`playwright.config.ts`) :
+
+- `mock` (port 4200, configuration `development`) : contenu et navigation des pages sur les données de `MockEnergyApi` ;
+- `api` (port 4201, configuration `production`) : connexion JWT, jeton envoyé à l'API, erreurs et états vides. Les réponses de core-api sont simulées dans le navigateur (`e2e/api/core-api.ts`), aucun back-end n'est nécessaire.
+
+```bash
+npx playwright install chromium   # une fois
+npm run e2e
+npx playwright show-report        # rapport HTML, traces des échecs
+```
+
+Sous WSL sans les bibliothèques système de Chromium, lancer les tests dans l'image officielle :
+
+```bash
+docker run --rm --ipc=host -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/work -w /work \
+  mcr.microsoft.com/playwright:v1.64.1-noble npm run e2e
+```
+
+En CI, le rapport et les traces sont publiés en artefact `playwright-report` uniquement en cas d'échec.
 
 ## Organisation du code
 
