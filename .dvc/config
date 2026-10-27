@@ -1,0 +1,8 @@
+[core]
+    remote = datasets
+    analytics = false
+[cache]
+    type = copy
+['remote "datasets"']
+    url = s3://enervision-datalake-474340841736/ml/datasets/dvc
+    region = eu-west-3
