@@ -51,6 +51,8 @@ jobs:
             # services.json also drives the ECR repositories created by Terraform
             terraform:
               - 'infra/terraform/**'
+              - 'infra/backup/dump_db.py'
+              - 'infra/backup/dump_host.py'
               - '.github/services.json'
             etl-worker:
               - 'services/etl-worker/**'

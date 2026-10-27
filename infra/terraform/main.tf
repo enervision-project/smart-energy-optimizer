@@ -164,6 +164,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "deploy" {
   bucket = aws_s3_bucket.deploy.id
 
   rule {
+    id     = "backup-access-logs"
+    status = "Enabled"
+    filter {
+      prefix = "access-logs/backup/"
+    }
+    expiration {
+      days = 7
+    }
+  }
+
+  rule {
     id     = "releases"
     status = "Enabled"
     filter {
