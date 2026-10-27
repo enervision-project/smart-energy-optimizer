@@ -37,13 +37,13 @@ En local, `prediction-jobs` lit `.data/ml/splits` monté sous `/bootstrap`. En p
 
 | Variable | Valeur habituelle | Usage |
 | --- | --- | --- |
-| `DATABASE_URL` | URL PostgreSQL de l'application | Lecture `readings_hours`/`site_profiles`, jobs et prévisions ; utilisée par `prediction-jobs`. |
+| `DATABASE_URL` | URL PostgreSQL de l'application | États des jobs, profils et prévisions ; les données SQL sont exclues de l'entraînement actuel. |
 | `MLFLOW_TRACKING_URI` | `http://mlflow:5000` | Tracking et Model Registry interne. |
 | `REGISTERED_MODEL_NAME` | `enervision-hourly-consumption` | Nom stable dans le Registry. |
 | `TRAINING_BOOTSTRAP_URI` | `/bootstrap` local, S3 en production | Source des Parquet historiques. |
 | `TRAINING_TIMEZONE` | `Europe/Paris` | Heure des jobs et features calendaires. |
-| `VALIDATION_DAYS` | `14` | Fenêtre des heures SQL les plus récentes utilisée pour comparer les modèles. |
-| `MIN_CURRENT_VALIDATION_HOURS` | `168` | Heures SQL minimales par site avant de les intégrer au snapshot d'entraînement. |
+| `VALIDATION_DAYS` | `14` | Paramètre réservé à une intégration future des données SQL ; ignoré dans le cycle historique actuel. |
+| `MIN_CURRENT_VALIDATION_HOURS` | `168` | Paramètre réservé à une intégration future des données SQL ; ignoré dans le cycle historique actuel. |
 | `MODEL_DIR` | `/models` | Cache local du champion. |
 | `MODEL_REFRESH_SECONDS` | `60` | Vérification périodique de l'alias dans l'API. |
 

@@ -6,7 +6,7 @@ import pandas as pd
 from mlflow import MlflowClient
 
 from prediction_service import training
-from prediction_service.datasets import FEATURES, current_ready, load_bootstrap, make_splits
+from prediction_service.datasets import FEATURES, load_bootstrap
 from prediction_service.settings import Settings
 
 
@@ -31,27 +31,18 @@ def test_bootstrap_and_training_register_a_champion(tmp_path, monkeypatch):
     bootstrap = tmp_path / "bootstrap"
     bootstrap.mkdir()
     frame = pd.DataFrame(rows)
-    frame.iloc[: 18 * 48].to_parquet(bootstrap / "train.parquet")
-    frame.iloc[18 * 48 :].to_parquet(bootstrap / "validation.parquet")
-    bootstrap_train, bootstrap_validation, manifest = load_bootstrap(str(bootstrap))
-    historical = pd.concat([bootstrap_train, bootstrap_validation], ignore_index=True)
-    assert len(historical) == 960
-    assert manifest["train"]["rows"] == 864
-    assert not current_ready(historical.iloc[0:0], historical, 168)
-    assert current_ready(historical, historical, 168)
-    train, validation = make_splits(bootstrap_train, bootstrap_validation, historical.iloc[0:0], 1)
-    assert len(train) == len(bootstrap_train)
-    assert len(validation) == len(bootstrap_validation)
+    frame.iloc[: 16 * 48].to_parquet(bootstrap / "train.parquet")
+    frame.iloc[16 * 48 : 18 * 48].to_parquet(bootstrap / "validation.parquet")
+    test_frame = frame.iloc[18 * 48 :].copy()
+    test_frame["consumption_kwh"] += 60
+    test_frame.to_parquet(bootstrap / "test.parquet")
+    train, validation, test, manifest = load_bootstrap(str(bootstrap))
+    assert manifest["train"]["rows"] == len(train) == 768
+    assert len(validation) == len(test) == 96
     assert set(train.site_id) == set(validation.site_id)
-
-    current = frame.iloc[-48:].copy()
-    current["timestamp"] += pd.Timedelta(days=30)
-    train_live, validation_live = make_splits(bootstrap_train, bootstrap_validation, current, 1)
-    assert set(bootstrap_validation.timestamp).issubset(set(train_live.timestamp))
-    assert validation_live.timestamp.min() == current.timestamp.max() - pd.Timedelta(
-        days=1
-    ) + pd.Timedelta(hours=1)
-    assert not set(validation_live.timestamp).intersection(set(train_live.timestamp))
+    assert train.timestamp.max() < validation.timestamp.min()
+    assert validation.timestamp.max() < test.timestamp.min()
+    assert set(manifest) == {"train", "validation", "test"}
 
     config = tmp_path / "hgb.yaml"
     config.write_text(
@@ -71,8 +62,12 @@ def test_bootstrap_and_training_register_a_champion(tmp_path, monkeypatch):
     MlflowClient().create_experiment(
         "coverage-training", artifact_location=str(tmp_path / "artifacts")
     )
-    monkeypatch.setattr(training, "read_recent_hours", lambda *args: historical.iloc[0:0])
-    monkeypatch.setattr(training, "read_site_profiles", lambda *args: [])
+    from prediction_service import repository
+
+    def reject_sql(*_args, **_kwargs):
+        raise AssertionError("L'entraînement historique ne doit pas lire PostgreSQL.")
+
+    monkeypatch.setattr(repository.psycopg, "connect", reject_sql)
     settings = Settings(
         model_dir=tmp_path / "models",
         database_url="postgresql://unused",
@@ -86,8 +81,18 @@ def test_bootstrap_and_training_register_a_champion(tmp_path, monkeypatch):
     first = training.train_challenger(settings, UUID(int=1), "catchup")
     assert first["promoted"] is True
     assert first["version"] == "1"
+    assert first["train_rows"] == len(train)
+    assert first["validation_rows"] == len(validation)
+    assert first["test_rows"] == len(test)
+    run = MlflowClient().get_run(first["run_id"])
+    assert run.data.tags["promotion_metric"] == "test_macro_nmae_pct"
+    assert first["challenger_score"] == run.data.metrics["test_macro_nmae_pct"]
+    assert run.data.metrics["test_macro_nmae_pct"] != run.data.metrics["val_macro_nmae_pct"]
     assert training.last_successful_training(tracking_uri, "coverage-training") is not None
     second = training.train_challenger(settings, UUID(int=2), "scheduled")
     assert second["promoted"] is False
     assert second["champion_score"] is not None
     assert second["version"] == "2"
+    second_run = MlflowClient().get_run(second["run_id"])
+    assert second["champion_score"] == second_run.data.metrics["champion_test_macro_nmae_pct"]
+    assert second["champion_score"] == first["challenger_score"]
