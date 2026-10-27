@@ -14,11 +14,12 @@ if ! flock -n 9; then
     exit 0
 fi
 
+# Verrou et messages en root ; la commande ETL tourne sous appuser.
 run_job() {
     if [ "$1" = sync-alerts ]; then
-        etl-sync-alerts
+        setpriv --reuid=appuser --regid=appuser --init-groups etl-sync-alerts
     else
-        etl-worker "$1"
+        setpriv --reuid=appuser --regid=appuser --init-groups etl-worker "$1"
     fi
 }
 
