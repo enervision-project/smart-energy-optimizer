@@ -16,7 +16,6 @@ __pycache__/
 .mypy_cache/
 .coverage
 coverage.xml
-coverage-backup.xml
 htmlcov/
 build/
 dist/

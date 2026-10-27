@@ -39,7 +39,8 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python checks
-        run: python3 -m pip install -r infra/backup/requirements-dev.txt
+        run: |
+          python3 -m pip install --only-binary :all: --require-hashes -r infra/backup/requirements-dev.txt
 
       - name: Lint Python
         run: |
@@ -50,7 +51,6 @@ jobs:
         run: |
           coverage run --rcfile=infra/backup/.coveragerc -m unittest discover -s infra/backup -p 'test_*.py' -v
           coverage report --rcfile=infra/backup/.coveragerc
-          coverage xml --rcfile=infra/backup/.coveragerc
 
       - name: Cache des paquets SonarQube
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6

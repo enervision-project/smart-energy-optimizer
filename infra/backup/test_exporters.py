@@ -158,3 +158,44 @@ class ExporterTest(unittest.TestCase):
             ):
                 restore.restore_databases(directory)
             self.assertEqual(command.call_args.args[0][:3], ["docker", "rm", "-fv"])
+
+    def test_restore_allows_only_reviewed_images(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            metadata = directory / "databases.json"
+            for image in [
+                "timescale/timescaledb:latest",
+                "timescale/timescaledb:2.17.2-pg16 --privileged",
+                "timescale/timescaledb:2.17.2-pg16\n--mount=/host",
+                "--privileged",
+                "attacker.example/timescale/timescaledb:2.17.2-pg16",
+            ]:
+                metadata.write_text(json.dumps({"image": image}))
+                with (
+                    self.subTest(image=image),
+                    patch("restore.subprocess.run") as command,
+                    self.assertRaisesRegex(ValueError, "TimescaleDB image"),
+                ):
+                    restore.restore_databases(directory)
+                command.assert_not_called()
+            for version in ("2.17.2-pg16", "2.30.2-pg16"):
+                for registry in ("", "docker.io/"):
+                    metadata.write_text(
+                        json.dumps(
+                            {"image": registry + "timescale/timescaledb:" + version}
+                        )
+                    )
+                    with (
+                        self.subTest(version=version, registry=registry),
+                        patch(
+                            "restore.subprocess.run",
+                            return_value=subprocess.CompletedProcess([], 1),
+                        ) as command,
+                        patch("restore.time.sleep"),
+                        self.assertRaisesRegex(RuntimeError, "did not become ready"),
+                    ):
+                        restore.restore_databases(directory)
+                    self.assertEqual(
+                        command.call_args_list[0].args[0][-1],
+                        "docker.io/timescale/timescaledb:" + version,
+                    )

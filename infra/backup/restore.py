@@ -29,10 +29,19 @@ def check_file(path, expected):
 
 def restore_databases(directory):
     metadata = json.loads((directory / "databases.json").read_text())
-    image = metadata["image"]
-    if not image.startswith(
-        ("timescale/timescaledb:", "docker.io/timescale/timescaledb:")
+    requested_image = metadata["image"]
+    # Only reviewed project versions are allowed; no file-controlled command argument.
+    if requested_image in (
+        "timescale/timescaledb:2.17.2-pg16",
+        "docker.io/timescale/timescaledb:2.17.2-pg16",
     ):
+        image = "docker.io/timescale/timescaledb:2.17.2-pg16"
+    elif requested_image in (
+        "timescale/timescaledb:2.30.2-pg16",
+        "docker.io/timescale/timescaledb:2.30.2-pg16",
+    ):
+        image = "docker.io/timescale/timescaledb:2.30.2-pg16"
+    else:
         raise ValueError("Expected the project TimescaleDB image")
     name = f"enervision-restore-{uuid.uuid4().hex[:12]}"
 

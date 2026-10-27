@@ -9,6 +9,58 @@ resource "aws_s3_bucket" "backup" {
   }
 }
 
+# S3 access-log targets cannot have Object Lock/default retention. Use the existing
+# private SSE-S3 deployment bucket, under a prefix isolated from release permissions.
+# Do not log the destination back into itself (AWS warns against recursive logging).
+resource "aws_s3_bucket_logging" "backup" {
+  bucket        = aws_s3_bucket.backup.id
+  target_bucket = aws_s3_bucket.deploy.id
+  target_prefix = "access-logs/backup/"
+  depends_on    = [aws_s3_bucket_policy.deploy_access_logs]
+}
+
+data "aws_iam_policy_document" "deploy_access_logs" {
+  statement {
+    sid       = "AllowBackupAccessLogs"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.deploy.arn}/access-logs/backup/*"]
+    principals {
+      type        = "Service"
+      identifiers = ["logging.s3.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_s3_bucket.backup.arn]
+    }
+  }
+  statement {
+    sid       = "RequireTLS"
+    effect    = "Deny"
+    actions   = ["s3:*"]
+    resources = [aws_s3_bucket.deploy.arn, "${aws_s3_bucket.deploy.arn}/*"]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "deploy_access_logs" {
+  bucket = aws_s3_bucket.deploy.id
+  policy = data.aws_iam_policy_document.deploy_access_logs.json
+}
+
 resource "aws_s3_bucket_public_access_block" "backup" {
   bucket                  = aws_s3_bucket.backup.id
   block_public_acls       = true

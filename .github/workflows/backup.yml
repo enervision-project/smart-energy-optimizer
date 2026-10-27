@@ -29,8 +29,14 @@ jobs:
           role-duration-seconds: 5400
           aws-region: eu-west-3
 
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+
       - name: Install backup dependencies
-        run: python3 -m pip install -r infra/backup/requirements.txt
+        run: |
+          python3 -m pip install --only-binary :all: --require-hashes -r infra/backup/requirements.txt
 
       - name: Backup and restore integrity check
         run: python3 infra/backup/backup.py create

@@ -9,6 +9,3 @@ fail_under = 85
 show_missing = True
 exclude_also =
     if __name__ == .__main__.:
-
-[xml]
-output = coverage-backup.xml
