@@ -1,13 +1,12 @@
 """Prepare uniquement la base MLflow puis applique ses migrations."""
 
-from contextlib import closing
 import os
 import subprocess
 import sys
+from contextlib import closing
 
 import psycopg2
 from psycopg2 import sql
-
 from settings import backend_uri, database_settings
 
 
@@ -22,14 +21,16 @@ def main() -> int:
         raise ValueError("MLflow doit utiliser son propre utilisateur PostgreSQL.")
 
     # CREATE DATABASE se fait hors transaction ; une relance reutilise l'existant.
-    with closing(psycopg2.connect(
-        host=settings["host"],
-        port=settings["port"],
-        dbname="postgres",
-        user=admin_user,
-        password=os.environ["POSTGRES_PASSWORD"],
-        connect_timeout=10,
-    )) as connection:
+    with closing(
+        psycopg2.connect(
+            host=settings["host"],
+            port=settings["port"],
+            dbname="postgres",
+            user=admin_user,
+            password=os.environ["POSTGRES_PASSWORD"],
+            connect_timeout=10,
+        )
+    ) as connection:
         connection.autocommit = True
         with connection.cursor() as cursor:
             cursor.execute(
@@ -40,25 +41,38 @@ def main() -> int:
             if owner and owner[0] != settings["user"]:
                 raise ValueError("La base MLflow existe avec un autre proprietaire.")
 
-            cursor.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (settings["user"],))
+            cursor.execute(
+                "SELECT 1 FROM pg_roles WHERE rolname = %s", (settings["user"],)
+            )
             if cursor.fetchone() is None:
                 cursor.execute(
-                    sql.SQL("CREATE ROLE {} LOGIN PASSWORD %s").format(
-                        sql.Identifier(settings["user"])
-                    ),
+                    sql.SQL(
+                        "CREATE ROLE {} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
+                        "NOREPLICATION NOBYPASSRLS PASSWORD %s"
+                    ).format(sql.Identifier(settings["user"])),
                     (settings["password"],),
                 )
 
             if owner is None:
                 cursor.execute(
                     sql.SQL("CREATE DATABASE {} OWNER {}").format(
-                        sql.Identifier(settings["dbname"]), sql.Identifier(settings["user"])
+                        sql.Identifier(settings["dbname"]),
+                        sql.Identifier(settings["user"]),
                     )
                 )
 
+            # The application accounts must not connect to the separate MLflow database.
+            cursor.execute(
+                sql.SQL("REVOKE ALL ON DATABASE {} FROM PUBLIC").format(
+                    sql.Identifier(settings["dbname"])
+                )
+            )
+
     # Les migrations sont executees avec le compte MLflow, jamais le compte admin.
     print(f"Base MLflow disponible : {settings['dbname']}.")
-    return subprocess.run(["mlflow", "db", "upgrade", backend_uri()], check=False).returncode
+    return subprocess.run(
+        ["mlflow", "db", "upgrade", backend_uri()], check=False
+    ).returncode
 
 
 if __name__ == "__main__":

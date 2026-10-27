@@ -104,6 +104,15 @@ if [[ -n $dataset_uri ]]; then
   "${compose[@]}" run --rm --no-deps --entrypoint python prediction-jobs -c \
     'import os; from prediction_service.datasets import load_bootstrap; load_bootstrap(os.environ["TRAINING_BOOTSTRAP_URI"])'
 fi
+# Reconcile credentials before any application starts, including DB-only releases.
+# Explicit runs also work when a previous one-shot Compose container already exists.
+db_options=(--no-recreate)
+for svc in "$@"; do
+  if [[ $svc == db ]]; then db_options=(); fi
+done
+"${compose[@]}" up -d --no-build --wait --wait-timeout 120 "${db_options[@]}" db
+"${compose[@]}" run --rm --no-deps db-bootstrap
+"${compose[@]}" run --rm --no-deps migrate
 mv "$candidate" deploy.env
 candidate=
 compose_command deploy.env

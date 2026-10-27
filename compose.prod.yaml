@@ -67,11 +67,6 @@ services:
     build: !reset "null"
     restart: unless-stopped
 
-  migrate:
-    environment:
-      # no local default in production
-      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD:?MONITORING_DB_PASSWORD must come from SSM}
-
   mlflow:
     volumes: !reset []
     environment:
