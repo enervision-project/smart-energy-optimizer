@@ -7,8 +7,10 @@ ci-dessous s'exécutent sous Linux ou WSL avec Git, Python 3 standard, Docker et
 Docker Compose disponibles. Les dépendances scientifiques sont installées dans
 l'image Python 3.12 : aucun venv d'entraînement n'est nécessaire sur le poste.
 
-Récupérer les deux fichiers `.data/ml/splits/train.parquet` et
-`.data/ml/splits/validation.parquet`. Ils sont ignorés par Git.
+Récupérer la version des données voulue avec
+DVC. Il restitue les trois Parquet ;
+le lanceur d'entraînement exige uniquement `.data/ml/splits/train.parquet` et
+`.data/ml/splits/validation.parquet`, ignorés par Git.
 Voir [Données et préparation](donnees.md) s'ils doivent être générés depuis le CSV.
 
 Le lanceur crée le `.env` depuis `.env.example` s'il manque et initialise un
