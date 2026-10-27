@@ -80,6 +80,7 @@ extra:
 nav:
   - Accueil: index.md
   - ...
+  - Sauvegardes et intégrité: doc-technique/transverse/infra/sauvegardes.md
   - ETL Worker: '!include ./services/etl-worker/mkdocs.yml'
   - ML Service: '!include ./services/ml-service/mkdocs.yml'
   - Prediction Service: '!include ./services/prediction-service/mkdocs.yml'
