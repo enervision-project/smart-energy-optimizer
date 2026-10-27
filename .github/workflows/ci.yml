@@ -151,6 +151,9 @@ jobs:
     name: Docker images
     needs: changes
     if: ${{ needs.changes.outputs.images != '[]' }}
+    permissions:
+      contents: read
+      security-events: write
     uses: ./.github/workflows/_ci-images.yml
     with:
       builds: ${{ needs.changes.outputs.images }}
