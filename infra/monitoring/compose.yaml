@@ -5,35 +5,12 @@
 name: enervision-monitoring
 
 services:
-  prometheus:
-    image: docker.io/prom/prometheus:v3.5.0
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=15d
-      - --storage.tsdb.retention.size=8GB # guard for the 30 GB disk
-      - --web.enable-remote-write-receiver # metrics pushed by Alloy
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus:/prometheus
-    mem_limit: 512m
-    restart: unless-stopped
-
-  loki:
-    image: docker.io/grafana/loki:3.5.3
-    command: -config.file=/etc/loki/loki.yaml
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./loki.yaml:/etc/loki/loki.yaml:ro
-      - loki:/loki
-    mem_limit: 512m
-    restart: unless-stopped
-
   grafana:
     image: docker.io/grafana/grafana:12.1.1
+    depends_on: [ loki, prometheus ]
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana:/var/lib/grafana
     environment:
       # only used on the first start: later changes go through the Grafana UI or grafana-cli
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must come from SSM}
@@ -45,14 +22,39 @@ services:
     # host loopback only: reached through the SSM tunnel
     ports:
       - "127.0.0.1:3000:3000"
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - grafana:/var/lib/grafana
-    depends_on: [prometheus, loki]
-    mem_limit: 256m
     restart: unless-stopped
+    mem_limit: 256m
+
+  loki:
+    image: docker.io/grafana/loki:3.5.3
+    volumes:
+      - ./loki.yaml:/etc/loki/loki.yaml:ro
+      - loki:/loki
+    # all interfaces: the security group only lets the app EC2 in
+    ports:
+      - "0.0.0.0:3100:3100"
+    command: -config.file=/etc/loki/loki.yaml
+    restart: unless-stopped
+    mem_limit: 512m
+
+  prometheus:
+    image: docker.io/prom/prometheus:v3.5.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus:/prometheus
+    # all interfaces: the security group only lets the app EC2 in
+    ports:
+      - "0.0.0.0:9090:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=8GB # guard for the 30 GB disk
+      - --web.enable-remote-write-receiver # metrics pushed by Alloy
+    restart: unless-stopped
+    mem_limit: 512m
 
 volumes:
-  prometheus: {}
-  loki: {}
   grafana: {}
+  loki: {}
+  prometheus: {}
