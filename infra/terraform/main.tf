@@ -257,8 +257,23 @@ locals {
 }
 
 resource "aws_ssm_parameter" "env" {
-  for_each = toset(nonsensitive(keys(local.env)))
+  for_each = setsubtract(toset(nonsensitive(keys(local.env))), toset(["TRAINING_BOOTSTRAP_URI"]))
   name     = "/${local.name}/prod/env/${each.key}"
   type     = "SecureString"
   value    = local.env[each.key]
+}
+# Le paramètre existant est conservé ; Deploy pilote ensuite la version active.
+moved {
+  from = aws_ssm_parameter.env["TRAINING_BOOTSTRAP_URI"]
+  to   = aws_ssm_parameter.training_bootstrap_uri
+}
+
+resource "aws_ssm_parameter" "training_bootstrap_uri" {
+  name  = "/${local.name}/prod/env/TRAINING_BOOTSTRAP_URI"
+  type  = "SecureString"
+  value = local.env["TRAINING_BOOTSTRAP_URI"]
+
+  lifecycle {
+    ignore_changes = [value]
+  }
 }
