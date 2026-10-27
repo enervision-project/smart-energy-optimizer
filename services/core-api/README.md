@@ -112,7 +112,7 @@ L'application lit automatiquement le `.env` racine (`spring.config.import: optio
 docker compose up --build
 ```
 
-L'API est alors disponible sur http://localhost:8080. Le service `core-api` attend que `db` soit healthy, puis s'y connecte via le réseau Compose (hôte `db`), avec les identifiants `POSTGRES_*` du `.env`. `JWT_SECRET` doit être renseigné dans le `.env` : sinon `docker compose` refuse de démarrer.
+L'API est alors disponible sur http://localhost:8080. Le service `core-api` attend la fin du bootstrap et des migrations, puis se connecte via le réseau Compose (hôte `db`) avec le compte dédié `core_api` et `CORE_API_DB_PASSWORD`. Renseigner les secrets de `.env.example`, dont `JWT_SECRET`, avant le démarrage. La séparation des comptes est décrite dans [infra/db/README.md](../../infra/db/README.md).
 
 L'image est construite par [`Dockerfile`](Dockerfile), avec la racine du dépôt comme contexte (même convention que `etl-worker`) : une étape Maven produit le jar, puis une image JRE 21 seule l'exécute.
 

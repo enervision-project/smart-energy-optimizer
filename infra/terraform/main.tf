@@ -222,7 +222,7 @@ resource "random_password" "mlflow_db" {
   special = false
 }
 
-# PostgreSQL role of the Postgres exporter (Alloy), created by the 007 Liquibase changeset
+# PostgreSQL role of the Postgres exporter (Alloy), managed by db-bootstrap
 resource "random_password" "monitoring_db" {
   length  = 32
   special = false
@@ -240,6 +240,13 @@ resource "random_bytes" "jwt" {
   length = 32
 }
 
+resource "random_password" "service_db" {
+  for_each = toset(["core_api", "etl_worker", "prediction_jobs", "enervision_migrator"])
+  length   = 32
+  # URL-safe credentials for the two psycopg connection URLs.
+  special = false
+}
+
 locals {
   db_user = "enervision"
   db_name = "enervision"
@@ -248,7 +255,12 @@ locals {
     POSTGRES_USER                = local.db_user
     POSTGRES_PASSWORD            = random_password.db.result
     POSTGRES_DB                  = local.db_name
-    DATABASE_URL                 = "postgresql://${local.db_user}:${random_password.db.result}@db:5432/${local.db_name}"
+    CORE_API_DB_PASSWORD         = random_password.service_db["core_api"].result
+    ETL_DB_PASSWORD              = random_password.service_db["etl_worker"].result
+    PREDICTION_DB_PASSWORD       = random_password.service_db["prediction_jobs"].result
+    MIGRATOR_DB_PASSWORD         = random_password.service_db["enervision_migrator"].result
+    ETL_DATABASE_URL             = "postgresql://etl_worker:${random_password.service_db["etl_worker"].result}@db:5432/${local.db_name}"
+    PREDICTION_DATABASE_URL      = "postgresql://prediction_jobs:${random_password.service_db["prediction_jobs"].result}@db:5432/${local.db_name}"
     ENERGY_API_BASE_URL          = var.energy_api_base_url
     BRONZE_BUCKET                = aws_s3_bucket.datalake.bucket
     AWS_DEFAULT_REGION           = var.region

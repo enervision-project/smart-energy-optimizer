@@ -1,11 +1,12 @@
 """Exécute deploy.sh uniquement avec AWS et Docker factices, dans un dossier temporaire."""
+
 import importlib.util
 import json
 import os
-from pathlib import Path
 import subprocess
-from tempfile import TemporaryDirectory
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -14,7 +15,7 @@ OLD = "b" * 40
 OLD_URI = "s3://test-datalake/ml/datasets/bootstrap/old"
 NEW_URI = "s3://test-datalake/ml/datasets/bootstrap/new"
 
-AWS = r'''#!/usr/bin/env python3
+AWS = r"""#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
 args=sys.argv[1:]
@@ -26,8 +27,8 @@ elif args[:2]==["ecr","get-login-password"]:
 else:
     print("Unexpected AWS operation",args,file=sys.stderr)
     sys.exit(90)
-'''
-DOCKER = r'''#!/usr/bin/env python3
+"""
+DOCKER = r"""#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path
 args=sys.argv[1:]
@@ -41,11 +42,13 @@ for i,arg in enumerate(args):
 with Path(os.environ["CALL_LOG"]).open("a") as f: f.write(json.dumps(entry)+"\n")
 if args and args[0]=="login": sys.stdin.read()
 phase=os.environ.get("FAIL_PHASE")
-if phase=="preflight" and "run" in args: sys.exit(12)
-if phase=="up" and "up" in args and "--force-recreate" not in args: sys.exit(13)
+if phase=="preflight" and "run" in args and "prediction-jobs" in args: sys.exit(12)
+if phase=="up" and "up" in args and "prediction-jobs" in args and "--force-recreate" not in args: sys.exit(13)
+if phase=="bootstrap" and "run" in args and "db-bootstrap" in args: sys.exit(15)
+if phase=="migrate" and "run" in args and "migrate" in args: sys.exit(16)
 if phase=="live" and "exec" in args and "prediction-jobs" in args: sys.exit(14)
-'''
-VERIFY = r'''import json, os, sys
+"""
+VERIFY = r"""import json, os, sys
 from pathlib import Path
 args=sys.argv[1:]
 data=json.loads(Path(args[args.index("--release")+1]).read_text())
@@ -53,11 +56,59 @@ expected=args[args.index("--git-revision")+1]
 if data["git_revision"]!=expected or os.environ.get("FAIL_PHASE")=="manifest":
     sys.exit("Snapshot refusé")
 print(data["dataset_uri"])
-'''
+"""
 
 
 class DeployDatasetTests(unittest.TestCase):
-    def run_deploy(self, root, phase="", services=("prediction-service",), existing=True, override=True):
+    def test_database_preparation_precedes_application_start_even_for_db_only_release(
+        self,
+    ):
+        for services in [("db",), ("web",), ("etl-worker",)]:
+            with self.subTest(services=services), TemporaryDirectory() as tmp:
+                result, calls = self.run_deploy(Path(tmp), services=services)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                commands = [call["args"] for call in calls if call["tool"] == "docker"]
+                bootstrap = next(
+                    i
+                    for i, args in enumerate(commands)
+                    if "run" in args and "db-bootstrap" in args
+                )
+                migrate = next(
+                    i
+                    for i, args in enumerate(commands)
+                    if "run" in args and "migrate" in args
+                )
+                activation = next(
+                    i for i, args in enumerate(commands) if "--remove-orphans" in args
+                )
+                db_start = next(
+                    args for args in commands if "up" in args and args[-1] == "db"
+                )
+                self.assertEqual("--no-recreate" in db_start, services != ("db",))
+                self.assertLess(bootstrap, migrate)
+                self.assertLess(migrate, activation)
+
+    def test_database_failure_keeps_previous_release(self):
+        for phase, code in [("bootstrap", 15), ("migrate", 16)]:
+            with self.subTest(phase=phase), TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                result, calls = self.run_deploy(root, phase=phase)
+                self.assertEqual(result.returncode, code, result.stderr)
+                self.assertIn(
+                    "PREDICTION_SERVICE_TAG=" + OLD, (root / "deploy.env").read_text()
+                )
+                self.assertFalse(
+                    any("--remove-orphans" in call["args"] for call in calls)
+                )
+
+    def run_deploy(
+        self,
+        root,
+        phase="",
+        services=("prediction-service",),
+        existing=True,
+        override=True,
+    ):
         binary = root / "bin"
         binary.mkdir()
         for name, content in [("aws", AWS), ("docker", DOCKER)]:
@@ -78,15 +129,26 @@ class DeployDatasetTests(unittest.TestCase):
         env = os.environ.copy()
         # Les seuls programmes aws/docker accessibles sont les exécutables factices ci-dessus.
         env.update(
-            PATH=str(binary) + ":" + env["PATH"], ENERVISION_DIR=str(root),
-            CALL_LOG=str(root / "calls.jsonl"), OLD_URI=OLD_URI, FAIL_PHASE=phase,
+            PATH=str(binary) + ":" + env["PATH"],
+            ENERVISION_DIR=str(root),
+            CALL_LOG=str(root / "calls.jsonl"),
+            OLD_URI=OLD_URI,
+            FAIL_PHASE=phase,
         )
         result = subprocess.run(
             ["bash", str(ROOT / "infra/deploy/deploy.sh"), SHA, "registry", *services],
-            env=env, cwd=root, text=True, capture_output=True,
+            check=False,
+            env=env,
+            cwd=root,
+            text=True,
+            capture_output=True,
         )
         log = root / "calls.jsonl"
-        calls = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+        calls = (
+            [json.loads(line) for line in log.read_text().splitlines()]
+            if log.exists()
+            else []
+        )
         return result, calls
 
     def test_success_uses_new_uri_for_preflight_and_running_jobs(self):
@@ -97,12 +159,23 @@ class DeployDatasetTests(unittest.TestCase):
             content = (root / "deploy.env").read_text()
             self.assertIn("TRAINING_BOOTSTRAP_URI=" + NEW_URI, content)
             self.assertIn("PREDICTION_SERVICE_TAG=" + SHA, content)
-            relevant = [call for call in calls if call["tool"] == "docker" and (
-                "run" in call["args"] or "up" in call["args"] or "exec" in call["args"]
-            )]
+            relevant = [
+                call
+                for call in calls
+                if call["tool"] == "docker"
+                and (
+                    "run" in call["args"]
+                    or "up" in call["args"]
+                    or "exec" in call["args"]
+                )
+            ]
             self.assertTrue(relevant)
-            self.assertTrue(all(call["TRAINING_BOOTSTRAP_URI"] == NEW_URI for call in relevant))
-            self.assertFalse(any(call["args"][:2] == ["ssm", "put-parameter"] for call in calls))
+            self.assertTrue(
+                all(call["TRAINING_BOOTSTRAP_URI"] == NEW_URI for call in relevant)
+            )
+            self.assertFalse(
+                any(call["args"][:2] == ["ssm", "put-parameter"] for call in calls)
+            )
             self.assertFalse(list(root.glob(".deploy.env.*")))
 
     def test_bad_manifest_stops_before_any_aws_or_docker_call(self):
@@ -118,8 +191,12 @@ class DeployDatasetTests(unittest.TestCase):
             root = Path(tmp)
             result, calls = self.run_deploy(root, phase="preflight")
             self.assertEqual(result.returncode, 12, result.stderr)
-            self.assertIn("TRAINING_BOOTSTRAP_URI=" + OLD_URI, (root / "deploy.env").read_text())
-            self.assertIn("PREDICTION_SERVICE_TAG=" + OLD, (root / "deploy.env").read_text())
+            self.assertIn(
+                "TRAINING_BOOTSTRAP_URI=" + OLD_URI, (root / "deploy.env").read_text()
+            )
+            self.assertIn(
+                "PREDICTION_SERVICE_TAG=" + OLD, (root / "deploy.env").read_text()
+            )
             self.assertFalse(any("up" in call["args"] for call in calls))
             self.assertFalse(list(root.glob(".deploy.env.*")))
 
@@ -132,7 +209,9 @@ class DeployDatasetTests(unittest.TestCase):
                 content = (root / "deploy.env").read_text()
                 self.assertIn("TRAINING_BOOTSTRAP_URI=" + OLD_URI, content)
                 self.assertIn("PREDICTION_SERVICE_TAG=" + OLD, content)
-                rollback = [call for call in calls if "--force-recreate" in call["args"]]
+                rollback = [
+                    call for call in calls if "--force-recreate" in call["args"]
+                ]
                 self.assertEqual(len(rollback), 1)
                 self.assertEqual(rollback[0]["TRAINING_BOOTSTRAP_URI"], OLD_URI)
                 self.assertEqual(rollback[0]["PREDICTION_SERVICE_TAG"], OLD)
@@ -143,7 +222,9 @@ class DeployDatasetTests(unittest.TestCase):
             root = Path(tmp)
             result, calls = self.run_deploy(root, phase="up", override=False)
             self.assertEqual(result.returncode, 13, result.stderr)
-            self.assertNotIn("TRAINING_BOOTSTRAP_URI=", (root / "deploy.env").read_text())
+            self.assertNotIn(
+                "TRAINING_BOOTSTRAP_URI=", (root / "deploy.env").read_text()
+            )
             rollback = [call for call in calls if "--force-recreate" in call["args"]]
             self.assertEqual(len(rollback), 1)
             self.assertEqual(rollback[0]["TRAINING_BOOTSTRAP_URI"], OLD_URI)
@@ -154,34 +235,54 @@ class DeployDatasetTests(unittest.TestCase):
             root = Path(tmp)
             result, calls = self.run_deploy(root, phase="up", existing=False)
             self.assertEqual(result.returncode, 13, result.stderr)
-            self.assertTrue(any("stop" in call["args"] and "prediction-jobs" in call["args"] for call in calls))
-            self.assertNotIn("TRAINING_BOOTSTRAP_URI=", (root / "deploy.env").read_text())
+            self.assertTrue(
+                any(
+                    "stop" in call["args"] and "prediction-jobs" in call["args"]
+                    for call in calls
+                )
+            )
+            self.assertNotIn(
+                "TRAINING_BOOTSTRAP_URI=", (root / "deploy.env").read_text()
+            )
 
     def test_frontend_only_deployment_does_not_validate_or_change_ml_dataset(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             result, calls = self.run_deploy(root, phase="manifest", services=("web",))
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("TRAINING_BOOTSTRAP_URI=" + OLD_URI, (root / "deploy.env").read_text())
+            self.assertIn(
+                "TRAINING_BOOTSTRAP_URI=" + OLD_URI, (root / "deploy.env").read_text()
+            )
             self.assertFalse(any("prediction-jobs" in call["args"] for call in calls))
 
 
 class DatasetSelectionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        spec = importlib.util.spec_from_file_location("changed_services", ROOT / "scripts/ci/changed-services.py")
+        spec = importlib.util.spec_from_file_location(
+            "changed_services", ROOT / "scripts/ci/changed-services.py"
+        )
         cls.selector = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.selector)
         cls.config = json.loads((ROOT / ".github/services.json").read_text())
 
     def test_dataset_changes_select_prediction_service_only(self):
-        for path in ["ml-datasets.dvc", ".dvc/config", "scripts/ml/upload-bootstrap.sh"]:
-            with self.subTest(path=path), patch.object(self.selector, "changed_files", return_value=[path]):
+        for path in [
+            "ml-datasets.dvc",
+            ".dvc/config",
+            "scripts/ml/upload-bootstrap.sh",
+        ]:
+            with (
+                self.subTest(path=path),
+                patch.object(self.selector, "changed_files", return_value=[path]),
+            ):
                 selected, _ = self.selector.select(self.config, "old", "new", "")
                 self.assertEqual(selected, ["prediction-service"])
 
     def test_frontend_changes_do_not_select_prediction_service(self):
-        with patch.object(self.selector, "changed_files", return_value=["app/web/src/main.ts"]):
+        with patch.object(
+            self.selector, "changed_files", return_value=["app/web/src/main.ts"]
+        ):
             selected, _ = self.selector.select(self.config, "old", "new", "")
         self.assertEqual(selected, ["web"])
 

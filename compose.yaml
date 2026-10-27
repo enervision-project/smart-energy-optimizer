@@ -3,7 +3,14 @@ x-etl: &etl
   build:
     context: .
     dockerfile: services/etl-worker/Dockerfile
-  env_file: .env
+  environment:
+    DATABASE_URL: ${ETL_DATABASE_URL:?ETL_DATABASE_URL doit être défini}
+    ENERGY_API_BASE_URL: ${ENERGY_API_BASE_URL:?ENERGY_API_BASE_URL doit être défini}
+    ENERGY_API_USERNAME: ${ENERGY_API_USERNAME:-}
+    ENERGY_API_PASSWORD: ${ENERGY_API_PASSWORD:-}
+    BRONZE_BUCKET: ${BRONZE_BUCKET:-}
+    AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-west-3}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
   # API lancée sur l'hôte : disponible aussi sous Linux.
   extra_hosts: [ "host.docker.internal:host-gateway" ]
   depends_on:
@@ -33,10 +40,9 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      # hôte « db » = nom du service ; reprend les valeurs POSTGRES_* du .env
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATASOURCE_USERNAME: core_api
+      SPRING_DATASOURCE_PASSWORD: ${CORE_API_DB_PASSWORD:?CORE_API_DB_PASSWORD doit être défini}
       # secret obligatoire : compose refuse de démarrer si JWT_SECRET est absent du .env
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET doit être défini dans .env}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-1h}
@@ -63,6 +69,26 @@ services:
       timeout: 5s
       retries: 10
 
+  db-bootstrap:
+    image: docker.io/timescale/timescaledb:2.30.2-pg16
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./infra/db/bootstrap.sql:/bootstrap/bootstrap.sql:ro
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?MIGRATOR_DB_PASSWORD doit être défini}
+      CORE_API_DB_PASSWORD: ${CORE_API_DB_PASSWORD:?CORE_API_DB_PASSWORD doit être défini}
+      ETL_DB_PASSWORD: ${ETL_DB_PASSWORD:?ETL_DB_PASSWORD doit être défini}
+      PREDICTION_DB_PASSWORD: ${PREDICTION_DB_PASSWORD:?PREDICTION_DB_PASSWORD doit être défini}
+      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD:?MONITORING_DB_PASSWORD doit être défini}
+    command: [ "-X", "-v", "ON_ERROR_STOP=1", "-f", "/bootstrap/bootstrap.sql" ]
+    entrypoint: [ "psql" ]
+
   etl-worker:
     <<: *etl
     profiles: [ "manual" ]
@@ -70,16 +96,15 @@ services:
   migrate:
     image: docker.io/liquibase/liquibase:4.33.0
     depends_on:
-      db:
-        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     volumes:
       - ./infra/db/changelog:/liquibase/changelog:ro
     environment:
-      LIQUIBASE_COMMAND_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
-      LIQUIBASE_COMMAND_USERNAME: ${POSTGRES_USER}
-      LIQUIBASE_COMMAND_PASSWORD: ${POSTGRES_PASSWORD}
-      # changelog parameter: password of the monitoring role (007_monitoring_role.sql)
-      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD:-monitoring-local}
+      # SET ROLE dès la connexion : tous les objets appartiennent au rôle NOLOGIN.
+      LIQUIBASE_COMMAND_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}?currentSchema=public&options=-c%20role%3Denervision_owner&ApplicationName=migrate
+      LIQUIBASE_COMMAND_USERNAME: enervision_migrator
+      LIQUIBASE_COMMAND_PASSWORD: ${MIGRATOR_DB_PASSWORD:?MIGRATOR_DB_PASSWORD doit être défini}
     command: [ "--search-path=/liquibase/changelog", "--changelog-file=changelog.yaml", "update" ]
 
   mlflow:
@@ -132,7 +157,7 @@ services:
       - ml_models:/models
       - ./.data/ml/splits:/bootstrap:ro
     environment:
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL doit être défini dans .env}
+      DATABASE_URL: ${PREDICTION_DATABASE_URL:?PREDICTION_DATABASE_URL doit être défini}
       MLFLOW_TRACKING_URI: http://mlflow:5000
       REGISTERED_MODEL_NAME: ${REGISTERED_MODEL_NAME:-enervision-hourly-consumption}
       TRAINING_BOOTSTRAP_URI: ${TRAINING_BOOTSTRAP_URI:-/bootstrap}
