@@ -16,13 +16,22 @@ from etl_worker.timestamps import parse_reading_timestamp
 # Plafond de limit pour GET /readings (documentation de l'API Mock).
 HISTORY_MAX_MINUTES = 1000
 
-_ALERT_FIELDS = frozenset({
-    "alert_id", "timestamp", "site_id", "severity",
-    "type", "message", "value", "threshold",
-})
+_ALERT_FIELDS = frozenset(
+    {
+        "alert_id",
+        "timestamp",
+        "site_id",
+        "severity",
+        "type",
+        "message",
+        "value",
+        "threshold",
+    }
+)
 
 
 # --- Helpers communs -------------------------------------------------------
+
 
 def _api_headers() -> dict[str, str]:
     """En-têtes communs ; authentification Basic si ENERGY_API_USERNAME est renseigné."""
@@ -36,14 +45,20 @@ def _api_headers() -> dict[str, str]:
 
 
 def _resolve_base_url(base_url: str | None, caller: str) -> str:
-    url = base_url if base_url is not None else os.environ.get("ENERGY_API_BASE_URL", "")
+    url = (
+        base_url if base_url is not None else os.environ.get("ENERGY_API_BASE_URL", "")
+    )
     url = url.strip().rstrip("/")
     if not url:
-        raise ValueError(f"Renseigner ENERGY_API_BASE_URL ou passer une URL à {caller}.")
+        raise ValueError(
+            f"Renseigner ENERGY_API_BASE_URL ou passer une URL à {caller}."
+        )
     return url
 
 
-def _get_json(base_url: str, path: str, timeout: float, params: dict[str, Any] | None = None) -> Any:
+def _get_json(
+    base_url: str, path: str, timeout: float, params: dict[str, Any] | None = None
+) -> Any:
     """GET JSON ; les erreurs HTTP, réseau et de décodage remontent à l'appelant."""
     url = f"{base_url}{path}"
     if params:
@@ -59,6 +74,7 @@ def _require_list_of_dicts(data: Any, message: str) -> list[dict[str, Any]]:
 
 
 # --- Sites et profils ------------------------------------------------------
+
 
 def extract_sites(
     base_url: str | None = None, *, timeout: float = 10.0
@@ -77,13 +93,18 @@ def read_site_profiles() -> list[dict[str, Any]]:
     Source : clé « profile » des fichiers *_metadata.json du jeu de données (pas d'endpoint API).
     Le format source est conservé (jours 0 = lundi, working_hours [début, fin]) ; load les convertit.
     """
-    content = files("etl_worker").joinpath("data/site_profiles.json").read_text(encoding="utf-8")
+    content = (
+        files("etl_worker")
+        .joinpath("data/site_profiles.json")
+        .read_text(encoding="utf-8")
+    )
     return _require_list_of_dicts(
         json.loads(content), "site_profiles.json doit être une liste d'objets JSON."
     )
 
 
 # --- Mesures ---------------------------------------------------------------
+
 
 def _validate_reading(reading: dict[str, Any], site_id: str) -> None:
     if reading.get("site_id") != site_id:
@@ -96,7 +117,9 @@ def _validate_reading(reading: dict[str, Any], site_id: str) -> None:
 
 def _fetch_reading(base_url: str, site_id: str, timeout: float) -> dict[str, Any]:
     payload = _get_json(
-        base_url, f"/api/v1/sites/{quote(site_id, safe='')}/current", timeout,
+        base_url,
+        f"/api/v1/sites/{quote(site_id, safe='')}/current",
+        timeout,
     )
     if not isinstance(payload, dict):
         raise TypeError(f"Un objet de mesure est attendu pour le site {site_id}.")
@@ -151,20 +174,31 @@ def extract_history(
     """
     for bound in (start, end):
         if bound.utcoffset() is None or bound.second or bound.microsecond:
-            raise ValueError("Les bornes du rattrapage doivent être des minutes avec fuseau.")
+            raise ValueError(
+                "Les bornes du rattrapage doivent être des minutes avec fuseau."
+            )
     start, end = start.astimezone(UTC), end.astimezone(UTC)
     minutes = int((end - start) / timedelta(minutes=1))
     if not 1 <= minutes <= HISTORY_MAX_MINUTES:
-        raise ValueError(f"Une plage de rattrapage compte de 1 à {HISTORY_MAX_MINUTES} minutes.")
+        raise ValueError(
+            f"Une plage de rattrapage compte de 1 à {HISTORY_MAX_MINUTES} minutes."
+        )
 
     api_base_url = _resolve_base_url(base_url, "extract_history")
-    payload = _get_json(api_base_url, "/api/v1/readings", timeout, params={
-        "site_id": site_id,
-        "start_time": start.isoformat(),
-        "end_time": end.isoformat(),
-        "limit": minutes,
-    })
-    if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
+    payload = _get_json(
+        api_base_url,
+        "/api/v1/readings",
+        timeout,
+        params={
+            "site_id": site_id,
+            "start_time": start.isoformat(),
+            "end_time": end.isoformat(),
+            "limit": minutes,
+        },
+    )
+    if not isinstance(payload, list) or not all(
+        isinstance(item, dict) for item in payload
+    ):
         raise TypeError(f"Une liste de mesures est attendue pour le site {site_id}.")
     for reading in payload:
         _validate_reading(reading, site_id)
@@ -181,6 +215,7 @@ def extract_history(
 
 
 # --- Alertes ---------------------------------------------------------------
+
 
 def extract_alerts(
     base_url: str | None = None, *, timeout: float = 10.0

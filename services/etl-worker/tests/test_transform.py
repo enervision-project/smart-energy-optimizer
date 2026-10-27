@@ -18,8 +18,12 @@ from etl_worker.transform import aggregate_hour
 START = datetime(2026, 10, 20, 11, tzinfo=UTC)
 END = START + timedelta(hours=1, minutes=2)
 METRICS = (
-    "consumption_kwh", "voltage_v", "current_a", "power_factor",
-    "temperature_celsius", "humidity_percent",
+    "consumption_kwh",
+    "voltage_v",
+    "current_a",
+    "power_factor",
+    "temperature_celsius",
+    "humidity_percent",
 )
 
 
@@ -140,27 +144,38 @@ class AggregateHourPostgresTests(unittest.TestCase):
         self.add_site("SITE001")
 
     def add_site(self, site_id):
-        load_sites([{
-            "site_id": site_id, "site_name": site_id, "site_type": "office",
-            "capacity_kw": 200.0, "status": "active",
-        }], self.database_url)
+        load_sites(
+            [
+                {
+                    "site_id": site_id,
+                    "site_name": site_id,
+                    "site_type": "office",
+                    "capacity_kw": 200.0,
+                    "status": "active",
+                }
+            ],
+            self.database_url,
+        )
 
     def readings(self, minutes=range(60), site_id="SITE001"):
-        return [{
-            "site_id": site_id,
-            "timestamp": self.start + timedelta(minutes=minute),
-            "site_type": "office",
-            "consumption_kw": 120.0,
-            # Valeur volontairement différente : l'énergie utilise les kW.
-            "consumption_kwh": 9999.0,
-            "voltage_v": 220.0,
-            "current_a": 10.0,
-            "power_factor": 0.9,
-            "temperature_celsius": 20.0,
-            "humidity_percent": 40.0,
-            "null_reasons": [],
-            "data_quality": "good",
-        } for minute in minutes]
+        return [
+            {
+                "site_id": site_id,
+                "timestamp": self.start + timedelta(minutes=minute),
+                "site_type": "office",
+                "consumption_kw": 120.0,
+                # Valeur volontairement différente : l'énergie utilise les kW.
+                "consumption_kwh": 9999.0,
+                "voltage_v": 220.0,
+                "current_a": 10.0,
+                "power_factor": 0.9,
+                "temperature_celsius": 20.0,
+                "humidity_percent": 40.0,
+                "null_reasons": [],
+                "data_quality": "good",
+            }
+            for minute in minutes
+        ]
 
     def stored_hours(self):
         return self.connection.execute(
@@ -285,7 +300,11 @@ class AggregateHourPostgresTests(unittest.TestCase):
         self.assertTrue(all(row[field] is None for field in METRICS))
         # 0 distingue « rien reçu » de « capteurs en panne ».
         self.assertEqual(
-            (row["minutes_received"], row["minutes_consumption"], row["minutes_backfilled"]),
+            (
+                row["minutes_received"],
+                row["minutes_consumption"],
+                row["minutes_backfilled"],
+            ),
             (0, 0, 0),
         )
 
@@ -300,7 +319,11 @@ class AggregateHourPostgresTests(unittest.TestCase):
 
         row = self.stored_hours()[0]
         self.assertEqual(
-            (row["minutes_received"], row["minutes_consumption"], row["minutes_backfilled"]),
+            (
+                row["minutes_received"],
+                row["minutes_consumption"],
+                row["minutes_backfilled"],
+            ),
             (50, 42, 5),
         )
 
@@ -315,7 +338,11 @@ class AggregateHourPostgresTests(unittest.TestCase):
         rows = self.stored_hours()
         self.assertEqual(
             [(row["ts"], row["minutes_received"]) for row in rows],
-            [(START - timedelta(hours=2), 30), (START - timedelta(hours=1), 0), (START, 60)],
+            [
+                (START - timedelta(hours=2), 30),
+                (START - timedelta(hours=1), 0),
+                (START, 60),
+            ],
         )
         self.assertIsNone(rows[1]["consumption_kwh"])
 
@@ -384,7 +411,9 @@ class AggregateHourPostgresTests(unittest.TestCase):
 
         rows = self.stored_hours()
         self.assertEqual([row["ts"].astimezone(UTC).hour for row in rows], [0, 1])
-        self.assertTrue(all(row["consumption_kwh"] == Decimal("120.00") for row in rows))
+        self.assertTrue(
+            all(row["consumption_kwh"] == Decimal("120.00") for row in rows)
+        )
 
     def test_failure_rolls_back_all_sites(self):
         self.add_site("SITE002")
@@ -425,10 +454,13 @@ class AggregateHourPostgresTests(unittest.TestCase):
         raw = self.connection.execute(
             "SELECT voltage_v, current_a FROM readings_raws ORDER BY ts LIMIT 1"
         ).fetchone()
-        self.assertEqual(raw, {
-            "voltage_v": readings[0]["voltage_v"],
-            "current_a": readings[0]["current_a"],
-        })
+        self.assertEqual(
+            raw,
+            {
+                "voltage_v": readings[0]["voltage_v"],
+                "current_a": readings[0]["current_a"],
+            },
+        )
 
     def test_paris_display_changes_with_season_without_moving_instants(self):
         self.connection.execute("SET TIME ZONE 'Europe/Paris'")

@@ -3,7 +3,8 @@
 import io
 import json
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import redirect_stdout
+from unittest import mock
 from unittest.mock import ANY, patch
 
 from etl_worker.__main__ import main
@@ -35,12 +36,18 @@ class WorkerCommandTests(unittest.TestCase):
         return patcher.start()
 
     def run_command_with(self, *arguments):
-        with patch("sys.argv", ["etl-worker", *arguments]), redirect_stdout(io.StringIO()) as output:
+        with (
+            patch("sys.argv", ["etl-worker", *arguments]),
+            redirect_stdout(io.StringIO()) as output,
+        ):
             main()
         return output.getvalue()
 
     def run_command(self, command):
-        with patch("sys.argv", ["etl-worker", command]), redirect_stdout(io.StringIO()) as output:
+        with (
+            patch("sys.argv", ["etl-worker", command]),
+            redirect_stdout(io.StringIO()) as output,
+        ):
             main()
         return output.getvalue()
 
@@ -93,7 +100,11 @@ class WorkerCommandTests(unittest.TestCase):
 
     def test_site_commands_do_not_touch_profiles(self):
         self.extract_sites.return_value = [{"site_id": "SITE001"}]
-        for command, existing_ids in (("init-sites", []), ("init-sites", ["SITE001"]), ("sync-sites", [])):
+        for command, existing_ids in (
+            ("init-sites", []),
+            ("init-sites", ["SITE001"]),
+            ("sync-sites", []),
+        ):
             with self.subTest(command=command, existing_ids=existing_ids):
                 self.read_ids.return_value = existing_ids
 
@@ -132,7 +143,9 @@ class WorkerCommandTests(unittest.TestCase):
         self.extract_readings.assert_called_once_with(["SITE001", "SITE002"])
         self.load_readings.assert_called_once_with(readings, source="current")
         self.load_profiles.assert_not_called()
-        self.assertIn("Mesures reçues : 2/2 ; insérées : 1 ; déjà présentes : 1", output)
+        self.assertIn(
+            "Mesures reçues : 2/2 ; insérées : 1 ; déjà présentes : 1", output
+        )
 
     def test_collection_imputes_the_last_fifteen_minutes(self):
         self.read_ids.return_value = ["SITE001"]
@@ -145,25 +158,30 @@ class WorkerCommandTests(unittest.TestCase):
         self.impute.assert_called_once_with(minutes=15)
         self.assertIn("Consommations imputées : 3.", output)
 
-    def test_failing_sites_do_not_block_the_others_but_fail_the_job(self):
+    @mock.patch("sys.stderr", new_callable=io.StringIO)
+    def test_failing_sites_do_not_block_the_others_but_fail_the_job(self, mock_stderr):
         self.read_ids.return_value = ["SITE001", "SITE002", "SITE003"]
         readings = [{"site_id": "SITE001"}, {"site_id": "SITE003"}]
-        self.extract_readings.return_value = (readings, {"SITE002": "HTTP Error 503: Service Unavailable"})
+        self.extract_readings.return_value = (
+            readings,
+            {"SITE002": "HTTP Error 503: Service Unavailable"},
+        )
         self.load_readings.return_value = 2
 
-        with redirect_stderr(io.StringIO()) as errors, self.assertRaises(SystemExit) as caught:
+        with self.assertRaises(SystemExit) as caught:
             self.run_command("sync-readings")
 
         self.assertEqual(caught.exception.code, 1)
         self.write_bronze.assert_called_once_with(readings, collected_at=ANY)
         self.load_readings.assert_called_once_with(readings, source="current")
-        self.assertIn("SITE002 : HTTP Error 503", errors.getvalue())
+        self.assertIn("SITE002 : HTTP Error 503", mock_stderr.getvalue())
 
-    def test_all_sites_failing_writes_nothing(self):
+    @mock.patch("sys.stderr", new_callable=io.StringIO)
+    def test_all_sites_failing_writes_nothing(self, _mock_stderr):
         self.read_ids.return_value = ["SITE001"]
         self.extract_readings.return_value = ([], {"SITE001": "timed out"})
 
-        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
+        with self.assertRaises(SystemExit) as caught:
             self.run_command("sync-readings")
 
         self.assertEqual(caught.exception.code, 1)
@@ -229,7 +247,10 @@ class WorkerCommandTests(unittest.TestCase):
     def test_hourly_command_accepts_an_explicit_reference_for_replay(self):
         self.aggregate_hour.return_value = 1
         reference = "2026-10-20T14:00:00+02:00"
-        with patch("sys.argv", ["etl-worker", "sync-hours", "--end-time", reference]), redirect_stdout(io.StringIO()):
+        with (
+            patch("sys.argv", ["etl-worker", "sync-hours", "--end-time", reference]),
+            redirect_stdout(io.StringIO()),
+        ):
             main()
 
         self.assertEqual(
@@ -244,7 +265,8 @@ class WorkerCommandTests(unittest.TestCase):
         self.aggregate_hour.assert_called_once_with(end_time=None, hours=6)
         self.assertIn("readings_hours : 42", output)
 
-    def test_hours_must_be_positive_and_reserved_to_hourly_command(self):
+    @mock.patch("sys.stderr", new_callable=io.StringIO)
+    def test_hours_must_be_positive_and_reserved_to_hourly_command(self, _mock_stderr):
         for arguments in (
             ["sync-hours", "--hours", "0"],
             ["backfill-readings", "--hours", "-1"],
@@ -253,7 +275,6 @@ class WorkerCommandTests(unittest.TestCase):
             with (
                 self.subTest(arguments=arguments),
                 patch("sys.argv", ["etl-worker", *arguments]),
-                redirect_stderr(io.StringIO()),
                 self.assertRaises(SystemExit) as caught,
             ):
                 main()
@@ -267,21 +288,25 @@ class WorkerCommandTests(unittest.TestCase):
 
         backfill.assert_called_once_with(168)
         self.impute.assert_called_once_with(minutes=168 * 60)
-        self.assertIn("Plages manquantes : 2 ; mesures rattrapées : 61 ; insérées : 61.", output)
+        self.assertIn(
+            "Plages manquantes : 2 ; mesures rattrapées : 61 ; insérées : 61.", output
+        )
 
-    def test_backfill_defaults_to_six_hours_and_fails_on_errors(self):
-        with (
-            patch("etl_worker.__main__.backfill_readings") as backfill,
-            redirect_stderr(io.StringIO()) as errors,
-            self.assertRaises(SystemExit) as caught,
-        ):
-            backfill.return_value = BackfillResult(ranges=1, errors={"SITE001_x": "timed out"})
+    @mock.patch("etl_worker.__main__.backfill_readings")
+    @mock.patch("sys.stderr", new_callable=io.StringIO)
+    def test_backfill_defaults_to_six_hours_and_fails_on_errors(
+        self, mock_stderr, backfill
+    ):
+        backfill.return_value = BackfillResult(
+            ranges=1, errors={"SITE001_x": "timed out"}
+        )
+        with self.assertRaises(SystemExit) as caught:
             self.run_command("backfill-readings")
 
         backfill.assert_called_once_with(6)
         self.impute.assert_called_once_with(minutes=360)
         self.assertEqual(caught.exception.code, 1)
-        self.assertIn("SITE001_x : timed out", errors.getvalue())
+        self.assertIn("SITE001_x : timed out", mock_stderr.getvalue())
 
     def test_impute_command_covers_six_hours_by_default(self):
         self.impute.return_value = 12
@@ -297,10 +322,18 @@ class WorkerCommandTests(unittest.TestCase):
 
         self.impute.assert_called_once_with(minutes=168 * 60)
 
-    def test_end_time_cannot_silently_apply_to_a_raw_command(self):
-        with patch("sys.argv", [
-            "etl-worker", "sync-readings", "--end-time", "2026-10-20T14:00:00+02:00"
-        ]), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as caught:
+    @mock.patch(
+        "sys.argv",
+        [
+            "etl-worker",
+            "sync-readings",
+            "--end-time",
+            "2026-10-20T14:00:00+02:00",
+        ],
+    )
+    @mock.patch("sys.stderr", new_callable=io.StringIO)
+    def test_end_time_cannot_silently_apply_to_a_raw_command(self, _mock_stderr):
+        with self.assertRaises(SystemExit) as caught:
             main()
 
         self.assertEqual(caught.exception.code, 2)

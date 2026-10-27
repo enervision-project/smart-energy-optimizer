@@ -27,14 +27,25 @@ class ExtractReadingsTests(unittest.TestCase):
         request.assert_not_called()
 
     @patch("etl_worker.extract.urlopen")
-    def test_fetches_current_objects_without_modifying_precision_or_nulls(self, request):
+    def test_fetches_current_objects_without_modifying_precision_or_nulls(
+        self, request
+    ):
         readings = [
-            reading("SITE001", consumption_kw=None, null_reasons=["capteur défaillant"], extra={"value": None}),
-            reading("SITE002", "2026-10-26T08:03:17.123456", consumption_kw=1.234567891),
+            reading(
+                "SITE001",
+                consumption_kw=None,
+                null_reasons=["capteur défaillant"],
+                extra={"value": None},
+            ),
+            reading(
+                "SITE002", "2026-10-26T08:03:17.123456", consumption_kw=1.234567891
+            ),
         ]
         request.side_effect = [response(item) for item in readings]
 
-        result = extract_readings(["SITE001", "SITE002"], " http://energy-api.test/ ", timeout=4)
+        result = extract_readings(
+            ["SITE001", "SITE002"], " http://energy-api.test/ ", timeout=4
+        )
 
         self.assertEqual(result, (readings, {}))
         for call, site_id in zip(request.call_args_list, ["SITE001", "SITE002"]):
@@ -47,7 +58,9 @@ class ExtractReadingsTests(unittest.TestCase):
     def test_timezone_and_fractional_timestamp_are_kept_as_received(self, request):
         payload = reading("SITE001", "2026-10-26T09:03:16.123456+01:00")
         request.return_value = response(payload)
-        self.assertEqual(extract_readings(["SITE001"], "http://api.test"), ([payload], {}))
+        self.assertEqual(
+            extract_readings(["SITE001"], "http://api.test"), ([payload], {})
+        )
 
     @patch.dict(os.environ, {"ENERGY_API_BASE_URL": "http://configured-api.test"})
     @patch("etl_worker.extract.urlopen")
@@ -63,7 +76,10 @@ class ExtractReadingsTests(unittest.TestCase):
     @patch("etl_worker.extract.urlopen")
     def test_missing_configuration_fails_before_request(self, request):
         for base_url in (None, "", "   "):
-            with self.subTest(base_url=base_url), self.assertRaisesRegex(ValueError, "ENERGY_API_BASE_URL"):
+            with (
+                self.subTest(base_url=base_url),
+                self.assertRaisesRegex(ValueError, "ENERGY_API_BASE_URL"),
+            ):
                 extract_readings(["SITE001"], base_url)
         request.assert_not_called()
 
@@ -72,7 +88,10 @@ class ExtractReadingsTests(unittest.TestCase):
         cases = {
             "Un objet": [None, [], [reading("SITE001")], "SITE001"],
             "ne correspond pas": [{}, reading("SITE002")],
-            "Timestamp invalide": [reading("SITE001", None), reading("SITE001", "not a date")],
+            "Timestamp invalide": [
+                reading("SITE001", None),
+                reading("SITE001", "not a date"),
+            ],
         }
         for message, payloads in cases.items():
             for payload in payloads:
@@ -99,7 +118,8 @@ class ExtractReadingsTests(unittest.TestCase):
         ]
 
         readings, errors = extract_readings(
-            ["SITE001", "SITE002", "SITE003", "SITE004"], "http://api.test",
+            ["SITE001", "SITE002", "SITE003", "SITE004"],
+            "http://api.test",
         )
 
         # Un site en panne n'est jamais remplacé par une mesure NULL inventée.
@@ -114,7 +134,9 @@ START = datetime(2026, 10, 26, 8, 0, tzinfo=UTC)
 
 def history(minutes, site_id="SITE001", start=START):
     return [
-        reading(site_id, (start + timedelta(minutes=offset)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+        reading(
+            site_id, (start + timedelta(minutes=offset)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
         for offset in minutes
     ]
 
@@ -125,17 +147,22 @@ class ExtractHistoryTests(unittest.TestCase):
         payload = history(range(3))
         request.return_value = response(payload)
 
-        result = extract_history("SITE001", START, START + timedelta(minutes=3), "http://api.test", timeout=5)
+        result = extract_history(
+            "SITE001", START, START + timedelta(minutes=3), "http://api.test", timeout=5
+        )
 
         self.assertEqual(result, payload)
         url = urlsplit(request.call_args.args[0].full_url)
         self.assertEqual(url.path, "/api/v1/readings")
-        self.assertEqual(parse_qs(url.query), {
-            "site_id": ["SITE001"],
-            "start_time": ["2026-10-26T08:00:00+00:00"],
-            "end_time": ["2026-10-26T08:03:00+00:00"],
-            "limit": ["3"],
-        })
+        self.assertEqual(
+            parse_qs(url.query),
+            {
+                "site_id": ["SITE001"],
+                "start_time": ["2026-10-26T08:00:00+00:00"],
+                "end_time": ["2026-10-26T08:03:00+00:00"],
+                "limit": ["3"],
+            },
+        )
         self.assertEqual(request.call_args.kwargs, {"timeout": 5})
 
     @patch("etl_worker.extract.urlopen")
@@ -146,21 +173,26 @@ class ExtractHistoryTests(unittest.TestCase):
             "minute hors plage": history([0, 1, 3]),
             "autre site": history(range(3), site_id="SITE002"),
         }
+        end = START + timedelta(minutes=3)
         for name, payload in cases.items():
+            request.return_value = response(payload)
             with self.subTest(name), self.assertRaises(ValueError):
-                request.return_value = response(payload)
-                extract_history("SITE001", START, START + timedelta(minutes=3), "http://api.test")
+                extract_history("SITE001", START, end, "http://api.test")
 
     @patch("etl_worker.extract.urlopen")
     def test_non_list_answer_is_rejected(self, request):
         request.return_value = response({"detail": "erreur"})
+        end = START + timedelta(minutes=1)
         with self.assertRaises(TypeError):
-            extract_history("SITE001", START, START + timedelta(minutes=1), "http://api.test")
+            extract_history("SITE001", START, end, "http://api.test")
 
     @patch("etl_worker.extract.urlopen")
     def test_invalid_bounds_fail_before_request(self, request):
         cases = [
-            (START.replace(tzinfo=None), START.replace(tzinfo=None) + timedelta(minutes=1)),
+            (
+                START.replace(tzinfo=None),
+                START.replace(tzinfo=None) + timedelta(minutes=1),
+            ),
             (START + timedelta(seconds=30), START + timedelta(minutes=2)),
             (START, START),
             (START, START + timedelta(minutes=1001)),
