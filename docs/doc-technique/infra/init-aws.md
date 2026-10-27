@@ -89,7 +89,7 @@ aws sts get-caller-identity   # doit afficher le compte et le rôle Administrato
 Uniquement pour modifier l'infrastructure : le déploiement des services est fait par la CI
 (voir [Déploiement CI/CD](deploiement.md)).
 
-Deux fichiers locaux, **jamais versionnés** (ils sont dans `.gitignore`), sont à créer à partir
+Deux fichiers locaux, **jamais versionnés** (ils sont dans `../../../.gitignore`), sont à créer à partir
 de leurs modèles :
 
 ```bash

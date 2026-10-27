@@ -1,6 +1,6 @@
 # Mesures (module telemetry)
 
-Routes de lecture des mesures pour le dashboard : courbe d'un site, dernière mesure, synthèse sur une période et consommation actuelle du parc. Les capteurs (`/sensors/status`, `/sensors/reliability`, maquette wf4) feront l'objet d'une PR séparée.
+Routes de lecture des mesures pour le dashboard : courbe d'un site, dernière mesure, synthèse sur une période, consommation actuelle du parc et prévisions. Les capteurs (`/sensors/status`, `/sensors/reliability`, maquette wf4) feront l'objet d'une PR séparée.
 
 ## D'où viennent les mesures
 
@@ -26,6 +26,7 @@ Toutes en lecture seule, derrière le JWT. Un site que l'utilisateur ne voit pas
 | `GET /api/v1/sites/{siteId}/readings/latest` | Dernière mesure (204 si aucune) | wf2 ① |
 | `GET /api/v1/sites/{siteId}/readings/summary?from&to` | Énergie, pic, disponibilité | wf2, synthèse |
 | `GET /api/v1/stats/summary` | Consommation actuelle des sites visibles | wf1 |
+| `GET /api/v1/sites/{siteId}/predictions?from&to` | Prévision horaire publiée par prediction-jobs | prévisions |
 
 ### Courbe : `/sites/{siteId}/readings`
 
@@ -71,6 +72,21 @@ Même forme que `GET /api/v1/stats/summary` de l'API Mock, calculée sur notre b
 - Pour chaque site : sa dernière mesure de **moins de 3 minutes**. La consommation est la valeur brute ; si le capteur est en panne, la valeur imputée est utilisée et `consumptionImputed` vaut `true` (le front l'affiche comme une estimation).
 - `sitesWithoutData` : sites sans mesure récente ou sans aucune valeur. Ils sont exclus de `totalConsumptionKw` ; le front **doit** afficher un avertissement de données incomplètes dès que la liste n'est pas vide (sujet, PDF 04).
 - `totalCapacityKw` couvre tous les sites visibles et `averageLoadPercent = totalConsumptionKw / totalCapacityKw`, comme dans l'API Mock.
+
+### Prévisions : `/sites/{siteId}/predictions`
+
+Lecture des tables `predictions` et `prediction_runs`, écrites chaque heure par `prediction-jobs` (voir la documentation du Prediction Service).
+
+- Période alignée sur l'heure UTC, `to` exclu. Par défaut : les 24 heures à partir de l'heure en cours. 366 jours au plus, sinon **400**.
+- Pour chaque heure, la prévision de la **série complète la plus récente**.
+- **Toutes les heures de la période sont renvoyées** ; une heure sans prévision a ses valeurs à `null`.
+
+| Champ d'un point | Contenu |
+|---|---|
+| `ts` | début de l'heure UTC |
+| `predictionKwh` | énergie prévue sur l'heure (kWh, pas une puissance) |
+| `runId`, `generatedAt` | lot de prévisions et date de publication |
+| `modelName`, `modelVersion` | modèle champion utilisé |
 
 ## Erreurs
 

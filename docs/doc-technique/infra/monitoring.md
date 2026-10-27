@@ -156,23 +156,23 @@ nMAE se lisent donc ensemble (détail dans la section *Recalage de niveau* de la
 
 | Fichier | Rôle |
 | :--- | :--- |
-| `infra/terraform/monitoring.tf` | EC2, security group, paramètres SSM |
-| `infra/monitoring/compose.yaml` | Prometheus, Loki, Grafana, Caddy |
-| `infra/monitoring/caddy/Caddyfile` | HTTPS public vers Grafana uniquement |
-| `infra/monitoring/grafana/dashboards/` | Dashboards (JSON) chargés au démarrage de Grafana |
-| `infra/alloy/config.alloy` | Alloy de l'EC2 app (service `alloy` de `compose.prod.yaml`) |
-| `infra/proxy/Caddyfile` | Métriques (`:9180`) et logs d'accès JSON de Caddy |
-| `infra/db/changelog/changes/007_monitoring_role.sql` | Rôle PostgreSQL `monitoring` |
+| `../../../infra/terraform/monitoring.tf` | EC2, security group, paramètres SSM |
+| `../../../infra/monitoring/compose.yaml` | Prometheus, Loki, Grafana, Caddy |
+| `../../../infra/monitoring/caddy/Caddyfile` | HTTPS public vers Grafana uniquement |
+| `../../../infra/monitoring/grafana/dashboards` | Dashboards (JSON) chargés au démarrage de Grafana |
+| `../../../infra/alloy/config.alloy` | Alloy de l'EC2 app (service `alloy` de `../../../compose.prod.yaml`) |
+| `../../../infra/proxy/Caddyfile` | Métriques (`:9180`) et logs d'accès JSON de Caddy |
+| `../../../infra/db/changelog/changes/007_monitoring_role.sql` | Rôle PostgreSQL `monitoring` |
 
-Le workflow **Deploy** déploie le service `monitoring` (fichiers `infra/monitoring/`) sur l'EC2
+Le workflow **Deploy** déploie le service `monitoring` (fichiers `../../../infra/monitoring`) sur l'EC2
 de monitoring, et `alloy` (fichiers `infra/alloy/`) sur l'EC2 app, comme les autres services.
 
 ## Modifier ou ajouter
 
 - **Dashboard** : on peut modifier le dashboard dans Grafana, mais les changements ne sont
   pas sauvegardés dans git. Exporter le JSON (*Share → Export*) dans
-  `infra/monitoring/grafana/dashboards/`, puis commiter.
-- **Nouvelle métrique** : ajouter un composant dans `infra/alloy/config.alloy`
+  `../../../infra/monitoring/grafana/dashboards`, puis commiter.
+- **Nouvelle métrique** : ajouter un composant dans `../../../infra/alloy/config.alloy`
   (par exemple un `prometheus.scrape` vers un endpoint `/metrics`) avec
   `forward_to = [prometheus.remote_write.monitoring.receiver]`.
 - **Logs** : rien à faire, tout ce qu'un conteneur écrit sur stdout / stderr est collecté.

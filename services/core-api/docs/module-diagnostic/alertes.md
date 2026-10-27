@@ -134,33 +134,17 @@ Couvre #46 avec l'interrogation régulière du front.
 
 ## Tester en local avec les vraies données
 
-Le login front n'existe pas encore : le proxy du serveur de développement ajoute lui-même le jeton.
-
 1. Base, migrations, ETL planifié (alertes chaque minute) et core-api. `JWT_SECRET` doit faire au moins 32 octets une fois décodé (`openssl rand -base64 32`) :
     ```bash
     docker compose up -d scheduler core-api
     ```
-2. Un compte (créé à la main en base, mot de passe haché en BCrypt avec le préfixe `{bcrypt}`), puis son jeton :
-    ```bash
-    curl -s localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' \
-      -d '{"email":"<email>","password":"<mot de passe>"}'
-    ```
-3. Un fichier de proxy **hors du dépôt** (le jeton ne doit pas être commité), par exemple `/tmp/proxy.local.json` :
-    ```json
-    { "/api": { "target": "http://localhost:8080", "headers": { "Authorization": "Bearer <accessToken>" } } }
-    ```
-4. Le front en mode HTTP (configuration `production`, sans le mock) :
+2. Le front branché sur core-api (voir le [README du front](https://github.com/enervision-project/smart-energy-optimizer/blob/main/app/web/README.md#lancer-en-local)) :
     ```bash
     cd app/web
-    npx ng serve --configuration production --proxy-config /tmp/proxy.local.json
+    npm run start:api
     ```
-    puis http://localhost:4200/alertes.
-
-Le jeton expire au bout d'une heure (`JWT_EXPIRATION`) : en refaire un et relancer `ng serve`.
+3. Se connecter avec le compte administrateur (`ADMIN_EMAIL` / `ADMIN_PASSWORD` du `.env`), puis ouvrir http://localhost:4200/alertes.
 
 ## À faire en dehors du module
 
 - **PO** : fermer ou réécrire #49, fermer #47 (doublon de #51), préciser #19 ou le rattacher à #51.
-- **Front** : fait dans la même branche. Page `/alertes` (filtres site, sévérité, type et période, compteurs par sévérité, pagination, relecture toutes les 30 s) et badge dans le menu avec le nombre d'alertes de la dernière heure. Le modèle `Site` du front est aligné sur `GET /api/v1/sites` de core-api (camelCase). Le login front et l'envoi du jeton (`auth-interceptor`) restent à faire : sans eux, `HttpEnergyApi` reçoit des `401` de core-api (voir « Tester en local » pour contourner).
-- **ETL** : préciser dans la doc de `sync-alerts` que l'API Mock renvoie un échantillon aléatoire et non des alertes persistantes.
-- **Prod** : core-api n'est pas encore déployé (`services.json`, `../../../../compose.prod.yaml`, route `/api` dans Caddy).

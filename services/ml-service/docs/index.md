@@ -55,6 +55,7 @@ Les chemins ci-dessous sont relatifs à `services/ml-service/`.
 | `training/search_hgb.py`                           | Grille, exécution des essais, reprise et bilan de campagne.                                        |
 | `configs/hist_gradient_boosting_no_weather.yaml`   | Modèle de base, expérience et paramètres fixes de la campagne actuelle.                            |
 | `configs/hgb_search_no_weather.yaml`               | Quatre variantes de variables et grille des 24 configurations.                                     |
+| `configs/hgb_production.yaml`                      | Modèle HGB entraîné chaque nuit en production par `prediction-jobs` (Prediction Service).          |
 | `run_experiments.py`                               | Commande unique : vérifications, image Docker, démarrage de MLflow et 96 essais.                   |
 | `run_dvc.py`                                       | Versionnement et récupération des trois Parquet avec DVC dans Docker.                              |
 | `Dockerfile.dvc-tools`, `requirements-dvc.txt`     | Image et versions des dépendances DVC/S3.                                                          |

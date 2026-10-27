@@ -171,16 +171,17 @@ Il utilise les cinq variables communes et les paramètres `learning_rate=0.1`,
 Ce bilan décrit une comparaison sur validation, sans évaluation du test ni promotion
 automatique. Il ne désigne pas un champion de production.
 
-## Désignation du champion : étape suivante
+## Désignation du champion
 
 Le lanceur entraîne, compare et sauvegarde les modèles. Il ne lance pas d'évaluation
-sur test et n'enregistre pas automatiquement un champion dans le registry.
+sur test et n'enregistre pas de champion dans le registry.
 
-La suite consiste à sélectionner un candidat avec la validation et les résultats par
-site, puis à effectuer son évaluation finale sur test selon un protocole défini.
-Une politique de promotion et une instance MLflow partagée restent à convenir pour
-que le choix soit utilisable par l'équipe. Un MLflow local contient uniquement ses
-propres runs, même si le code et le nom d'expérience sont identiques.
+La campagne sert à choisir le modèle et ses paramètres, repris dans
+`configs/hgb_production.yaml`. En production, `prediction-jobs` réentraîne ce modèle
+chaque nuit, le compare au champion sur `test.parquet` et le promeut s'il réduit la
+nMAE d'au moins 4 %, dans le MLflow de production (voir la documentation du
+Prediction Service). Un MLflow local contient uniquement ses propres runs, même si le
+code et le nom d'expérience sont identiques.
 
 ## Diagnostic rapide
 

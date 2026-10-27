@@ -6,7 +6,7 @@ cet accès est sécurisé. Pour les commandes et la configuration, voir
 
 ## Vue d'ensemble
 
-À chaque push sur `main`, le workflow `Deploy` (`.github/workflows/services.yml`) enchaîne
+À chaque push sur `main`, le workflow `Deploy` (`../../../.github/workflows/services.yml`) enchaîne
 trois jobs :
 
 ```mermaid
@@ -43,7 +43,7 @@ vérifier qu'elles compilent. Elles ne sont ni publiées ni déployées.
 
 Le job compare le commit actuel au **dernier commit déployé avec succès**, mémorisé dans le
 paramètre SSM `/enervision/prod/deployed-sha`, puis confronte les fichiers modifiés aux `paths`
-de `.github/services.json`.
+de `../../../.github/services.json`.
 
 ```mermaid
 flowchart TD
@@ -72,7 +72,7 @@ Exemple : un commit qui ne touche que `app/web/src/...` sélectionne uniquement 
 
 Il n'y a **pas d'étape de compilation séparée** : la compilation a lieu *dans* le
 `docker build`, sur une machine GitHub. Chaque Dockerfile décrit comment compiler son service
-(multi-stage build). Par exemple `app/web/Dockerfile` :
+(multi-stage build). Par exemple `../../../app/web/Dockerfile` :
 
 ```dockerfile
 # Étape 1 : image Node, compile l'application Angular
@@ -148,7 +148,7 @@ déjà construites.
 
 ### Sur l'EC2
 
-`infra/deploy/deploy.sh` s'exécute dans `/opt/enervision` :
+`../../../infra/deploy/deploy.sh` s'exécute dans `/opt/enervision` :
 
 1. reconstruit `.env` à partir des paramètres SSM `/enervision/prod/env/*` (mot de passe de la
    base, URL de l'API…) ;
@@ -165,7 +165,7 @@ gardées par service).
 
 | Fichier sur l'EC2 | Contenu |
 |---|---|
-| `compose.yaml`, `compose.prod.yaml`, `infra/` | copiés depuis S3 à chaque déploiement |
+| `../../../compose.yaml`, `compose.prod.yaml`, `infra/` | copiés depuis S3 à chaque déploiement |
 | `.env` | variables de production, reconstruit depuis SSM (droits `600`) |
 | `deploy.env` | registre ECR et tag déployé de chaque service |
 | `/var/lib/docker` | volume EBS dédié : images et données TimescaleDB |
@@ -317,4 +317,4 @@ sudo docker compose -f compose.yaml -f compose.prod.yaml --env-file .env --env-f
 | **Rôle IAM** | ensemble de droits qu'une identité (GitHub, l'EC2) peut endosser temporairement |
 | **OIDC** | protocole qui permet à GitHub de prouver son identité à AWS sans mot de passe ni clé |
 | **STS** | service AWS qui délivre les identifiants temporaires |
-| **Terraform** | outil qui crée l'infrastructure AWS à partir du code de `infra/terraform/` |
+| **Terraform** | outil qui crée l'infrastructure AWS à partir du code de `../../../infra/terraform` |

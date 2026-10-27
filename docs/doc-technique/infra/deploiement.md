@@ -1,7 +1,7 @@
 # Déploiement CI/CD
 
 L'application est servie sur **<https://ener-vision.click>** par une seule EC2
-(`enervision-app`, t3.small, eu-west-3) qui exécute `compose.yaml` + `compose.prod.yaml`.
+(`enervision-app`, t3.small, eu-west-3) qui exécute `../../../compose.yaml` + `compose.prod.yaml`.
 Les images sont construites par GitHub Actions, poussées dans ECR, puis redéployées via
 SSM Run Command (pas de SSH). Seuls les services modifiés sont reconstruits et redéployés.
 
@@ -70,13 +70,13 @@ style EC2 fill:#d0d4da,stroke:#333
 
 | Élément | Emplacement |
 |---|---|
-| Liste des services | `.github/services.json` |
-| Sélection des services modifiés | `scripts/ci/changed-services.py` |
-| Workflow | `.github/workflows/services.yml` |
-| Surcharge production de compose | `compose.prod.yaml` |
-| Reverse proxy HTTPS | `infra/proxy/Caddyfile` |
-| Script exécuté sur l'EC2 | `infra/deploy/deploy.sh` |
-| Infrastructure | `infra/terraform/` (state dans le bucket S3 `enervision-tfstate-s3`) |
+| Liste des services | `../../../.github/services.json` |
+| Sélection des services modifiés | `../../../scripts/ci/changed-services.py` |
+| Workflow | `../../../.github/workflows/services.yml` |
+| Surcharge production de compose | `../../../compose.prod.yaml` |
+| Reverse proxy HTTPS | `../../../infra/proxy/Caddyfile` |
+| Script exécuté sur l'EC2 | `../../../infra/deploy/deploy.sh` |
+| Infrastructure | `../../../infra/terraform` (state dans le bucket S3 `enervision-tfstate-s3`) |
 
 Ressources AWS créées par Terraform :
 
@@ -85,7 +85,7 @@ Ressources AWS créées par Terraform :
 - **volume EBS séparé** monté sur `/var/lib/docker` : les données TimescaleDB survivent à un
   remplacement de l'instance (`prevent_destroy`) ;
 - **un dépôt ECR par service** ayant un `build` dans `services.json` (20 dernières images gardées) ;
-- **bucket S3** `enervision-deploy-<compte>` : fichiers compose et `infra/` de chaque release ;
+- **bucket S3** `enervision-deploy-<compte>` : fichiers compose et `../../../infra` de chaque release ;
 - **paramètres SSM** `/enervision/prod/env/<NOM>` : le `.env` de production, relu à chaque
   déploiement (mot de passe de la base généré par Terraform) ;
 - **rôle IAM GitHub (OIDC)** : aucune clé AWS dans GitHub, déploiement depuis `main` uniquement.
@@ -104,7 +104,7 @@ Le service `proxy` (Caddy, uniquement en production) est le seul exposé sur Int
 - il transmet les requêtes au service `web`, qui n'est plus publié sur l'hôte.
 
 Pour exposer un nouveau service (ex. `core-api` sous `/api`), ajouter une route dans
-`infra/proxy/Caddyfile` :
+`../../../infra/proxy/Caddyfile` :
 
 ```
 handle_path /api/* {
@@ -114,7 +114,7 @@ handle_path /api/* {
 
 ## Première installation
 
-Prérequis : outils installés (`scripts/aws/install-tools.sh`) et session SSO active
+Prérequis : outils installés (`../../../scripts/aws/install-tools.sh`) et session SSO active
 (voir [Init AWS user](init-aws.md)).
 
 ```bash
@@ -138,7 +138,7 @@ Le premier push sur `main` qui contient le workflow déploie alors tous les serv
 
 ## Déploiement par service
 
-Chaque service de `.github/services.json` déclare :
+Chaque service de `../../../.github/services.json` déclare :
 
 - `paths` : préfixes de fichiers qui le déclenchent ;
 - `build` (optionnel) : contexte et Dockerfile de son image. Sans `build` (`proxy`, `db` :
@@ -168,7 +168,7 @@ les autres conteneurs ne sont pas touchés.
 
 ## Ajouter un service
 
-1. Le déclarer dans `compose.yaml`, puis dans `compose.prod.yaml` :
+1. Le déclarer dans `../../../compose.yaml`, puis dans `compose.prod.yaml` :
 
     ```yaml
     mon-service:
@@ -177,11 +177,11 @@ les autres conteneurs ne sont pas touchés.
       restart: unless-stopped
     ```
 
-2. L'ajouter dans `.github/services.json` (`paths` et `build`).
+2. L'ajouter dans `../../../.github/services.json` (`paths` et `build`).
 3. `terraform apply` : crée son dépôt ECR et le droit de push associé.
 4. Ses variables d'environnement : dans `app_env` (`variables.tf`) ou un paramètre SSM
    `/enervision/prod/env/<NOM>` (type `SecureString` pour un secret).
-5. S'il doit être accessible depuis Internet : une route dans `infra/proxy/Caddyfile`.
+5. S'il doit être accessible depuis Internet : une route dans `../../../infra/proxy/Caddyfile`.
 
 ## Limites actuelles
 
