@@ -1,8 +1,7 @@
 """Vérifie que les tâches cron peuvent lire leur environnement et créer leurs verrous."""
 
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 WORKER_DIR = Path(__file__).resolve().parents[1]
 
