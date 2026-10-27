@@ -1,7 +1,8 @@
 # Monitoring stack, on the monitoring EC2 (infra/terraform/monitoring.tf).
 # Deployed by infra/monitoring/deploy.sh; secrets come from SSM (/enervision/prod/monitoring).
 # Alloy on the app EC2 pushes metrics (9090) and logs (3100); the security group
-# only accepts the app EC2. Grafana: SSM tunnel only (terraform output grafana_tunnel).
+# only accepts the app EC2 on those ports. Grafana: https://grafana.<domain> through the
+# proxy service (GitHub login), SSM tunnel as a fallback (terraform output grafana_tunnel).
 name: enervision-monitoring
 
 services:
@@ -15,12 +16,24 @@ services:
     environment:
       # only used on the first start: later changes go through the Grafana UI or grafana-cli
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must come from SSM}
-      # public URL once Grafana is exposed to the team; tunnel URL until then
-      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:13000}
+      # public URL (https://grafana.<domain>), served by the proxy service
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:?GRAFANA_ROOT_URL must come from SSM}
+      GF_SECURITY_COOKIE_SECURE: "true"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
-    # host loopback only: reached through the SSM tunnel
+      # GitHub login, members of the enervision-project organization only
+      GF_AUTH_GITHUB_ENABLED: "true"
+      GF_AUTH_GITHUB_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:?GITHUB_OAUTH_CLIENT_ID must come from SSM}
+      GF_AUTH_GITHUB_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:?GITHUB_OAUTH_CLIENT_SECRET must come from SSM}
+      GF_AUTH_GITHUB_SCOPES: user:email,read:org
+      GF_AUTH_GITHUB_ALLOWED_ORGANIZATIONS: enervision-project
+      # creates the Grafana account on the first GitHub login (the organization check still applies)
+      GF_AUTH_GITHUB_ALLOW_SIGN_UP: "true"
+      # role given on the first login; later changes made in Grafana (e.g. Admin) are kept
+      GF_USERS_AUTO_ASSIGN_ORG_ROLE: Editor
+      GF_AUTH_GITHUB_SKIP_ORG_ROLE_SYNC: "true"
+    # host loopback only: fallback access through the SSM tunnel
     ports:
       - "127.0.0.1:3000:3000"
     restart: unless-stopped
@@ -55,7 +68,23 @@ services:
     restart: unless-stopped
     mem_limit: 512m
 
+  # public HTTPS entry point: Grafana only (infra/monitoring/caddy/Caddyfile)
+  proxy:
+    image: docker.io/library/caddy:2.11-alpine
+    depends_on: [ grafana ]
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddydata:/data # certificates
+    environment:
+      GRAFANA_DOMAIN: ${GRAFANA_DOMAIN:?GRAFANA_DOMAIN must come from SSM}
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    restart: unless-stopped
+    mem_limit: 128m
+
 volumes:
+  caddydata: {}
   grafana: {}
   loki: {}
   prometheus: {}
