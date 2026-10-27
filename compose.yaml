@@ -80,8 +80,6 @@ services:
       LIQUIBASE_COMMAND_PASSWORD: ${POSTGRES_PASSWORD}
       # changelog parameter: password of the monitoring role (007_monitoring_role.sql)
       MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD:-monitoring-local}
-    volumes:
-      - ./infra/db/changelog:/liquibase/changelog:ro
     command: [ "--search-path=/liquibase/changelog", "--changelog-file=changelog.yaml", "update" ]
 
   mlflow:
