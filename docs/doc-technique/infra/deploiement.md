@@ -1,9 +1,11 @@
 # Déploiement CI/CD
 
-L'application est servie sur **<https://ener-vision.click>** par une seule EC2
-(`enervision-app`, t3.small, eu-west-3) qui exécute `../../../compose.yaml` + `compose.prod.yaml`.
-Les images sont construites par GitHub Actions, poussées dans ECR, puis redéployées via
-SSM Run Command (pas de SSH). Seuls les services modifiés sont reconstruits et redéployés.
+L'application est servie sur **<https://ener-vision.click>** par une EC2 (`enervision-app`,
+t3.medium par défaut, eu-west-3) qui exécute `../../../compose.yaml` + `compose.prod.yaml`. Une
+seconde EC2 (`enervision-monitoring`, t4g.small) héberge Prometheus, Loki et Grafana
+(<https://grafana.ener-vision.click>). Les images sont construites par GitHub Actions, poussées
+dans ECR, puis redéployées via SSM Run Command (pas de SSH). Seuls les services modifiés sont
+reconstruits et redéployés.
 
 !!! tip "Première fois ?"
     [Comprendre le déploiement](fonctionnement-cd.md) explique pas à pas le fonctionnement
@@ -23,10 +25,21 @@ subgraph EC2["EC2 enervision-app"]
 direction TB
 PROXY("proxy Caddy HTTPS")
 WEB("web")
-ETL("etl-worker")
+API("core-api")
+ETL("scheduler (ETL)")
+ML("prediction-service, prediction-jobs, mlflow")
 DB("db TimescaleDB")
+ALLOY("alloy")
 PROXY --> WEB
+PROXY -->|/api| API
+API --> DB
 ETL --> DB
+ML --> DB
+end
+
+subgraph MON["EC2 enervision-monitoring"]
+direction TB
+GRAFANA("Grafana, Prometheus, Loki")
 end
 
 PUSH --> CHANGES
@@ -34,8 +47,10 @@ CHANGES --> BUILD
 BUILD --> ECR
 BUILD --> DEPLOY
 DEPLOY --> EC2
+DEPLOY --> MON
 ECR --> EC2
 PARAMS --> EC2
+ALLOY -->|métriques, logs| GRAFANA
 USER_ACTOR --> PROXY
 
 classDef ci fill:#fff,stroke:#1971c2,stroke-width:2px
@@ -43,13 +58,14 @@ classDef aws fill:#fff,stroke:#f08c00,stroke-width:2px
 classDef plain fill:#fff,stroke:#333,stroke-width:1px
 class PUSH,CHANGES,BUILD,DEPLOY ci
 class ECR,PARAMS aws
-class PROXY,WEB,ETL,DB,USER_ACTOR plain
+class PROXY,WEB,API,ETL,ML,DB,ALLOY,GRAFANA,USER_ACTOR plain
 style EC2 fill:#d0d4da,stroke:#333
+style MON fill:#d0d4da,stroke:#333
 ```
 
 | Événement | Ce qui se passe |
 |---|---|
-| PR vers `main` | Construit les images des services modifiés, sans les publier (workflow `ci.yml`, job `call-images`) |
+| PR vers `main` | Vérifie les composants modifiés et construit leurs images sans les publier (workflow `ci.yml`, voir [Intégration continue](ci-cd.md)) |
 | Push sur `main` | Construit et publie dans ECR, puis redéploie les services modifiés **après validation** |
 | Lancement manuel | Déploie les services choisis, **après validation** : `gh workflow run Deploy -f services=web,db` |
 
@@ -76,6 +92,8 @@ style EC2 fill:#d0d4da,stroke:#333
 | Surcharge production de compose | `../../../compose.prod.yaml` |
 | Reverse proxy HTTPS | `../../../infra/proxy/Caddyfile` |
 | Script exécuté sur l'EC2 | `../../../infra/deploy/deploy.sh` |
+| Release des datasets ML | `../../../infra/deploy/dataset_release.py`, `../../../scripts/ml/upload-bootstrap.sh` |
+| Script exécuté sur l'EC2 de monitoring | `../../../infra/monitoring/deploy.sh` |
 | Infrastructure | `../../../infra/terraform` (state dans le bucket S3 `enervision-tfstate-s3`) |
 
 Ressources AWS créées par Terraform :
@@ -84,8 +102,14 @@ Ressources AWS créées par Terraform :
 - **DNS** : `ener-vision.click` et `www.ener-vision.click` (zone Route 53 existante) vers l'IP élastique ;
 - **volume EBS séparé** monté sur `/var/lib/docker` : les données TimescaleDB survivent à un
   remplacement de l'instance (`prevent_destroy`) ;
-- **un dépôt ECR par service** ayant un `build` dans `services.json` (20 dernières images gardées) ;
+- **un dépôt ECR par service** ayant un `build` dans `services.json` (20 dernières images
+  gardées, analyse des vulnérabilités à chaque push) ;
 - **bucket S3** `enervision-deploy-<compte>` : fichiers compose et `../../../infra` de chaque release ;
+- **bucket S3** `enervision-datalake-<compte>` : données brutes (bronze) de l'ETL et datasets ML ;
+- **bucket S3** `enervision-backup-<compte>` : sauvegardes immuables (Object Lock, 7 jours),
+  voir [Sauvegardes](../transverse/infra/sauvegardes.md) ;
+- **EC2 de monitoring** `enervision-monitoring` avec son IP élastique et `grafana.ener-vision.click`
+  (voir [Monitoring](monitoring.md)) ;
 - **paramètres SSM** `/enervision/prod/env/<NOM>` : le `.env` de production, relu à chaque
   déploiement (mot de passe de la base généré par Terraform) ;
 - **rôle IAM GitHub (OIDC)** : aucune clé AWS dans GitHub, déploiement depuis `main` uniquement.
@@ -101,14 +125,17 @@ Le service `proxy` (Caddy, uniquement en production) est le seul exposé sur Int
 - il obtient et renouvelle automatiquement les certificats Let's Encrypt de `ener-vision.click`
   et `www.ener-vision.click` (stockés dans le volume `caddydata`) ;
 - il redirige HTTP vers HTTPS et `www` vers le domaine principal ;
-- il transmet les requêtes au service `web`, qui n'est plus publié sur l'hôte.
+- il transmet `/api/*` à `core-api` et le reste au service `web` ; aucun des deux n'est publié
+  sur l'hôte ;
+- il écrit ses logs d'accès en JSON et expose ses métriques sur le port interne `9180`, lus par
+  Alloy pour le [Monitoring](monitoring.md).
 
-Pour exposer un nouveau service (ex. `core-api` sous `/api`), ajouter une route dans
-`../../../infra/proxy/Caddyfile` :
+Pour exposer un nouveau service, ajouter une route dans `../../../infra/proxy/Caddyfile`, avant
+le `handle` final vers `web` :
 
 ```
-handle_path /api/* {
-	reverse_proxy core-api:8080
+handle /mon-service/* {
+	reverse_proxy mon-service:8080
 }
 ```
 
@@ -156,7 +183,7 @@ Chaque service de `../../../.github/services.json` déclare :
 ```
 
 Un fichier listé dans `global` (compose, scripts de déploiement, workflow…) redéploie tous
-les services..
+les services.
 
 Les changements sont comparés au **dernier commit déployé avec succès** (paramètre SSM
 `/enervision/prod/deployed-sha`), et non au commit précédent : un déploiement en échec ou
@@ -185,6 +212,12 @@ les autres conteneurs ne sont pas touchés.
 
 ## Limites actuelles
 
-- La CI construit les images mais ne lance pas encore de tests.
-- Coût estimé : environ 25 $/mois (EC2 ~17 $, 40 Go d'EBS ~4 $, IP publique ~4 $,
+- **Une seule EC2 applicative** : pas de haute disponibilité, un redémarrage de l'instance
+  interrompt le service.
+- **Pas de staging permanent** : la CI démarre une stack éphémère (sans le profil `ml`) pour
+  chaque PR concernée ; la stack complète, ML compris, n'est démarrée qu'en production.
+- **Validation manuelle** de chaque déploiement : rien ne part en production sans un membre de
+  l'équipe.
+- Coût estimé : environ 60 $/mois, hors trafic et requêtes S3 (EC2 t3.medium ~34 $,
+  EC2 de monitoring t4g.small ~14 $, environ 70 Go d'EBS ~7 $, deux IP publiques ~7 $,
   zone Route 53 0,50 $).
