@@ -19,6 +19,15 @@ Suivre quotidiennement trois éléments :
 
 Le drift est un signal d'évolution. Il ne déclenche pas à lui seul le remplacement du modèle. Une hausse durable des erreurs sur des données propres peut justifier un nouvel entraînement. La distinction entre suivi des données et suivi des performances est décrite dans les [recommandations de surveillance de Google](https://developers.google.com/machine-learning/managing-ml-projects/production).
 
+!!! warning "Avec le recalage de niveau, suivre deux erreurs et le ratio"
+    Les prévisions publiées sont recalées par un ratio mesuré / prévu de chaque site (voir [Recalage de niveau](prediction-service.md#recalage-de-niveau)). Ce recalage corrige l'échelle : l'erreur publiée (`prediction_kwh`) reste donc bonne même quand les données dérivent. Pour ne pas masquer la dérive, suivre séparément :
+
+    - l'**erreur du champion seul**, à partir de `model_prediction_kwh` : c'est elle qui justifie un réentraînement ;
+    - l'**erreur publiée**, à partir de `prediction_kwh` : c'est la qualité vue par l'utilisateur ;
+    - le **ratio** `level_ratio` de chaque site : durablement loin de 1, il mesure la dérive de niveau ; un saut brutal signale un changement récent ou un problème de collecte ; un ratio aux bornes (0,5 ou 1,5) signifie que la correction ne suffit plus.
+
+    Un challenger entraîné sur les données récentes devra battre le **champion recalé**, et non le champion brut.
+
 ## 2. Accumuler des données propres sur plusieurs semaines
 
 Les nouvelles heures restent collectées par l'ETL. On attend d'avoir assez de recul pour couvrir plusieurs cycles de travail et disposer de périodes distinctes pour apprendre et comparer les modèles.

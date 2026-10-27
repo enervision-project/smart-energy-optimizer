@@ -43,6 +43,7 @@ Les chemins ci-dessous sont relatifs à `services/ml-service/`.
 | Fichier                                            | Rôle                                                                                               |
 |----------------------------------------------------|----------------------------------------------------------------------------------------------------|
 | `notebook/01_exploration_consommation.ipynb`       | Exploration, tableaux, graphiques et justification des variables.                                  |
+| `notebook/02_recalage_niveau_prod.ipynb`           | Backtest du recalage de niveau sur les heures mesurées en production (export : `scripts/ml/export-prod-hours.sh`). |
 | `requirements-notebooks.txt`                       | Dépendances de l'environnement d'exploration.                                                      |
 | `training/prepare_data.py`                         | Vérification du CSV, recalcul des horaires travaillés, création des lags et des trois Parquet.     |
 | `training/data.py`                                 | Schéma des données et lecture exclusive de train et validation pendant les expériences.            |

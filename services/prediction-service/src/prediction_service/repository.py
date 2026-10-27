@@ -105,6 +105,30 @@ def read_recent_hours(database_url: str, before: datetime) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["site_id", "timestamp", "consumption_kwh"])
 
 
+def read_measured_hours(
+    database_url: str, start: datetime, end: datetime, min_minutes: int = 10
+) -> list[tuple[str, datetime, float]]:
+    """Heures `[start, end)` mesurées, pour le recalage de niveau.
+
+    Une heure dont la consommation repose sur moins de `min_minutes` minutes est écartée.
+    Seuil bas : avec /current, l'API Mock renvoie la consommation sur 18 à 32 minutes par heure
+    seulement, et leur moyenne suffit à estimer le niveau. Les heures antérieures au
+    changeset 005 (compteur NULL) sont gardées.
+    """
+    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+                SELECT site_id, ts, consumption_kwh
+                FROM readings_hours
+                WHERE ts >= %s AND ts < %s AND consumption_kwh IS NOT NULL
+                  AND coalesce(minutes_consumption, 60) >= %s
+                ORDER BY site_id, ts
+                """,
+            (start, end, min_minutes),
+        )
+        return [(row[0], row[1], float(row[2])) for row in cursor.fetchall()]
+
+
 def read_site_profiles(database_url: str) -> list[SiteProfile]:
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
         cursor.execute(
@@ -129,10 +153,13 @@ def save_forecast(
     model_name: str,
     model_version: str,
     hours: Sequence[datetime],
-    rows: Sequence[tuple[str, datetime, float]],
+    rows: Sequence[tuple[str, datetime, float, float, float]],
     site_count: int,
 ) -> UUID:
-    """Publie le lot complet et ses lignes en une transaction."""
+    """Publie le lot complet et ses lignes en une transaction.
+
+    Chaque ligne : site, heure, valeur publiée, prévision brute du champion, ratio appliqué.
+    """
     if not hours or not rows or len(rows) != site_count * len(hours):
         raise ValueError("Lot de prévisions incomplet.")
     with psycopg.connect(database_url) as connection:
@@ -158,10 +185,12 @@ def save_forecast(
             run_id = cursor.fetchone()[0]
             cursor.executemany(
                 """
-                INSERT INTO predictions(run_id, site_id, predicted_for, prediction_kwh)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO predictions
+                    (run_id, site_id, predicted_for, prediction_kwh,
+                     model_prediction_kwh, level_ratio)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                [(run_id, site_id, hour, value) for site_id, hour, value in rows],
+                [(run_id, *row) for row in rows],
             )
         connection.commit()
     return run_id

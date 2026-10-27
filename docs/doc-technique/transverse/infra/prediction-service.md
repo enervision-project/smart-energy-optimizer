@@ -46,13 +46,70 @@ La promotion met à jour l'alias MLflow `champion` et le cache versionné dans `
 
 Avant le calcul, le job vérifie qu'un agrégat `readings_hours` suffisamment récent existe. Il charge le champion disponible, puis lit `site_profiles`. Un site doit avoir un profil et être connu du modèle ; les sites avec profil mais inconnus du modèle sont signalés puis ignorés. Si aucun site n'est éligible, le lot échoue.
 
-À 14:05, par exemple, la première heure prévue commence à **15:00** ; les 23 suivantes se suivent d'une heure réelle. L'heure en cours reste couverte par la série de l'heure précédente. Pour chaque site et chaque heure, le job construit les cinq variables du modèle selon l'heure UTC (les heures de travail du CSV d'entraînement et de l'API Mock ne suivent pas l'heure d'été), vérifie que la valeur prédite est finie et positive ou nulle, puis écrit le lot entier dans une transaction PostgreSQL.
+À 14:05, par exemple, la première heure prévue commence à **15:00** ; les 23 suivantes se suivent d'une heure réelle. L'heure en cours reste couverte par la série de l'heure précédente. Pour chaque site et chaque heure, le job construit les cinq variables du modèle selon l'heure UTC (les heures de travail du CSV d'entraînement et de l'API Mock ne suivent pas l'heure d'été), vérifie que la valeur prédite est finie et positive ou nulle, lui applique le [recalage de niveau](#recalage-de-niveau) du site, puis écrit le lot entier dans une transaction PostgreSQL.
 
 | Table | Contenu |
 | --- | --- |
 | `prediction_jobs` | Déclenchement, statut et éventuelle erreur des jobs. |
 | `prediction_runs` | Version du modèle, fenêtre de 24 heures, date de génération et taille du lot. |
-| `predictions` | `run_id`, `site_id`, `predicted_for` et `prediction_kwh` pour chaque heure. |
+| `predictions` | `run_id`, `site_id`, `predicted_for` et, pour chaque heure : `prediction_kwh` (valeur publiée, lue par `core-api`), `model_prediction_kwh` (prévision brute du champion) et `level_ratio` (ratio appliqué). Les deux dernières colonnes sont NULL pour les lots antérieurs au changeset 008. |
+
+## Recalage de niveau
+
+### Pourquoi
+
+Le champion a appris sur le CSV historique la **forme** de la consommation : heures de montée et de descente, semaine et week-end. Mais l'API Mock produit des niveaux plus bas : environ **0,66 à 0,83 fois** ceux du CSV selon le site, avec un ratio stable d'un jour à l'autre (±1 à 3 %). Sans correction, les prévisions publiées étaient trop hautes d'environ **29 %** (nMAE macro d'environ 34 %).
+
+Les variables du modèle sont purement calendaires : elles ne peuvent pas dériver. C'est la relation entre ces variables et la consommation qui a changé d'échelle (dérive de concept). Ajouter des lags au modèle entraîné sur le CSV ne corrige pas ce niveau (backtest : 28 à 31 % de nMAE), car l'arbre apprend des seuils en kWh absolus.
+
+### Principe : appliquer un ratio par site
+
+À chaque série (chaque heure à :05), pour chaque site :
+
+```text
+ratio = Σ consommation mesurée sur les 7 derniers jours
+      / Σ prévision du champion pour ces mêmes heures
+
+prévision publiée = prévision du champion × ratio
+```
+
+- **La prévision du champion sur le passé est recalculée** avec le champion courant, et non relue en base : un changement de champion ou d'horaires est pris en compte immédiatement.
+- **Deux ratios par site** : un pour les heures travaillées, un pour les autres (selon `site_profiles`), l'écart n'étant pas le même le jour et la nuit (par exemple 0,84 et 0,76 pour l'usine SITE002).
+- **Somme puis division**, et non moyenne de ratios horaires : une heure de nuit à faible consommation ne pèse pas plus qu'une heure de pointe.
+- **Heures retenues** : heures closes de `readings_hours`, consommation non NULL, calculée sur au moins **10 minutes**. Avec `/current`, l'API Mock ne renvoie la consommation que sur 18 à 32 minutes par heure environ ; leur moyenne suffit à estimer le niveau.
+
+Exemple pour SITE001 à 10:00 UTC un jour ouvré : le champion prévoit 217 kWh, le ratio des heures travaillées vaut 0,789, la prévision publiée est **171 kWh** (mesure habituelle : environ 170 kWh).
+
+### Garde-fous
+
+| Cas | Règle |
+| --- | --- |
+| Moins de **24 heures** mesurées sur 7 jours (démarrage, longue panne) | Ratio 1 : prévision du champion inchangée. |
+| Moins de **12 heures** dans un groupe, ou groupe absent (data center et hôpital toujours actifs) | Le groupe reprend le ratio global du site. |
+| Ratio hors de **[0,5 ; 1,5]** (panne de collecte, changement d'unité) | Ratio ramené à la borne, avertissement `Ratio de SITE… ramené dans les bornes` dans les logs. |
+| Désactivation | `LEVEL_RECALIBRATION=false` : la prévision brute du champion est publiée (ratio 1 enregistré). |
+
+Le job écrit dans ses logs, pour chaque site et chaque série, une ligne du type `Recalage SITE001 : 0.765 (heures travaillées 0.789, autres 0.733, 168 h mesurées)`.
+
+### Résultats
+
+Backtest sur les heures mesurées en production du 21 au 27/10 : à chaque heure, prévision des 24 heures suivantes avec les seules mesures antérieures, ratio calculé par la fonction de production (`recalibration.level_ratios`). Détail, tableaux et graphiques dans le notebook `services/ml-service/notebook/02_recalage_niveau_prod.ipynb`.
+
+| Variante | nMAE macro | Biais |
+| --- | --- | --- |
+| Champion seul (avant) | 34,1 % | +28,6 % |
+| Champion × ratio global du site | 8,1 % | +0,4 % |
+| **Champion × ratio heures travaillées / autres (production)** | **7,5 %** | **+0,2 %** |
+| Référence sans modèle : même heure des jours passés du même type | 1,3 % | +0,1 % |
+
+La référence « profil récent » est très bonne parce que l'API Mock est presque périodique ; elle ne serait pas transposable à de vraies données (météo, jours fériés, tendances). Elle sert de **seuil à battre** pour les futurs challengers, pas de prévision publiée.
+
+### Limites
+
+- **Centre commercial (SITE004) : environ 25 % de nMAE.** Son surplus du week-end, présent dans le CSV, n'existe pas dans l'API Mock (ratio 0,96 le week-end, 0,71 en semaine), et ses nuits de week-end tirent vers le haut le ratio des heures non travaillées (1,02, contre 0,70 pour les heures travaillées).
+- **Dérive suivie avec retard** : un changement brutal de niveau n'est complètement absorbé qu'après quelques jours de fenêtre.
+- **La dérive devient invisible dans l'erreur publiée.** Il faut suivre séparément l'erreur de `model_prediction_kwh` (champion seul) et `level_ratio` : un ratio durablement loin de 1 signale qu'un réentraînement sur les données récentes est nécessaire (voir [Données, suivi quotidien et nouveaux champions](prediction-service-pratics.md)).
+- Le recalage **ne remplace pas un réentraînement** : il corrige l'échelle, pas les écarts ponctuels (pic inhabituel, panne).
 
 Les versions successives des prévisions restent en base. Si le contrôle de fraîcheur, le chargement du champion ou une valeur échoue, aucun lot partiel n'est publié. Si la tentative de :05 échoue, celle de :20, :35 ou :50 recalcule la fenêtre de 24 heures à partir du prochain début d'heure. Une série est publiée chaque heure : environ 4 000 lignes par jour pour 7 sites.
 
@@ -64,7 +121,7 @@ L'API privée expose `GET /health` et `POST /predict`. Au démarrage, elle cherc
 
 ## Configuration et démarrage local
 
-Les paramètres principaux sont `DATABASE_URL`, `MLFLOW_TRACKING_URI`, `REGISTERED_MODEL_NAME`, `TRAINING_BOOTSTRAP_URI`, `TRAINING_TIMEZONE`, `VALIDATION_DAYS`, `MIN_CURRENT_VALIDATION_HOURS`, `MODEL_DIR` et `MODEL_REFRESH_SECONDS`. Leurs valeurs et usages détaillés figurent dans la section **Prediction Service** de cette documentation.
+Les paramètres principaux sont `DATABASE_URL`, `MLFLOW_TRACKING_URI`, `REGISTERED_MODEL_NAME`, `TRAINING_BOOTSTRAP_URI`, `TRAINING_TIMEZONE`, `VALIDATION_DAYS`, `MIN_CURRENT_VALIDATION_HOURS`, `MODEL_DIR`, `MODEL_REFRESH_SECONDS` et `LEVEL_RECALIBRATION`. Leurs valeurs et usages détaillés figurent dans la section **Prediction Service** de cette documentation.
 
 ```bash
 docker compose --profile ml up -d db migrate mlflow prediction-service prediction-jobs
