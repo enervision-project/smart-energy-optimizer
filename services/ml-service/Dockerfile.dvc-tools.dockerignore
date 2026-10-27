@@ -1,2 +1,4 @@
 *
 !requirements-dvc.txt
+!requirements-dvc.lock
+!requirements-dvc-build.lock

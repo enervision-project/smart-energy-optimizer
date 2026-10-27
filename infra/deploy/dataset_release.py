@@ -6,6 +6,7 @@ uniquement Python standard et AWS CLI ; aucun entraînement n'est lancé.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from hashlib import md5, sha256
 import json
 from pathlib import Path
@@ -17,6 +18,36 @@ from urllib.parse import urlparse
 
 NAMES = ("train.parquet", "validation.parquet", "test.parquet")
 PREFIX = "ml/datasets/bootstrap"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOCAL_RELEASE = ".data/ml/dataset-release.json"
+DEPLOY_RELEASE = "dataset-release.json"
+
+
+def project_path(root: Path, relative: str) -> Path:
+    """Construire un chemin interne sans traversée ni lien symbolique."""
+    relative_path = Path(relative)
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise ValueError("Chemin hors du projet interdit.")
+    current = root.resolve()
+    for part in relative_path.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError("Lien symbolique interdit pour les fichiers du dataset.")
+    return current
+
+
+def selected_path(root: Path, value: Path, allowed: tuple[str, ...]) -> Path:
+    """Retourner un chemin construit par le programme, pas le chemin fourni par le CLI."""
+    requested = Path(value)
+    if ".." in requested.parts:
+        raise ValueError("Traversée de répertoire interdite.")
+    if not requested.is_absolute():
+        requested = root / requested
+    for relative in allowed:
+        expected = project_path(root, relative)
+        if requested == expected:
+            return expected
+    raise ValueError("Emplacement autorisé : " + ", ".join(allowed))
 
 
 def fingerprints(path: Path) -> dict:
@@ -34,31 +65,49 @@ def json_bytes(value: dict) -> bytes:
     return (json.dumps(value, sort_keys=True, indent=2) + "\n").encode()
 
 
+def checked_text(value, pattern: str, message: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(message)
+    match = re.fullmatch(pattern, value)
+    if match is None:
+        raise ValueError(message)
+    return match.group(0)
+
+
 def validate_release(value: dict, revision: str | None = None) -> dict:
     if not isinstance(value, dict) or value.get("schema_version") != 1:
         raise ValueError("Version de manifeste inconnue.")
-    version = value.get("dataset_id", "")
-    bucket = value.get("bucket", "")
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", version):
-        raise ValueError("Identifiant de dataset invalide.")
-    if not re.fullmatch(r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", bucket):
-        raise ValueError("Bucket invalide.")
+    version = checked_text(
+        value.get("dataset_id"), r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}",
+        "Identifiant de dataset invalide.",
+    )
+    bucket = checked_text(
+        value.get("bucket"), r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", "Bucket invalide.",
+    )
     expected = f"s3://{bucket}/{PREFIX}/{version}"
     if value.get("dataset_uri") != expected:
         raise ValueError("URI du snapshot incohérente.")
-    if not re.fullmatch(r"[0-9a-f]{40}", value.get("git_revision", "")):
-        raise ValueError("Commit Git invalide.")
-    if revision is not None and value["git_revision"] != revision:
+    git_revision = checked_text(value.get("git_revision"), r"[0-9a-f]{40}", "Commit Git invalide.")
+    if revision is not None and git_revision != revision:
         raise ValueError("Le manifeste ne correspond pas au commit déployé.")
-    files = value.get("files", {})
-    if set(files) != set(NAMES):
+    original = value.get("files")
+    if not isinstance(original, dict) or set(original) != set(NAMES):
         raise ValueError("Le manifeste doit contenir exactement les trois Parquet.")
-    for name, info in files.items():
-        if not re.fullmatch(r"[0-9a-f]{64}", info.get("sha256", "")):
-            raise ValueError(f"{name}: empreinte SHA-256 invalide.")
-        if not isinstance(info.get("size"), int) or info["size"] <= 0:
+    files = {}
+    for name in NAMES:
+        info = original[name]
+        if not isinstance(info, dict):
+            raise ValueError(f"{name}: métadonnées invalides.")
+        digest = checked_text(info.get("sha256"), r"[0-9a-f]{64}", f"{name}: SHA-256 invalide.")
+        size = info.get("size")
+        if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
             raise ValueError(f"{name}: taille invalide.")
-    return value
+        files[name] = {"sha256": digest, "size": size}
+    # Reconstruire les seules données admises : aucune clé supplémentaire ne se propage.
+    return {
+        "schema_version": 1, "dataset_id": version, "bucket": bucket,
+        "dataset_uri": expected, "git_revision": git_revision, "files": files,
+    }
 
 
 def dataset_manifest(release: dict) -> dict:
@@ -71,7 +120,7 @@ def prepare(root: Path, revision: str) -> dict:
     import yaml
     from dvc.repo import Repo
 
-    pointer = root / "ml-datasets.dvc"
+    pointer = project_path(root, "ml-datasets.dvc")
     data = yaml.safe_load(pointer.read_text())
     with Repo(str(root)) as repo:
         remote = repo.config["remote"][repo.config["core"]["remote"]]["url"]
@@ -92,7 +141,7 @@ def prepare_from_metadata(root: Path, revision: str, data: dict, remote: str) ->
     url = urlparse(remote)
     if url.scheme != "s3" or url.path.rstrip("/") != "/ml/datasets/dvc":
         raise ValueError("Le remote DVC doit utiliser le préfixe S3 ml/datasets/dvc.")
-    tree = root / ".dvc/cache/files/md5" / version[:2] / version[2:]
+    tree = project_path(root, f".dvc/cache/files/md5/{version[:2]}/{version[2:]}")
     content = tree.read_bytes()
     if md5(content, usedforsecurity=False).hexdigest() + ".dir" != version:
         raise ValueError("Manifeste du cache DVC corrompu.")
@@ -100,12 +149,12 @@ def prepare_from_metadata(root: Path, revision: str, data: dict, remote: str) ->
     expected = {entry["relpath"]: entry["md5"] for entry in entries}
     if len(entries) != 3 or set(expected) != set(NAMES):
         raise ValueError("Le cache DVC doit référencer exactement les trois Parquet.")
-    folder = root / ".data/ml/splits"
+    folder = project_path(root, ".data/ml/splits")
     if {p.name for p in folder.iterdir()} != set(NAMES):
         raise ValueError("Le dossier splits contient des fichiers inattendus.")
     files = {}
     for name in NAMES:
-        info = fingerprints(folder / name)
+        info = fingerprints(project_path(root, f".data/ml/splits/{name}"))
         if info["md5"] != expected[name]:
             raise ValueError(f"{name}: contenu différent de la version DVC.")
         files[name] = {key: info[key] for key in ("sha256", "size")}
@@ -118,39 +167,72 @@ def prepare_from_metadata(root: Path, revision: str, data: dict, remote: str) ->
     }, revision)
 
 
+def checked_key(key: str) -> str:
+    filename = r"(?:train[.]parquet|validation[.]parquet|test[.]parquet|sha256[.]txt|manifest[.]json)"
+    return checked_text(
+        key, rf"{PREFIX}/[A-Za-z0-9][A-Za-z0-9._-]{{0,127}}/{filename}",
+        "Clé S3 hors du préfixe dataset ou fichier non autorisé.",
+    )
+
+
+@contextmanager
+def aws_parameter_files(bucket: str, key: str):
+    """AWS CLI charge les valeurs comme données depuis deux fichiers privés."""
+    with TemporaryDirectory(prefix="dataset-parameters-") as directory:
+        bucket_path = Path(directory) / "bucket"
+        key_path = Path(directory) / "key"
+        with bucket_path.open("w", encoding="utf-8") as output:
+            output.write(bucket)
+        with key_path.open("w", encoding="utf-8") as output:
+            output.write(key)
+        yield bucket_path.as_uri(), key_path.as_uri()
+
+
 class S3:
     def __init__(self, bucket: str):
-        self.bucket = bucket
-
-    def _call(self, args: list[str]) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            ["aws", "s3api", *args, "--bucket", self.bucket, "--output", "json", "--no-cli-pager"],
-            text=True, capture_output=True,
+        self.bucket = checked_text(
+            bucket, r"[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]", "Bucket invalide.",
         )
 
     def download(self, key: str, target: Path) -> bool:
-        result = self._call(["get-object", "--key", key, str(target)])
-        if result.returncode:
-            if any(code in result.stderr for code in ["(NoSuchKey)", "(404)", "(NotFound)"]):
-                return False
-            if any(code in result.stderr for code in ["(AccessDenied)", "(403)"]):
-                # Avec ListBucket limité par s3:prefix, GET peut masquer une absence par 403.
-                # Seule une liste autorisée du préfixe exact peut confirmer cette absence.
-                listing = self._call([
-                    "list-objects-v2", "--prefix", key, "--max-keys", "1", "--no-paginate",
-                ])
-                if listing.returncode == 0:
-                    objects = json.loads(listing.stdout).get("Contents", [])
-                    if not any(item.get("Key") == key for item in objects):
-                        return False
-            raise RuntimeError(f"Lecture S3 impossible pour {key}: {result.stderr.strip()}")
+        key = checked_key(key)
+        target = target.absolute()
+        if target.is_symlink():
+            raise ValueError("Destination de téléchargement symbolique interdite.")
+        with aws_parameter_files(self.bucket, key) as (bucket_file, key_file):
+            result = subprocess.run(
+                ["aws", "s3api", "get-object", "--bucket", bucket_file, "--key", key_file,
+                 str(target), "--output=json", "--no-cli-pager"],
+                text=True, capture_output=True, shell=False,
+            )
+            if result.returncode:
+                if any(code in result.stderr for code in ["(NoSuchKey)", "(404)", "(NotFound)"]):
+                    return False
+                if any(code in result.stderr for code in ["(AccessDenied)", "(403)"]):
+                    listing = subprocess.run(
+                        ["aws", "s3api", "list-objects-v2", "--bucket", bucket_file,
+                         "--prefix", key_file, "--max-keys", "1", "--no-paginate",
+                         "--output=json", "--no-cli-pager"],
+                        text=True, capture_output=True, shell=False,
+                    )
+                    if listing.returncode == 0:
+                        objects = json.loads(listing.stdout).get("Contents", [])
+                        if not any(item.get("Key") == key for item in objects):
+                            return False
+                raise RuntimeError(f"Lecture S3 impossible pour {key}: {result.stderr.strip()}")
         return True
 
     def upload_if_absent(self, key: str, source: Path) -> None:
-        # Pas d'écrasement, même si deux publications arrivent simultanément.
-        result = self._call([
-            "put-object", "--key", key, "--body", str(source), "--if-none-match", "*",
-        ])
+        key = checked_key(key)
+        source = source.absolute()
+        if source.is_symlink():
+            raise ValueError("Source de publication symbolique interdite.")
+        with aws_parameter_files(self.bucket, key) as (bucket_file, key_file):
+            result = subprocess.run(
+                ["aws", "s3api", "put-object", "--bucket", bucket_file, "--key", key_file,
+                 "--body=" + str(source), "--if-none-match=*", "--output=json", "--no-cli-pager"],
+                text=True, capture_output=True, shell=False,
+            )
         if result.returncode and not any(
             code in result.stderr for code in ["(PreconditionFailed)", "(ConditionalRequestConflict)"]
         ):
@@ -170,10 +252,9 @@ def ensure_object(store, key: str, source: Path, temporary: Path) -> None:
 
 def publish(root: Path, release: dict, store=None) -> None:
     release = validate_release(release)
-    folder = root / ".data/ml/splits"
     # Vérifier les trois sources avant la première écriture distante.
     for name in NAMES:
-        actual = fingerprints(folder / name)
+        actual = fingerprints(project_path(root, f".data/ml/splits/{name}"))
         if {k: actual[k] for k in ("sha256", "size")} != release["files"][name]:
             raise ValueError(f"{name}: fichier local différent du manifeste.")
     store = store or S3(release["bucket"])
@@ -181,11 +262,15 @@ def publish(root: Path, release: dict, store=None) -> None:
     with TemporaryDirectory(prefix="dataset-publish-") as tmp:
         temporary = Path(tmp)
         for name in NAMES:
-            ensure_object(store, f"{prefix}/{name}", folder / name, temporary)
+            ensure_object(store, f"{prefix}/{name}", project_path(root, f".data/ml/splits/{name}"), temporary)
         checksums = temporary / "sha256.txt"
-        checksums.write_text("".join(
-            f"{release['files'][name]['sha256']}  {name}\n" for name in NAMES
-        ))
+        # Dériver le texte des fichiers locaux déjà vérifiés, pas du contenu JSON.
+        text = "".join(
+            f"{fingerprints(project_path(root, f'.data/ml/splits/{name}'))['sha256']}  {name}\n"
+            for name in NAMES
+        )
+        with checksums.open("w", encoding="utf-8") as output:
+            output.write(text)
         ensure_object(store, f"{prefix}/sha256.txt", checksums, temporary)
         # Marqueur de complétude publié seulement après vérification des trois objets.
         manifest = temporary / "manifest.json"
@@ -215,32 +300,39 @@ def verify_remote(release: dict, store=None) -> None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["prepare", "publish", "verify"])
-    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
-    parser.add_argument("--release", type=Path)
-    parser.add_argument("--output", type=Path)
+    parser.add_argument("--root", type=Path, default=PROJECT_ROOT, help="Racine du projet uniquement.")
+    parser.add_argument("--release", type=Path, help=LOCAL_RELEASE + " ou " + DEPLOY_RELEASE)
+    parser.add_argument("--output", type=Path, help="Sortie autorisée : " + LOCAL_RELEASE)
     parser.add_argument("--git-revision")
     parser.add_argument("--bucket")
     parser.add_argument("--version", default="v1")
     parser.add_argument("--remote", action="store_true")
     args = parser.parse_args(argv)
     try:
+        root = PROJECT_ROOT.resolve()
+        if args.root.resolve() != root:
+            raise ValueError("--root doit désigner la racine du projet.")
         if args.command == "prepare":
             if not args.output or not args.git_revision:
                 parser.error("prepare nécessite --output et --git-revision")
-            release = prepare(args.root, args.git_revision)
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_bytes(json_bytes(release))
+            destination = selected_path(root, args.output, (LOCAL_RELEASE,))
+            release = prepare(root, args.git_revision)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with destination.open("wb") as output:
+                output.write(json_bytes(release))
         else:
             if args.release:
-                release = validate_release(json.loads(args.release.read_text()), args.git_revision)
+                source = selected_path(root, args.release, (LOCAL_RELEASE, DEPLOY_RELEASE))
+                with source.open("rb") as incoming:
+                    release = validate_release(json.load(incoming), args.git_revision)
             elif args.command == "publish" and args.bucket:
                 # Compatibilité avec la commande manuelle upload-bootstrap.sh <bucket> [version].
                 files = {}
                 for name in NAMES:
-                    info = fingerprints(args.root / ".data/ml/splits" / name)
+                    info = fingerprints(project_path(root, f".data/ml/splits/{name}"))
                     files[name] = {k: info[k] for k in ("sha256", "size")}
                 revision = subprocess.run(
-                    ["git", "rev-parse", "HEAD"], cwd=args.root, capture_output=True,
+                    ["git", "rev-parse", "HEAD"], cwd=root, capture_output=True,
                     text=True, check=True,
                 ).stdout.strip()
                 release = validate_release({
@@ -251,7 +343,7 @@ def main(argv=None) -> int:
             else:
                 parser.error("--release requis, ou --bucket pour une publication manuelle")
             if args.command == "publish":
-                publish(args.root, release)
+                publish(root, release)
             elif args.remote:
                 verify_remote(release)
         print(release["dataset_uri"], flush=True)
