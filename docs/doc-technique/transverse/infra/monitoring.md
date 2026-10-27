@@ -22,24 +22,36 @@ direction TB
 PROM("Prometheus")
 LOKI("Loki")
 GRAFANA("Grafana")
+CADDY("Caddy HTTPS")
+CADDY --> GRAFANA
 GRAFANA --> PROM
 GRAFANA --> LOKI
 end
 
 ALLOY_APP -- "9090 (métriques)" --> PROM
 ALLOY_APP -- "3100 (logs)" --> LOKI
-DEV("👤 Équipe") -- "tunnel SSM" --> GRAFANA
+DEV("👤 Équipe") -- "HTTPS + GitHub" --> CADDY
 ```
 
 ## Accéder à Grafana
 
-Grafana n'est pas exposé sur Internet : on y accède par un tunnel SSM.
+Ouvrir **<https://grafana.ener-vision.click>** et cliquer sur **Sign in with GitHub**.
+
+- Seuls les membres de l'organisation GitHub `enervision-project` peuvent se connecter.
+- Le compte Grafana est créé à la première connexion, avec le rôle **Editor**
+  (un admin peut ensuite changer le rôle dans *Administration → Users* ; le changement est conservé).
+- Seul Grafana est exposé (Caddy, HTTPS Let's Encrypt) : Prometheus et Loki restent privés.
+
+### Secours : compte admin et tunnel SSM
+
+Si la connexion GitHub ne fonctionne pas, le compte local `admin` reste disponible,
+sur le domaine public ou par un tunnel SSM :
 
 ```bash
 cd infra/terraform
 terraform output grafana_tunnel   # affiche les deux commandes ci-dessous
 
-# 1. tunnel (laisser tourner)
+# 1. tunnel (laisser tourner), puis ouvrir http://localhost:13000
 aws ssm start-session --target <monitoring_instance_id> \
   --document-name AWS-StartPortForwardingSession \
   --parameters portNumber=3000,localPortNumber=13000
@@ -50,11 +62,24 @@ aws ssm get-parameter --with-decryption \
   --query Parameter.Value --output text
 ```
 
-Puis ouvrir <http://localhost:13000>, utilisateur `admin`.
-
-!!! note "Prérequis"
+!!! note "Prérequis pour le tunnel"
     AWS CLI connectée au compte du projet (`aws login`) et
     [plugin Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installé.
+
+### OAuth GitHub
+
+L'application OAuth `EnerVision Grafana` est déclarée dans l'organisation GitHub
+(callback `https://grafana.ener-vision.click/login/github`). Son Client ID est dans Terraform
+(`grafana_github_client_id`) ; son secret est dans SSM, saisi à la main :
+
+```bash
+read -rs GH_SECRET   # coller le secret, rien ne s'affiche
+aws ssm put-parameter --overwrite --type SecureString --region eu-west-3 \
+  --name /enervision/prod/monitoring/GITHUB_OAUTH_CLIENT_SECRET --value "$GH_SECRET"
+unset GH_SECRET
+```
+
+Puis redéployer le service `monitoring` (workflow Deploy, lancement manuel).
 
 ## Ce qui est collecté
 
@@ -99,7 +124,8 @@ Dossier **EnerVision** dans Grafana. Sections :
 | Fichier | Rôle |
 | :--- | :--- |
 | `infra/terraform/monitoring.tf` | EC2, security group, paramètres SSM |
-| `infra/monitoring/compose.yaml` | Prometheus, Loki, Grafana |
+| `infra/monitoring/compose.yaml` | Prometheus, Loki, Grafana, Caddy |
+| `infra/monitoring/caddy/Caddyfile` | HTTPS public vers Grafana uniquement |
 | `infra/monitoring/grafana/dashboards/` | Dashboards (JSON) chargés au démarrage de Grafana |
 | `infra/alloy/config.alloy` | Alloy de l'EC2 app (service `alloy` de `compose.prod.yaml`) |
 | `infra/proxy/Caddyfile` | Métriques (`:9180`) et logs d'accès JSON de Caddy |
@@ -125,4 +151,3 @@ de monitoring, et `alloy` (fichiers `infra/alloy/`) sur l'EC2 app, comme les aut
 - L'EC2 de monitoring ne collecte pas encore ses propres métriques d'hôte (CPU, mémoire, disque) ni ses logs.
 - OOM kills non détectés (cAdvisor sans accès à `/dev/kmsg`) ; la mémoire proche de la limite est visible.
 - Pas de métriques HTTP pour `prediction-service` (non exposé derrière Caddy) ; ses logs sont dans Loki.
-- Grafana accessible uniquement par tunnel SSM (accès équipe par sous-domaine prévu plus tard).
