@@ -104,5 +104,36 @@ services:
     ports: !reset []
     restart: unless-stopped
 
+  # metrics and logs collector, pushes to the monitoring EC2 (infra/alloy/config.alloy)
+  alloy:
+    image: docker.io/grafana/alloy:v1.10.2
+    # stable instance label for host metrics
+    hostname: app
+    # cAdvisor reads every container's cgroup: host cgroup namespace (cgroup v2)
+    cgroup: host
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345 # UI and debug: container only
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      MONITORING_HOST: ${MONITORING_HOST:?MONITORING_HOST must come from SSM}
+      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD:?MONITORING_DB_PASSWORD must come from SSM}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./infra/alloy:/etc/alloy:ro
+      # WAL and log positions: nothing lost or sent twice when the container is recreated
+      - alloydata:/var/lib/alloy/data
+      # host metrics
+      - /proc:/host/proc:ro
+      - /sys:/sys:ro
+      - /:/host/root:ro,rslave
+      # containers: cAdvisor and Docker logs (read-only mount, but full Docker API access)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    mem_limit: 256m
+    restart: unless-stopped
+
 volumes:
   caddydata: {}
+  alloydata: {}
