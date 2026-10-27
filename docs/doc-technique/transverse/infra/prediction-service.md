@@ -46,7 +46,7 @@ La promotion met à jour l'alias MLflow `champion` et le cache versionné dans `
 
 Avant le calcul, le job vérifie qu'un agrégat `readings_hours` suffisamment récent existe. Il charge le champion disponible, puis lit `site_profiles`. Un site doit avoir un profil et être connu du modèle ; les sites avec profil mais inconnus du modèle sont signalés puis ignorés. Si aucun site n'est éligible, le lot échoue.
 
-À 14:05, par exemple, la première heure prévue commence à **15:00** ; les 23 suivantes se suivent d'une heure réelle. L'heure en cours reste couverte par la série de l'heure précédente. Pour chaque site et chaque heure, le job construit les cinq variables du modèle selon l'heure locale, vérifie que la valeur prédite est finie et positive ou nulle, puis écrit le lot entier dans une transaction PostgreSQL.
+À 14:05, par exemple, la première heure prévue commence à **15:00** ; les 23 suivantes se suivent d'une heure réelle. L'heure en cours reste couverte par la série de l'heure précédente. Pour chaque site et chaque heure, le job construit les cinq variables du modèle selon l'heure UTC (les heures de travail du CSV d'entraînement et de l'API Mock ne suivent pas l'heure d'été), vérifie que la valeur prédite est finie et positive ou nulle, puis écrit le lot entier dans une transaction PostgreSQL.
 
 | Table | Contenu |
 | --- | --- |

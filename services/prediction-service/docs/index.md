@@ -41,7 +41,7 @@ En local, `prediction-jobs` lit `.data/ml/splits` monté sous `/bootstrap`. En p
 | `MLFLOW_TRACKING_URI` | `http://mlflow:5000` | Tracking et Model Registry interne. |
 | `REGISTERED_MODEL_NAME` | `enervision-hourly-consumption` | Nom stable dans le Registry. |
 | `TRAINING_BOOTSTRAP_URI` | `/bootstrap` local, S3 en production | Source des Parquet historiques. |
-| `TRAINING_TIMEZONE` | `Europe/Paris` | Heure des jobs et features calendaires. |
+| `TRAINING_TIMEZONE` | `Europe/Paris` | Heure de l'entraînement planifié (01:00). Les features calendaires sont toujours en UTC, comme le CSV d'entraînement et l'API Mock. |
 | `VALIDATION_DAYS` | `14` | Paramètre réservé à une intégration future des données SQL ; ignoré dans le cycle historique actuel. |
 | `MIN_CURRENT_VALIDATION_HOURS` | `168` | Paramètre réservé à une intégration future des données SQL ; ignoré dans le cycle historique actuel. |
 | `MODEL_DIR` | `/models` | Cache local du champion. |

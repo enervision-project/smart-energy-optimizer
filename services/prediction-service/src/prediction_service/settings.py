@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Réservés au futur cycle SQL ; le cycle actuel utilise les trois Parquet historiques.
     validation_days: int = 14
     min_current_validation_hours: int = 168
+    # Planification de l'entraînement (01:00) ; les features calendaires sont en UTC.
     training_timezone: str = "Europe/Paris"
     model_refresh_seconds: int = 60
     log_level: str = "INFO"
