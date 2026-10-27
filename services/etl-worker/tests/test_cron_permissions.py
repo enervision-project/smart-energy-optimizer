@@ -26,7 +26,7 @@ class CronPermissionTests(unittest.TestCase):
         self.assertIn("chmod 0640 /run/etl-worker/etl-worker.env", start_script)
         self.assertIn(". /run/etl-worker/etl-worker.env", job_script)
 
-    def test_cron_runs_jobs_as_appuser_and_lock_directory_is_writable(self):
+    def test_cron_runs_as_root_and_drops_privileges_for_etl_commands(self):
         dockerfile = (WORKER_DIR / "Dockerfile").read_text(encoding="utf-8")
         cron_file = (WORKER_DIR / "cron/etl").read_text(encoding="utf-8")
         job_script = (WORKER_DIR / "cron/job.sh").read_text(encoding="utf-8")
@@ -34,8 +34,16 @@ class CronPermissionTests(unittest.TestCase):
         self.assertIn("install -d -o appuser -g appuser -m 0750 /run/etl-worker", dockerfile)
         cron_jobs = [line for line in cron_file.splitlines() if "/usr/local/bin/etl-cron-job" in line]
         self.assertTrue(cron_jobs)
-        self.assertTrue(all(" appuser /usr/local/bin/etl-cron-job" in line for line in cron_jobs))
+        self.assertTrue(all(" root /usr/local/bin/etl-cron-job" in line for line in cron_jobs))
         self.assertIn('exec 9>"/run/etl-worker/etl-$1.lock"', job_script)
+        self.assertIn(
+            "setpriv --reuid=appuser --regid=appuser --init-groups etl-sync-alerts",
+            job_script,
+        )
+        self.assertIn(
+            'setpriv --reuid=appuser --regid=appuser --init-groups etl-worker "$1"',
+            job_script,
+        )
 
 
 if __name__ == "__main__":
