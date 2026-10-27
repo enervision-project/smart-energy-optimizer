@@ -1,0 +1,43 @@
+name: Backup and integrity
+
+on:
+  schedule:
+    - cron: '15 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: backup-production
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.ref == 'refs/heads/main' && vars.AWS_BACKUP_ROLE_ARN != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
+        with:
+          role-to-assume: ${{ vars.AWS_BACKUP_ROLE_ARN }}
+          role-duration-seconds: 5400
+          aws-region: eu-west-3
+
+      - name: Install backup dependencies
+        run: python3 -m pip install -r infra/backup/requirements.txt
+
+      - name: Backup and restore integrity check
+        run: python3 infra/backup/backup.py create
+
+      - name: Result
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: |
+          echo "Backup and restore integrity: $RESULT. See the backup step for the manifest key and version." >> "$GITHUB_STEP_SUMMARY"

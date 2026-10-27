@@ -20,6 +20,25 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+
+      - name: Install Python checks
+        run: python3 -m pip install -r infra/backup/requirements-dev.txt
+
+      - name: Lint Python
+        run: |
+          ruff check infra/backup
+          ruff format --check infra/backup
+
+      - name: Tests and coverage (minimum 85 percent)
+        run: |
+          coverage run --rcfile=infra/backup/.coveragerc -m unittest discover -s infra/backup -p 'test_*.py' -v
+          coverage report --rcfile=infra/backup/.coveragerc
+          coverage xml --rcfile=infra/backup/.coveragerc
+
       - name: Cache des paquets SonarQube
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
