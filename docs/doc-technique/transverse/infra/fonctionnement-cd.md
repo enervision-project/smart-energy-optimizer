@@ -154,8 +154,14 @@ déjà construites.
    base, URL de l'API…) ;
 2. met à jour le tag des **seuls services déployés** dans `deploy.env` (les autres gardent
    leur version) ;
-3. se connecte à ECR, puis `docker compose pull` et `docker compose up -d` sur ces services :
+3. supprime les images qu'aucun conteneur n'utilise (`docker image prune -af`), avant le pull et
+   à la fin : sans ce nettoyage, chaque déploiement laisse une image par service et par commit
+   sur `/var/lib/docker`, jusqu'à saturer le volume ;
+4. se connecte à ECR, puis `docker compose pull` et `docker compose up -d` sur ces services :
    les autres conteneurs ne sont pas redémarrés.
+
+Un retour arrière vers un ancien commit retélécharge son image depuis ECR (20 dernières images
+gardées par service).
 
 | Fichier sur l'EC2 | Contenu |
 |---|---|
@@ -281,6 +287,7 @@ style AWS fill:#d0d4da,stroke:#333
 | `Not authorized to perform sts:AssumeRoleWithWebIdentity` | le `sub` du jeton ne correspond pas à la politique de confiance (format, branche) | vérifier `github_oidc_sub_prefix` dans `variables.tf` |
 | `not authorized to perform: ssm:GetParametersByPath` | chemin lu différent de celui autorisé (`/env` et `/env/` sont deux ressources IAM différentes) | `deploy.sh` lit `/enervision/prod/env`, sans `/` final |
 | `instance enervision-app introuvable` | instance arrêtée ou renommée | `aws ec2 describe-instances --filters Name=tag:Name,Values=enervision-app` |
+| `failed to register layer: … no space left on device` | `/var/lib/docker` plein (anciennes images) | sur l'EC2 : `df -h /var/lib/docker`, `sudo docker image prune -af`, puis `gh run rerun <id> --failed` |
 
 Commandes utiles :
 

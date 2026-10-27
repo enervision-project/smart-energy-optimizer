@@ -16,7 +16,8 @@ dependencies = [
     # version figée : celle de l'entraînement (requirements-training.txt), le pickle en dépend
     "scikit-learn==1.9.1",
     "uvicorn>=0.32,<1",
-    "xgboost>=2.1,<4",
+    # Même module `xgboost`, sans les bibliothèques GPU (nvidia-nccl, ~600 Mo) : l'EC2 n'a pas de GPU.
+    "xgboost-cpu>=2.1,<4",
 ]
 
 [project.optional-dependencies]
