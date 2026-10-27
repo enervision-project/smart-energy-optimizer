@@ -10,9 +10,19 @@ from etl_worker.bronze import write_readings_bronze
 
 CAPTURED = datetime.fromisoformat("2026-10-26T09:03:15.123456+01:00")
 READINGS = [
-    {"site_id": "SITE001", "timestamp": "2026-10-26T08:03:16.268687", "consumption_kw": None,
-     "null_reasons": ["capteur défaillant"], "data_quality": "critical", "extra": {"value": None}},
-    {"site_id": "SITE002", "timestamp": "2026-10-26T08:04:00.998877+00:00", "consumption_kw": 12.56789123},
+    {
+        "site_id": "SITE001",
+        "timestamp": "2026-10-26T08:03:16.268687",
+        "consumption_kw": None,
+        "null_reasons": ["capteur défaillant"],
+        "data_quality": "critical",
+        "extra": {"value": None},
+    },
+    {
+        "site_id": "SITE002",
+        "timestamp": "2026-10-26T08:04:00.998877+00:00",
+        "consumption_kw": 12.56789123,
+    },
 ]
 
 
@@ -20,7 +30,9 @@ class BronzeTests(unittest.TestCase):
     def test_different_timestamps_and_nulls_are_archived_intact(self):
         client = MagicMock()
         before = deepcopy(READINGS)
-        key = write_readings_bronze(READINGS, "lake", client=client, collected_at=CAPTURED)
+        key = write_readings_bronze(
+            READINGS, "lake", client=client, collected_at=CAPTURED
+        )
         self.assertEqual(
             key,
             "bronze/readings/minutes/date=2026-10-26/hour=08/2026-10-26T08-03-15.123456Z.jsonl",
@@ -55,8 +67,12 @@ class BronzeTests(unittest.TestCase):
     def test_backfill_archives_are_separated_and_labelled(self):
         client = MagicMock()
         key = write_readings_bronze(
-            READINGS, "lake", client=client, collected_at=CAPTURED,
-            kind="backfill", label="SITE001_20261026T0800-20261026T0803",
+            READINGS,
+            "lake",
+            client=client,
+            collected_at=CAPTURED,
+            kind="backfill",
+            label="SITE001_20261026T0800-20261026T0803",
         )
         self.assertEqual(
             key,
@@ -67,14 +83,20 @@ class BronzeTests(unittest.TestCase):
     def test_unknown_archive_kind_fails_before_writing(self):
         client = MagicMock()
         with self.assertRaisesRegex(ValueError, "bronze inconnu"):
-            write_readings_bronze(READINGS, "lake", client=client, collected_at=CAPTURED, kind="other")
+            write_readings_bronze(
+                READINGS, "lake", client=client, collected_at=CAPTURED, kind="other"
+            )
         client.put_object.assert_not_called()
 
     def test_naive_capture_time_fails_before_writing(self):
         client = MagicMock()
+        naive_captured = CAPTURED.replace(tzinfo=None)
         with self.assertRaisesRegex(ValueError, "fuseau"):
             write_readings_bronze(
-                READINGS, "lake", client=client, collected_at=CAPTURED.replace(tzinfo=None),
+                READINGS,
+                "lake",
+                client=client,
+                collected_at=naive_captured,
             )
         client.put_object.assert_not_called()
 

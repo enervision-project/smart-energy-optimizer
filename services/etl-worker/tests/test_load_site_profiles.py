@@ -68,7 +68,9 @@ class SiteProfileConversionTests(unittest.TestCase):
         self.assertIs(row[9], False)  # shift_pattern
 
     def test_optional_fields_are_kept_when_present(self):
-        row = _site_profile_row(PROFILE | {"weekend_factor": 1.2, "shift_pattern": True})
+        row = _site_profile_row(
+            PROFILE | {"weekend_factor": 1.2, "shift_pattern": True}
+        )
 
         self.assertEqual(row[8], 1.2)
         self.assertIs(row[9], True)
@@ -88,10 +90,11 @@ class ShippedSiteProfilesTests(unittest.TestCase):
         )
 
     def test_every_profile_converts(self):
-            for profile in read_site_profiles():
-                with self.subTest(site_id=profile["site_id"]):
-                    row = _site_profile_row(profile)
-                    self.assertLessEqual(set(row[5]), set(range(1, 8)))
+        for profile in read_site_profiles():
+            with self.subTest(site_id=profile["site_id"]):
+                row = _site_profile_row(profile)
+                self.assertLessEqual(set(row[5]), set(range(1, 8)))
+
 
 class LoadSiteProfilesConfigurationTests(unittest.TestCase):
     @patch("etl_worker.load.psycopg.connect")
@@ -115,29 +118,41 @@ class LoadSiteProfilesPostgresTests(unittest.TestCase):
     def setUp(self):
         base_url = os.environ["TEST_DATABASE_URL"]
         schema_name = f"test_site_profiles_{uuid4().hex}"
-        self.connection = psycopg.connect(base_url, autocommit=True, row_factory=dict_row)
+        self.connection = psycopg.connect(
+            base_url, autocommit=True, row_factory=dict_row
+        )
         self.addCleanup(self.connection.close)
-        self.connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema_name)))
+        self.connection.execute(
+            sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema_name))
+        )
         self.addCleanup(
             self.connection.execute,
             sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema_name)),
         )
-        self.connection.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(schema_name)))
+        self.connection.execute(
+            sql.SQL("SET search_path TO {}").format(sql.Identifier(schema_name))
+        )
         self.connection.execute(_SCHEMA)
         self.connection.execute(
             "INSERT INTO sites SELECT 'SITE00' || n FROM generate_series(1, 7) AS n"
         )
-        self.database_url = make_conninfo(base_url, options=f"-c search_path={schema_name}")
+        self.database_url = make_conninfo(
+            base_url, options=f"-c search_path={schema_name}"
+        )
 
     def stored_profiles(self):
-        return self.connection.execute("SELECT * FROM site_profiles ORDER BY site_id").fetchall()
+        return self.connection.execute(
+            "SELECT * FROM site_profiles ORDER BY site_id"
+        ).fetchall()
 
     def test_inserts_profile_in_database_format(self):
         self.assertEqual(load_site_profiles([PROFILE], self.database_url), 1)
 
         stored = self.stored_profiles()[0]
         self.assertEqual(stored["working_days"], [1, 2, 3, 4, 5])
-        self.assertEqual((stored["working_hour_start"], stored["working_hour_end"]), (8, 19))
+        self.assertEqual(
+            (stored["working_hour_start"], stored["working_hour_end"]), (8, 19)
+        )
         self.assertEqual(stored["base_consumption"], Decimal("50.00"))
         self.assertEqual(stored["seasonal_variation"], Decimal("0.3000"))
         self.assertIsNone(stored["weekend_factor"])
@@ -166,7 +181,9 @@ class LoadSiteProfilesPostgresTests(unittest.TestCase):
 
         self.assertEqual(load_site_profiles([PROFILE, unknown], self.database_url), 1)
 
-        self.assertEqual([row["site_id"] for row in self.stored_profiles()], ["SITE001"])
+        self.assertEqual(
+            [row["site_id"] for row in self.stored_profiles()], ["SITE001"]
+        )
 
     def test_invalid_profile_rolls_back_the_entire_batch(self):
         load_site_profiles([PROFILE], self.database_url)

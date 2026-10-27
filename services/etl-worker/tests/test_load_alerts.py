@@ -44,7 +44,10 @@ class LoadAlertsConfigurationTests(unittest.TestCase):
     @patch("etl_worker.load.psycopg.connect")
     def test_invalid_timestamp_fails_before_connecting(self, connect):
         for timestamp in (None, "", "not-a-date"):
-            with self.subTest(timestamp=timestamp), self.assertRaisesRegex(ValueError, "Timestamp"):
+            with (
+                self.subTest(timestamp=timestamp),
+                self.assertRaisesRegex(ValueError, "Timestamp"),
+            ):
                 load_alerts([ALERT | {"timestamp": timestamp}], "postgresql://test")
         connect.assert_not_called()
 
@@ -52,7 +55,9 @@ class LoadAlertsConfigurationTests(unittest.TestCase):
     def test_missing_field_cannot_be_silently_replaced(self, connect):
         for field in ALERT:
             with self.subTest(field=field):
-                incomplete = {key: value for key, value in ALERT.items() if key != field}
+                incomplete = {
+                    key: value for key, value in ALERT.items() if key != field
+                }
                 with self.assertRaises(KeyError):
                     load_alerts([ALERT, incomplete], "postgresql://test")
         connect.assert_not_called()
@@ -63,7 +68,9 @@ class LoadAlertsConfigurationTests(unittest.TestCase):
         connect.side_effect = psycopg.OperationalError("Connection refused")
         with self.assertRaises(psycopg.OperationalError):
             load_alerts([ALERT], connect_timeout=2)
-        connect.assert_called_once_with("postgresql://configured-db/test", connect_timeout=2)
+        connect.assert_called_once_with(
+            "postgresql://configured-db/test", connect_timeout=2
+        )
 
 
 class SyncAlertsCommandTests(unittest.TestCase):
@@ -78,11 +85,15 @@ class SyncAlertsCommandTests(unittest.TestCase):
             alerts_main()
         extract.assert_called_once_with()
         load.assert_called_once_with(alerts)
-        self.assertIn("Alertes reçues : 2 ; insérées : 1 ; déjà présentes : 1.", output.getvalue())
+        self.assertIn(
+            "Alertes reçues : 2 ; insérées : 1 ; déjà présentes : 1.", output.getvalue()
+        )
 
     @patch("sys.argv", ["etl-sync-alerts"])
     @patch("etl_worker.load.load_alerts")
-    @patch("etl_worker.load.extract_alerts", side_effect=RuntimeError("API unavailable"))
+    @patch(
+        "etl_worker.load.extract_alerts", side_effect=RuntimeError("API unavailable")
+    )
     def test_failed_extract_cannot_reach_load(self, extract, load):
         with redirect_stdout(io.StringIO()) as output, self.assertRaises(RuntimeError):
             alerts_main()
@@ -90,10 +101,16 @@ class SyncAlertsCommandTests(unittest.TestCase):
         self.assertEqual(output.getvalue(), "")
 
     @patch("sys.argv", ["etl-sync-alerts"])
-    @patch("etl_worker.load.load_alerts", side_effect=psycopg.OperationalError("DB unavailable"))
+    @patch(
+        "etl_worker.load.load_alerts",
+        side_effect=psycopg.OperationalError("DB unavailable"),
+    )
     @patch("etl_worker.load.extract_alerts", return_value=[ALERT])
     def test_failed_load_does_not_print_success(self, extract, load):
-        with redirect_stdout(io.StringIO()) as output, self.assertRaises(psycopg.OperationalError):
+        with (
+            redirect_stdout(io.StringIO()) as output,
+            self.assertRaises(psycopg.OperationalError),
+        ):
             alerts_main()
         self.assertEqual(output.getvalue(), "")
 
@@ -103,9 +120,13 @@ class LoadAlertsPostgresTests(unittest.TestCase):
     def setUp(self):
         base_url = os.environ["TEST_DATABASE_URL"]
         schema = f"test_alerts_{uuid4().hex}"
-        self.connection = psycopg.connect(base_url, autocommit=True, row_factory=dict_row)
+        self.connection = psycopg.connect(
+            base_url, autocommit=True, row_factory=dict_row
+        )
         self.addCleanup(self.connection.close)
-        self.connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+        self.connection.execute(
+            sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema))
+        )
         self.addCleanup(
             self.connection.execute,
             sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)),
@@ -128,7 +149,9 @@ class LoadAlertsPostgresTests(unittest.TestCase):
         self.database_url = make_conninfo(base_url, options=f"-c search_path={schema}")
 
     def rows(self):
-        return self.connection.execute("SELECT * FROM alerts ORDER BY alert_id").fetchall()
+        return self.connection.execute(
+            "SELECT * FROM alerts ORDER BY alert_id"
+        ).fetchall()
 
     def test_inserts_all_fields_without_rounding_or_mutating_input(self):
         alerts = [deepcopy(ALERT)]
@@ -157,7 +180,11 @@ class LoadAlertsPostgresTests(unittest.TestCase):
 
     def test_explicit_offsets_and_z_preserve_the_same_instant(self):
         alerts = [
-            ALERT | {"alert_id": "ALR-OFFSET", "timestamp": "2026-10-21T09:29:27.821005+02:00"},
+            ALERT
+            | {
+                "alert_id": "ALR-OFFSET",
+                "timestamp": "2026-10-21T09:29:27.821005+02:00",
+            },
             ALERT | {"alert_id": "ALR-Z", "timestamp": "2026-10-21T07:29:27.821005Z"},
         ]
         self.assertEqual(load_alerts(alerts, self.database_url), 2)
@@ -169,7 +196,9 @@ class LoadAlertsPostgresTests(unittest.TestCase):
 
     def test_winter_uses_paris_offset_without_changing_the_instant(self):
         self.connection.execute("SET TIME ZONE 'Europe/Paris'")
-        load_alerts([ALERT | {"timestamp": "2026-01-21T07:29:27.821005"}], self.database_url)
+        load_alerts(
+            [ALERT | {"timestamp": "2026-01-21T07:29:27.821005"}], self.database_url
+        )
         row = self.connection.execute(
             'SELECT "timestamp"::text AS displayed FROM alerts'
         ).fetchone()
@@ -203,7 +232,8 @@ class LoadAlertsPostgresTests(unittest.TestCase):
 
         self.assertEqual(len(self.rows()), 2)
         self.assertEqual(
-            next(row for row in self.rows() if row["alert_id"] == ALERT["alert_id"]), before
+            next(row for row in self.rows() if row["alert_id"] == ALERT["alert_id"]),
+            before,
         )
 
     def test_null_and_zero_are_kept_as_distinct_values(self):
@@ -220,15 +250,19 @@ class LoadAlertsPostgresTests(unittest.TestCase):
         load_alerts([ALERT], self.database_url)
         before = self.rows()
         with self.assertRaises(psycopg.errors.ForeignKeyViolation):
-            load_alerts([
-                ALERT | {"alert_id": "ALR-NEW"},
-                ALERT | {"alert_id": "ALR-UNKNOWN", "site_id": "UNKNOWN"},
-            ], self.database_url)
+            load_alerts(
+                [
+                    ALERT | {"alert_id": "ALR-NEW"},
+                    ALERT | {"alert_id": "ALR-UNKNOWN", "site_id": "UNKNOWN"},
+                ],
+                self.database_url,
+            )
         self.assertEqual(self.rows(), before)
 
     def test_required_field_error_rolls_back_new_rows(self):
         with self.assertRaises(psycopg.errors.NotNullViolation):
-            load_alerts([
-                ALERT, ALERT | {"alert_id": "ALR-INVALID", "threshold": None}
-            ], self.database_url)
+            load_alerts(
+                [ALERT, ALERT | {"alert_id": "ALR-INVALID", "threshold": None}],
+                self.database_url,
+            )
         self.assertEqual(self.rows(), [])

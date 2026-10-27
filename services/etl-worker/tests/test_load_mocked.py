@@ -50,7 +50,10 @@ class LoadMockedTests(unittest.TestCase):
         self.assertEqual(load_sites([SITE], DATABASE_URL), 1)
 
         rows = cursor.executemany.call_args.args[1]
-        self.assertEqual(rows, [("SITE001", "Bureau Paris La Défense", "office", None, 200.0, "active")])
+        self.assertEqual(
+            rows,
+            [("SITE001", "Bureau Paris La Défense", "office", None, 200.0, "active")],
+        )
 
     def test_load_readings_keeps_missing_values_as_null(self, mock_connect):
         cursor = mock_connection(mock_connect, rowcount=1)
@@ -61,8 +64,21 @@ class LoadMockedTests(unittest.TestCase):
         row = cursor.executemany.call_args.args[1][0]
         self.assertEqual(
             row,
-            ("SITE001", datetime.fromisoformat(READING["timestamp"]), "office", 12.5, None, None, None, None,
-             None, None, [], "good", "current"),
+            (
+                "SITE001",
+                datetime.fromisoformat(READING["timestamp"]),
+                "office",
+                12.5,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                [],
+                "good",
+                "current",
+            ),
         )
 
     def test_load_readings_writes_the_given_source(self, mock_connect):
@@ -87,8 +103,9 @@ class LoadMockedTests(unittest.TestCase):
             (load_readings, [READING]),
             (load_alerts, [ALERT]),
         ):
-            with self.subTest(function=function.__name__), self.assertRaisesRegex(
-                ValueError, "DATABASE_URL"
+            with (
+                self.subTest(function=function.__name__),
+                self.assertRaisesRegex(ValueError, "DATABASE_URL"),
             ):
                 function(payload)
         with self.assertRaisesRegex(ValueError, "DATABASE_URL"):

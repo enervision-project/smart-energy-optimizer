@@ -105,9 +105,7 @@ class LoadSitesPostgresTests(unittest.TestCase):
         self.assertEqual(load_sites(sites, self.database_url), 2)
 
         stored = self.stored_sites()
-        self.assertEqual(
-            [{key: row[key] for key in SITE} for row in stored], sites
-        )
+        self.assertEqual([{key: row[key] for key in SITE} for row in stored], sites)
         self.assertTrue(all(row["updated_at"] is not None for row in stored))
 
     def test_identical_site_keeps_its_updated_at(self):

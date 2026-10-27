@@ -31,8 +31,10 @@ class ExtractAlertsTests(unittest.TestCase):
     def test_preserves_all_fields_and_uses_an_unfiltered_get(self, urlopen):
         alerts = [
             ALERT | {"extra": {"tags": ["énergie"], "enabled": False}},
-            ALERT | {
-                "alert_id": "ALR-2", "timestamp": "2026-10-21T09:06:22.042656+02:00",
+            ALERT
+            | {
+                "alert_id": "ALR-2",
+                "timestamp": "2026-10-21T09:06:22.042656+02:00",
                 "value": 19.123456789,
             },
         ]
@@ -69,7 +71,10 @@ class ExtractAlertsTests(unittest.TestCase):
     @patch("etl_worker.extract.urlopen")
     def test_missing_or_blank_configuration_fails_before_request(self, urlopen):
         for base_url in (None, "", "   "):
-            with self.subTest(base_url=base_url), self.assertRaisesRegex(ValueError, "ENERGY_API_BASE_URL"):
+            with (
+                self.subTest(base_url=base_url),
+                self.assertRaisesRegex(ValueError, "ENERGY_API_BASE_URL"),
+            ):
                 extract_alerts(base_url)
         urlopen.assert_not_called()
 
@@ -85,7 +90,9 @@ class ExtractAlertsTests(unittest.TestCase):
     def test_missing_required_fields_are_distinct_from_explicit_null(self, urlopen):
         for field in ALERT:
             with self.subTest(field=field):
-                incomplete = {key: value for key, value in ALERT.items() if key != field}
+                incomplete = {
+                    key: value for key, value in ALERT.items() if key != field
+                }
                 urlopen.return_value = response([ALERT, incomplete])
                 with self.assertRaisesRegex(ValueError, field):
                     extract_alerts("http://energy-api.test")
@@ -105,7 +112,11 @@ class ExtractAlertsTests(unittest.TestCase):
             "http://energy-api.test/api/v1/alerts", 503, "Unavailable", {}, None
         )
         self.addCleanup(http_error.close)
-        for error in (http_error, URLError("Connection refused"), TimeoutError("Timeout")):
+        for error in (
+            http_error,
+            URLError("Connection refused"),
+            TimeoutError("Timeout"),
+        ):
             with self.subTest(error=type(error).__name__):
                 urlopen.side_effect = error
                 with self.assertRaises(type(error)) as caught:
@@ -125,8 +136,13 @@ class ExtractAlertsTests(unittest.TestCase):
         self.assertIn("détecté", output.getvalue())
 
     @patch("sys.argv", ["etl-extract-alerts"])
-    @patch("etl_worker.extract.extract_alerts", side_effect=RuntimeError("API unavailable"))
+    @patch(
+        "etl_worker.extract.extract_alerts", side_effect=RuntimeError("API unavailable")
+    )
     def test_command_propagates_failure_without_success_output(self, extract):
-        with redirect_stdout(io.StringIO()) as output, self.assertRaisesRegex(RuntimeError, "API unavailable"):
+        with (
+            redirect_stdout(io.StringIO()) as output,
+            self.assertRaisesRegex(RuntimeError, "API unavailable"),
+        ):
             alerts_main()
         self.assertEqual(output.getvalue(), "")

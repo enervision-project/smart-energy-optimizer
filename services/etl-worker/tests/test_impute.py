@@ -28,10 +28,11 @@ class ImputeConsumptionConfigurationTests(unittest.TestCase):
 
     @patch("etl_worker.transform.psycopg.connect")
     def test_rejects_invalid_window_before_connecting(self, connect):
+        naive_end_time = T0.replace(tzinfo=None)
         with self.assertRaisesRegex(ValueError, "minutes"):
             impute_consumption("postgresql://test", minutes=0, end_time=T0)
         with self.assertRaisesRegex(ValueError, "fuseau"):
-            impute_consumption("postgresql://test", minutes=15, end_time=T0.replace(tzinfo=None))
+            impute_consumption("postgresql://test", minutes=15, end_time=naive_end_time)
         connect.assert_not_called()
 
     @patch("etl_worker.transform.datetime")
@@ -59,14 +60,20 @@ class ImputeConsumptionPostgresTests(unittest.TestCase):
     def setUp(self):
         base_url = os.environ["TEST_DATABASE_URL"]
         schema_name = f"test_impute_{uuid4().hex}"
-        self.connection = psycopg.connect(base_url, autocommit=True, row_factory=dict_row)
+        self.connection = psycopg.connect(
+            base_url, autocommit=True, row_factory=dict_row
+        )
         self.addCleanup(self.connection.close)
-        self.connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema_name)))
+        self.connection.execute(
+            sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema_name))
+        )
         self.addCleanup(
             self.connection.execute,
             sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema_name)),
         )
-        self.connection.execute(sql.SQL("SET search_path TO {}").format(sql.Identifier(schema_name)))
+        self.connection.execute(
+            sql.SQL("SET search_path TO {}").format(sql.Identifier(schema_name))
+        )
         self.connection.execute("""
             CREATE TABLE sites (
                 site_id TEXT PRIMARY KEY, site_name TEXT NOT NULL,
@@ -103,29 +110,52 @@ class ImputeConsumptionPostgresTests(unittest.TestCase):
                 PRIMARY KEY (site_id, ts)
             );
         """)
-        self.database_url = make_conninfo(base_url, options=f"-c search_path={schema_name}")
-        load_sites([
-            {"site_id": "SITE001", "site_name": "Bureau", "site_type": "office",
-             "capacity_kw": 200.0, "status": "active"},
-            {"site_id": "SITE003", "site_name": "Datacenter", "site_type": "datacenter",
-             "capacity_kw": 800.0, "status": "active"},
-        ], self.database_url)
+        self.database_url = make_conninfo(
+            base_url, options=f"-c search_path={schema_name}"
+        )
+        load_sites(
+            [
+                {
+                    "site_id": "SITE001",
+                    "site_name": "Bureau",
+                    "site_type": "office",
+                    "capacity_kw": 200.0,
+                    "status": "active",
+                },
+                {
+                    "site_id": "SITE003",
+                    "site_name": "Datacenter",
+                    "site_type": "datacenter",
+                    "capacity_kw": 800.0,
+                    "status": "active",
+                },
+            ],
+            self.database_url,
+        )
 
     def load(self, site_id, values):
         """values : minute depuis T0 → consommation (None = capteur en panne)."""
-        load_readings([{
-            "site_id": site_id,
-            "timestamp": T0 + timedelta(minutes=minute),
-            "site_type": None,
-            "consumption_kw": kw,
-            "consumption_kwh": kw,
-            "null_reasons": [] if kw is not None else ["sensor_failure"],
-            "data_quality": "good" if kw is not None else "partial",
-        } for minute, kw in values.items()], self.database_url)
+        load_readings(
+            [
+                {
+                    "site_id": site_id,
+                    "timestamp": T0 + timedelta(minutes=minute),
+                    "site_type": None,
+                    "consumption_kw": kw,
+                    "consumption_kwh": kw,
+                    "null_reasons": [] if kw is not None else ["sensor_failure"],
+                    "data_quality": "good" if kw is not None else "partial",
+                }
+                for minute, kw in values.items()
+            ],
+            self.database_url,
+        )
 
     def impute(self, minutes=60, end_minute=60):
         return impute_consumption(
-            self.database_url, minutes=minutes, end_time=T0 + timedelta(minutes=end_minute)
+            self.database_url,
+            minutes=minutes,
+            end_time=T0 + timedelta(minutes=end_minute),
         )
 
     def stored(self, site_id):
@@ -142,7 +172,9 @@ class ImputeConsumptionPostgresTests(unittest.TestCase):
         self.assertEqual(self.impute(), 2)
 
         rows = self.stored("SITE001")
-        self.assertEqual([rows[m]["consumption_kw_imputed"] for m in (1, 2)], [110.0, 120.0])
+        self.assertEqual(
+            [rows[m]["consumption_kw_imputed"] for m in (1, 2)], [110.0, 120.0]
+        )
         self.assertEqual({rows[m]["imputation_method"] for m in (1, 2)}, {"linear"})
         self.assertIsNone(rows[1]["consumption_kw"])
         self.assertIsNone(rows[0]["consumption_kw_imputed"])
@@ -177,8 +209,12 @@ class ImputeConsumptionPostgresTests(unittest.TestCase):
         self.assertEqual(self.impute(), 15)
 
         rows = self.stored("SITE003")
-        self.assertEqual({rows[m]["consumption_kw_imputed"] for m in range(1, 16)}, {500.0})
-        self.assertEqual({rows[m]["imputation_method"] for m in range(1, 16)}, {"previous_value"})
+        self.assertEqual(
+            {rows[m]["consumption_kw_imputed"] for m in range(1, 16)}, {500.0}
+        )
+        self.assertEqual(
+            {rows[m]["imputation_method"] for m in range(1, 16)}, {"previous_value"}
+        )
         # Jamais à partir d'une valeur imputée : au-delà de 15 min, NULL conservé.
         self.assertIsNone(rows[16]["consumption_kw_imputed"])
         self.assertIsNone(rows[17]["imputation_method"])

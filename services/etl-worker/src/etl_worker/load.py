@@ -29,9 +29,10 @@ _UPSERT_SITE = """
     )
 """
 
-#Insère les sites nouveaux et met à jour uniquement les sites modifiés.
-#Le résultat est le nombre de sites insérés ou modifiés ; les sites identiques sont ignorés.
-#Le lot est validé en une transaction, annulée entièrement en cas d'erreur.
+
+# Insère les sites nouveaux et met à jour uniquement les sites modifiés.
+# Le résultat est le nombre de sites insérés ou modifiés ; les sites identiques sont ignorés.
+# Le lot est validé en une transaction, annulée entièrement en cas d'erreur.
 def load_sites(
     sites: Sequence[Mapping[str, Any]],
     database_url: str | None = None,
@@ -59,9 +60,13 @@ def load_sites(
         for site in sites
     ]
 
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
-            cursor.executemany(_UPSERT_SITE, rows)
-            return cursor.rowcount
+    with (
+        psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection,
+        connection.cursor() as cursor,
+    ):
+        cursor.executemany(_UPSERT_SITE, rows)
+        return cursor.rowcount
+
 
 _INSERT_READING = """
     INSERT INTO readings_raws (
@@ -94,12 +99,19 @@ _logger = logging.getLogger(__name__)
 
 def _reading_row(reading: Mapping[str, Any], source: str) -> tuple[Any, ...]:
     return (
-        reading["site_id"], reading["timestamp"], reading["site_type"],
-        reading.get("consumption_kw"), reading.get("consumption_kwh"),
-        reading.get("voltage_v"), reading.get("current_a"),
-        reading.get("power_factor"), reading.get("temperature_celsius"),
-        reading.get("humidity_percent"), reading.get("null_reasons", []),
-        reading["data_quality"], source,
+        reading["site_id"],
+        reading["timestamp"],
+        reading["site_type"],
+        reading.get("consumption_kw"),
+        reading.get("consumption_kwh"),
+        reading.get("voltage_v"),
+        reading.get("current_a"),
+        reading.get("power_factor"),
+        reading.get("temperature_celsius"),
+        reading.get("humidity_percent"),
+        reading.get("null_reasons", []),
+        reading["data_quality"],
+        source,
     )
 
 
@@ -117,13 +129,17 @@ def _fill_consumptions(cursor, reading: dict[str, Any]) -> None:
         if value is None:
             _logger.warning(
                 "%s %s : aucune valeur antérieure pour %s ; NULL conservé.",
-                reading["site_id"], reading["timestamp"].isoformat(), field,
+                reading["site_id"],
+                reading["timestamp"].isoformat(),
+                field,
             )
         else:
             reading[field] = value
             _logger.info(
                 "%s %s : %s repris depuis la dernière valeur non NULL.",
-                reading["site_id"], reading["timestamp"].isoformat(), field,
+                reading["site_id"],
+                reading["timestamp"].isoformat(),
+                field,
             )
 
 
@@ -163,19 +179,29 @@ def load_readings(
     copies = [
         {
             **reading,
-            "timestamp": parse_reading_timestamp(reading["timestamp"]).replace(second=0, microsecond=0),
+            "timestamp": parse_reading_timestamp(reading["timestamp"]).replace(
+                second=0, microsecond=0
+            ),
         }
         for reading in readings
     ]
     if not fill_consumptions:
         rows = [_reading_row(reading, source) for reading in copies]
-        with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+        with (
+            psycopg.connect(
+                connection_url, connect_timeout=connect_timeout
+            ) as connection,
+            connection.cursor() as cursor,
+        ):
             cursor.executemany(_INSERT_READING, rows)
             return cursor.rowcount
 
     copies.sort(key=lambda reading: reading["timestamp"])
     inserted = 0
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+    with (
+        psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection,
+        connection.cursor() as cursor,
+    ):
         for reading in copies:
             _fill_consumptions(cursor, reading)
             cursor.execute(_INSERT_READING, _reading_row(reading, source))
@@ -193,7 +219,10 @@ def read_site_ids(
     if not connection_url:
         raise ValueError("Renseigner DATABASE_URL ou passer une URL à read_site_ids.")
 
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+    with (
+        psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection,
+        connection.cursor() as cursor,
+    ):
         cursor.execute("SELECT site_id FROM sites ORDER BY site_id")
         return [row[0] for row in cursor.fetchall()]
 
@@ -247,9 +276,14 @@ def read_missing_ranges(
         database_url if database_url is not None else os.environ.get("DATABASE_URL", "")
     ).strip()
     if not connection_url:
-        raise ValueError("Renseigner DATABASE_URL ou passer une URL à read_missing_ranges.")
+        raise ValueError(
+            "Renseigner DATABASE_URL ou passer une URL à read_missing_ranges."
+        )
 
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+    with (
+        psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection,
+        connection.cursor() as cursor,
+    ):
         cursor.execute(_MISSING_RANGES, {"start": start, "end": end})
         return [(site_id, first, last) for site_id, first, last in cursor.fetchall()]
 
@@ -309,9 +343,9 @@ def _site_profile_row(profile: Mapping[str, Any]) -> tuple[Any, ...]:
     )
 
 
-#Insère les nouveaux profils de référence et met à jour uniquement les profils modifiés.
-#Le résultat est le nombre de profils insérés ou modifiés ; identiques ou sans site en base : ignorés.
-#Le lot est validé en une transaction, annulée entièrement en cas d'erreur (ex. CHECK).
+# Insère les nouveaux profils de référence et met à jour uniquement les profils modifiés.
+# Le résultat est le nombre de profils insérés ou modifiés ; identiques ou sans site en base : ignorés.
+# Le lot est validé en une transaction, annulée entièrement en cas d'erreur (ex. CHECK).
 def load_site_profiles(
     profiles: Sequence[Mapping[str, Any]],
     database_url: str | None = None,
@@ -325,11 +359,16 @@ def load_site_profiles(
         database_url if database_url is not None else os.environ.get("DATABASE_URL", "")
     ).strip()
     if not connection_url:
-        raise ValueError("Renseigner DATABASE_URL ou passer une URL à load_site_profiles.")
+        raise ValueError(
+            "Renseigner DATABASE_URL ou passer une URL à load_site_profiles."
+        )
 
     rows = [_site_profile_row(profile) for profile in profiles]
 
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+    with (
+        psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection,
+        connection.cursor() as cursor,
+    ):
         cursor.executemany(_UPSERT_SITE_PROFILE, rows)
         return cursor.rowcount
 
@@ -354,11 +393,12 @@ def _alert_timestamp(value: str) -> datetime:
         timestamp = timestamp.replace(tzinfo=UTC)
     return timestamp.astimezone(UTC)
 
-#Insère les nouvelles alertes et retourne le nombre de lignes insérées
-#Les huit champs API sont conservés, sans arrondir les nombres.
-#Un alert_id existant est ignoré, même si son contenu diffère
-#Le lot est validé en une transaction et annulé entièrement en cas d'erreur.
-#Une liste vide retourne 0 sans ouvrir de connexion. La table doit exister.
+
+# Insère les nouvelles alertes et retourne le nombre de lignes insérées
+# Les huit champs API sont conservés, sans arrondir les nombres.
+# Un alert_id existant est ignoré, même si son contenu diffère
+# Le lot est validé en une transaction et annulé entièrement en cas d'erreur.
+# Une liste vide retourne 0 sans ouvrir de connexion. La table doit exister.
 def load_alerts(
     alerts: Sequence[Mapping[str, Any]],
     database_url: str | None = None,
@@ -388,7 +428,10 @@ def load_alerts(
         )
         for alert in alerts
     ]
-    with psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection, connection.cursor() as cursor:
+    with (
+        psycopg.connect(connection_url, connect_timeout=connect_timeout) as connection,
+        connection.cursor() as cursor,
+    ):
         cursor.executemany(_INSERT_ALERT, rows)
         return cursor.rowcount
 
