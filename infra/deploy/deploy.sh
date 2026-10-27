@@ -125,11 +125,8 @@ if [[ -n $dataset_uri ]]; then
   "${compose[@]}" exec -T prediction-jobs python -c \
     'import os,sys; assert os.environ["TRAINING_BOOTSTRAP_URI"] == sys.argv[1]' "$dataset_uri"
 fi
-<<<<<<< HEAD
 # Les images remplacées par ce déploiement ne servent plus.
 docker image prune -af
-=======
->>>>>>> 38c0563 (feat(ci): intégrer DVC à la pipeline de déploiement 2)
 "${compose[@]}" ps
 activation_started=false
 docker image prune -f || echo "Nettoyage des images reporté." >&2
