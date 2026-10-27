@@ -91,6 +91,19 @@ Exemple pour SITE001 à 10:00 UTC un jour ouvré : le champion prévoit 217 kWh,
 
 Le job écrit dans ses logs, pour chaque site et chaque série, une ligne du type `Recalage SITE001 : 0.765 (heures travaillées 0.789, autres 0.733, 168 h mesurées)`.
 
+### Suivi en production
+
+Après chaque série publiée, `prediction-jobs` compare, sur les **24 dernières heures closes**, la dernière prévision publiée avant chaque heure à la mesure (`monitoring.py`), et écrit une ligne par site :
+
+```text
+Suivi modèle SITE001 : nMAE champion 33.1 %, publiée 5.2 %, biais publié +0.4 % (24 h)
+```
+
+- **nMAE champion** : erreur de `model_prediction_kwh`, le modèle seul (la valeur publiée pour les séries antérieures au recalage) ; elle révèle la dérive de concept que le recalage masque.
+- **nMAE publiée** et **biais publié** : erreur de `prediction_kwh`, la valeur affichée.
+
+Mêmes règles que le recalage : heures mesurées sur au moins 10 minutes, même définition de la nMAE que l'entraînement. Le calcul a lieu après la publication, hors du job : s'il échoue (`Suivi du modèle impossible` dans les logs), la série reste publiée. Grafana affiche ces lignes et les ratios dans la ligne « Modèle (prévisions) » du dashboard (voir [Monitoring](monitoring.md)).
+
 ### Résultats
 
 Backtest sur les heures mesurées en production du 21 au 27/10 : à chaque heure, prévision des 24 heures suivantes avec les seules mesures antérieures, ratio calculé par la fonction de production (`recalibration.level_ratios`). Détail, tableaux et graphiques dans le notebook `services/ml-service/notebook/02_recalage_niveau_prod.ipynb`.
