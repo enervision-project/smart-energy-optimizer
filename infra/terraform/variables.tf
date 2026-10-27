@@ -42,6 +42,12 @@ variable "monitoring_volume_size" {
   default     = 30
 }
 
+variable "grafana_github_client_id" {
+  description = "Client ID (not secret) of the GitHub OAuth app used to log in to Grafana (enervision-project org)."
+  type        = string
+  default     = "Ov23liK5JyviC4Z1zeB7"
+}
+
 variable "energy_api_base_url" {
   description = "URL de l'API énergie (API Mock de l'école), joignable depuis l'EC2."
   type        = string

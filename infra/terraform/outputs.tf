@@ -10,6 +10,10 @@ output "monitoring_instance_id" {
   value = aws_instance.monitoring.id
 }
 
+output "grafana_url" {
+  value = "https://${local.grafana_domain}"
+}
+
 output "grafana_tunnel" {
   description = "Grafana on http://localhost:13000 (user admin, password in SSM)."
   value       = <<-EOT
