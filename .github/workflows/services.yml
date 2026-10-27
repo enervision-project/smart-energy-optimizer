@@ -151,13 +151,33 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Récupération et publication des Parquet DVC
+        id: datasets
+        if: contains(fromJSON(needs.changes.outputs.services), 'prediction-service')
+        run: |
+          python3 services/ml-service/run_dvc.py pull
+          docker run --rm --user "$(id -u):$(id -g)" --env HOME=/tmp \
+            --workdir /workspace \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/workspace" \
+            --entrypoint python enervision-dvc:local \
+            infra/deploy/dataset_release.py prepare --git-revision "$GITHUB_SHA" \
+            --output .data/ml/dataset-release.json
+          bash scripts/ml/upload-bootstrap.sh --release .data/ml/dataset-release.json
+          uri=$(python3 infra/deploy/dataset_release.py verify \
+            --release .data/ml/dataset-release.json --git-revision "$GITHUB_SHA")
+          echo "uri=$uri" >>"$GITHUB_OUTPUT"
+
       - name: Publication des fichiers de la release
         env:
           BUCKET: ${{ vars.DEPLOY_BUCKET }}
+          DATASET_URI: ${{ steps.datasets.outputs.uri }}
         run: |
           dest=s3://$BUCKET/releases/$GITHUB_SHA
           for f in compose.yaml compose.prod.yaml; do aws s3 cp "$f" "$dest/$f"; done
           aws s3 cp --recursive infra "$dest/infra" --exclude 'terraform/*'
+          if [[ -n $DATASET_URI ]]; then
+            aws s3 cp .data/ml/dataset-release.json "$dest/dataset-release.json"
+          fi
 
       # source de vérité : secrets GitHub ; deploy.sh les relit dans SSM pour construire le .env
       - name: Identifiants de l'API énergie
@@ -177,6 +197,7 @@ jobs:
         env:
           BUCKET: ${{ vars.DEPLOY_BUCKET }}
           SERVICES: ${{ needs.changes.outputs.services }}
+          DATASET_URI: ${{ steps.datasets.outputs.uri }}
         run: |
           account=$(aws sts get-caller-identity --query Account --output text)
           registry=$account.dkr.ecr.$AWS_REGION.amazonaws.com
@@ -219,6 +240,15 @@ jobs:
                 "bash /opt/enervision/infra/deploy/deploy.sh \($sha) \($registry) \($names)"
               ]}')
             run_on "$INSTANCE_NAME" "$names" "$params"
+            if [[ -n $DATASET_URI ]]; then
+              # L'EC2 a validé et activé la release ; SSM mémorise maintenant son URI.
+              parameter=/enervision/prod/env/TRAINING_BOOTSTRAP_URI
+              aws ssm put-parameter --name "$parameter" --type SecureString \
+                --value "$DATASET_URI" --overwrite >/dev/null
+              active=$(aws ssm get-parameter --name "$parameter" --with-decryption \
+                --query Parameter.Value --output text)
+              [[ $active == "$DATASET_URI" ]] || { echo "::error::URI SSM non confirmée"; exit 1; }
+            fi
           fi
 
           if jq -e 'index("monitoring")' <<<"$SERVICES" >/dev/null; then

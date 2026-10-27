@@ -61,6 +61,11 @@ jobs:
               - 'services/ml-service/configs/hgb_production.yaml'
               - '.github/workflows/_ci-python.yml'
             infra:
+                  - 'scripts/ml/**'
+                  - 'ml-datasets.dvc'
+                  - '.dvc/config'
+                  - 'services/ml-service/run_dvc.py'
+                  - 'services/ml-service/requirements-dvc.txt'
                   - 'infra/**'
                   - '.github/workflows/**'
                   - '**/Dockerfile*'
