@@ -17,6 +17,7 @@ jobs:
   release:
     name: Version and release notes
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write       # créer le tag et la release
       issues: write         # commenter les issues résolues

@@ -20,6 +20,7 @@ jobs:
   changes:
     name: Detect changes
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       core-api: ${{ steps.filter.outputs.core-api }}
@@ -148,6 +149,7 @@ jobs:
     # Uniquement sur les Pull Requests
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions: {}
     steps:
       - name: All required jobs passed
