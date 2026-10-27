@@ -46,6 +46,11 @@ for svc in "$@"; do
     *) deploy_services+=("$svc") ;;
   esac
 done
+# Images d'anciens commits : chaque déploiement en ajoute (une par service et par SHA), et
+# `prune -f` seul ne retire que les images sans tag. `-a` supprime toute image qu'aucun conteneur
+# n'utilise, même arrêté (migrate, mlflow-init) : les services en place restent intacts.
+# Avant le pull, pour laisser la place aux nouvelles images ; un retour arrière les retélécharge d'ECR.
+docker image prune -af
 "${compose[@]}" pull "${deploy_services[@]}"
 up_options=(-d --no-build --remove-orphans)
 if "$check_mlflow"; then
@@ -66,5 +71,6 @@ if "$check_mlflow"; then
   # Parametre, metrique et aller-retour d'un fichier via le serveur vers S3.
   "${compose[@]}" exec -T mlflow python smoke_test.py
 fi
-docker image prune -f
+# Les images remplacées par ce déploiement ne servent plus.
+docker image prune -af
 "${compose[@]}" ps
