@@ -21,8 +21,7 @@ COPY services/etl-worker/ .
 RUN pip install --no-cache-dir . \
     && install -m 0644 cron/etl /etc/cron.d/etl \
     && install -m 0755 cron/start.sh /usr/local/bin/etl-cron-start \
-    && install -m 0755 cron/job.sh /usr/local/bin/etl-cron-job
+    && install -m 0755 cron/job.sh /usr/local/bin/etl-cron-job \
+    && install -d -o appuser -g appuser -m 0750 /run/etl-worker
 
-USER 10001
-
-CMD ["etl-worker"]
+CMD ["/usr/local/bin/etl-cron-start"]
