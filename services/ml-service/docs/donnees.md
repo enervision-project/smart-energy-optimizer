@@ -113,6 +113,11 @@ vérifie cette condition. Une mesure historique absente reste une valeur manquan
 
 ## Récupérer ou générer les Parquet
 
+Une version publiée se récupère avec DVC,
+sans disposer du CSV ni régénérer les fichiers. Pour partager une nouvelle préparation,
+suivre ensuite la publication d'une version.
+
+
 Pour reproduire une campagne existante, récupérer ses Parquet train et validation
 permet de conserver exactement les mêmes fichiers. Le lanceur d'entraînement ne demande
 ni CSV ni métadonnées lorsque les deux Parquet sont déjà disponibles. Le fichier test
