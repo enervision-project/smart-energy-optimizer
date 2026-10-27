@@ -23,6 +23,7 @@ jobs:
   validate:
     name: Format and validate
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
     defaults:
@@ -66,6 +67,7 @@ jobs:
     needs: validate
     if: github.event_name == 'pull_request' && vars.AWS_PLAN_ROLE_ARN != ''
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write # OIDC AWS (read-only plan role)

@@ -34,6 +34,7 @@ jobs:
     # tant que l'infra n'est pas créée (variable absente), rien n'est construit ni déployé
     if: vars.AWS_DEPLOY_ROLE_ARN != ''
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       contents: read        # checkout du dépôt
       id-token: write       # OIDC AWS (lecture du dernier commit déployé)
@@ -73,6 +74,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.builds != '[]'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read        # checkout du dépôt
       id-token: write       # OIDC AWS (push ECR)
@@ -171,6 +173,7 @@ jobs:
             --value "$ENERGY_API_PASSWORD" --overwrite >/dev/null
 
       - name: Déploiement sur l'EC2 (SSM)
+        timeout-minutes: 15
         env:
           BUCKET: ${{ vars.DEPLOY_BUCKET }}
           SERVICES: ${{ needs.changes.outputs.services }}
