@@ -25,20 +25,20 @@ Le conteneur `prediction-jobs` doit rester démarré pour exécuter ces tâches.
 
 ## Entraînement quotidien
 
-1. Le job lit `train.parquet` et `validation.parquet` historiques depuis `TRAINING_BOOTSTRAP_URI` : `/bootstrap` en local ou un préfixe S3 en production. `test.parquet` reste hors de l'entraînement quotidien. Le script `scripts/ml/upload-bootstrap.sh` sert au transfert initial vers S3.
-2. Il lit dans `readings_hours` les consommations non nulles des heures closes. Il n'intègre ces données que lorsque **chaque site historique dispose d'au moins 168 heures SQL valides**. Avant ce seuil, il entraîne sur les Parquet historiques seuls. Quand les heures SQL sont utilisées, `site_profiles` fournit les jours et heures de travail.
-3. Il fusionne les sources, trie par date et réserve les **14 derniers jours disponibles** à la validation chronologique. Les sites doivent être présents dans l'entraînement et la validation.
-4. Il entraîne un seul challenger `HistGradientBoostingRegressor` avec `site_id`, `hour`, `day_of_week`, `month` et `is_working_hours`. **Ni température ni lags** ne sont utilisés par ce modèle de production.
+1. Le job lit les trois fichiers historiques `train.parquet`, `validation.parquet` et `test.parquet` depuis `TRAINING_BOOTSTRAP_URI` : `/bootstrap` en local ou un préfixe S3 en production. Le script `scripts/ml/upload-bootstrap.sh` sert au transfert initial vers S3.
+2. Il conserve les splits d'origine : Train du 2023-01-01 au 2024-07-01 exclu, Validation du 2024-07-01 au 2024-10-01 exclu, Test du 2024-10-01 au 2025-01-01 exclu. Les trois jeux doivent être chronologiques et couvrir les mêmes sites.
+3. Le modèle apprend uniquement sur `train.parquet`. Il est évalué séparément sur `validation.parquet`, puis sur `test.parquet` pour le test final. Aucune donnée SQL récente n'est utilisée pour entraîner ou évaluer les modèles pour l'instant. `validation.parquet` et `test.parquet` ne rejoignent pas le Train.
+4. Il entraîne un seul challenger `HistGradientBoostingRegressor` avec `max_leaf_nodes=31` et les features `site_id`, `hour`, `day_of_week`, `month` et `is_working_hours`. **Ni température ni lags** ne sont utilisés par ce modèle de production.
 5. Il enregistre dans MLflow la configuration, la provenance des données, les métriques et le modèle, puis vérifie qu'il peut recharger celui-ci. Chaque challenger obtient une version dans le Model Registry.
 
-La métrique de sélection est `val_macro_nmae_pct`, moyenne des NMAE calculées séparément pour chaque site :
+La métrique de sélection est `test_macro_nmae_pct`, moyenne des NMAE calculées séparément pour chaque site sur le Test historique. La validation reste disponible sous `val_macro_nmae_pct` :
 
 ```text
 NMAE_site (%) = 100 × moyenne(|réel − prédit|) / moyenne(|réel|)
-val_macro_nmae_pct = moyenne(NMAE_site)
+test_macro_nmae_pct = moyenne(NMAE_site sur test.parquet)
 ```
 
-Le challenger et le champion sont évalués sur **les mêmes lignes de validation**. Sans champion, le premier candidat valide est promu. Sinon, le challenger remplace le champion uniquement si son score est au moins **4 % meilleur relativement** : `score_challenger <= 0,96 × score_champion`, avec un score champion positif. Par exemple, un score champion de 5,00 % demande au plus 4,80 %. Si la NMAE d'un site est indéfinie, la promotion est refusée.
+Le challenger et le champion sont évalués sur **les mêmes lignes de `test.parquet`**. Sans champion, le premier candidat valide est promu. Sinon, le challenger remplace le champion uniquement si son score est au moins **4 % meilleur relativement** : `score_challenger <= 0,96 × score_champion`, avec un score champion positif. Par exemple, un score champion de 5,00 % demande au plus 4,80 %. Si la NMAE d'un site est indéfinie, la promotion est refusée. MLflow conserve les métriques Train, Validation et Test, ainsi que le score `champion_test_macro_nmae_pct` pour cette comparaison.
 
 La promotion met à jour l'alias MLflow `champion` et le cache versionné dans `/models/versions/`. Un entraînement réussi peut donc se terminer **sans promotion**. Tant qu'il reste un champion, l'API continue de servir celui qu'elle a déjà chargé pendant le calcul et en cas d'échec du challenger.
 

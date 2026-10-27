@@ -18,10 +18,7 @@ from training.models import build_pipeline
 from prediction_service.datasets import (
     FEATURES,
     TARGET,
-    current_ready,
     load_bootstrap,
-    make_splits,
-    prepare_current,
 )
 from prediction_service.registry import (
     activate_cached,
@@ -29,7 +26,6 @@ from prediction_service.registry import (
     configure,
     prepare_version,
 )
-from prediction_service.repository import read_recent_hours, read_site_profiles
 from prediction_service.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -87,20 +83,10 @@ def train_challenger(settings: Settings, job_id: UUID, trigger: str) -> dict:
     config = _configuration(settings.training_config)
     if config["experiment"] != settings.training_experiment:
         raise ValueError("TRAINING_EXPERIMENT ne correspond pas à la configuration du modèle.")
-    historical, bootstrap_manifest = load_bootstrap(settings.training_bootstrap_uri)
-    cutoff = datetime.now(UTC).replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
-    raw_current = read_recent_hours(settings.database_url, cutoff)
-    use_current = current_ready(raw_current, historical, settings.min_current_validation_hours)
-    current = (
-        prepare_current(
-            raw_current, read_site_profiles(settings.database_url), settings.training_timezone
-        )
-        if use_current
-        else historical.iloc[0:0]
-    )
-    train, validation = make_splits(historical, current, settings.validation_days)
+    train, validation, test, bootstrap_manifest = load_bootstrap(settings.training_bootstrap_uri)
     x_train, y_train = train[FEATURES], train[TARGET].astype(float)
     x_validation = validation[FEATURES]
+    x_test = test[FEATURES]
     configure(settings.mlflow_tracking_uri)
     mlflow.set_experiment(config["experiment"])
     client = MlflowClient()
@@ -110,17 +96,18 @@ def train_challenger(settings: Settings, job_id: UUID, trigger: str) -> dict:
             "run_type": "training",
             "trigger": trigger,
             "job_id": str(job_id),
-            "dataset_cutoff_utc": cutoff.isoformat(),
+            "dataset_source": "historical_parquet",
+            "promotion_metric": "test_macro_nmae_pct",
         },
     ) as run:
         mlflow.log_dict(
             {
                 "bootstrap": bootstrap_manifest,
-                "current_rows": len(raw_current),
-                "current_used": use_current,
+                "current_used": False,
                 "train_rows": len(train),
                 "validation_rows": len(validation),
-                "cutoff_utc": cutoff.isoformat(),
+                "test_rows": len(test),
+                "promotion_dataset": "test.parquet",
             },
             "datasets.json",
         )
@@ -130,23 +117,31 @@ def train_challenger(settings: Settings, job_id: UUID, trigger: str) -> dict:
                 "features": ",".join(FEATURES),
                 "train_rows": len(train),
                 "validation_rows": len(validation),
+                "test_rows": len(test),
                 **config["parameters"],
             }
         )
         pipeline, _ = build_pipeline(config["model"], FEATURES, config["parameters"])
         pipeline.fit(x_train, y_train)
         train_prediction = pipeline.predict(x_train)
-        challenger_prediction = pipeline.predict(x_validation)
+        validation_prediction = pipeline.predict(x_validation)
+        challenger_prediction = pipeline.predict(x_test)
         train_report = evaluate(train, train_prediction)
-        challenger_report = evaluate(validation, challenger_prediction)
+        validation_report = evaluate(validation, validation_prediction)
+        challenger_report = evaluate(test, challenger_prediction)
+        challenger_score = challenger_report["global"]["macro_nmae_pct"]
+        if challenger_score is None:
+            raise ValueError("NMAE macro du test indéfinie : consommation moyenne nulle d'un site.")
         mlflow.log_metrics(
             {
                 **flatten_metrics("train", train_report),
-                **flatten_metrics("val", challenger_report),
+                **flatten_metrics("val", validation_report),
+                **flatten_metrics("test", challenger_report),
             }
         )
         mlflow.log_dict(
-            {"train": train_report, "validation": challenger_report}, "metrics_by_site.json"
+            {"train": train_report, "validation": validation_report, "test": challenger_report},
+            "metrics_by_site.json",
         )
         sample = x_train.head(min(7, len(x_train)))
         model_info = mlflow.sklearn.log_model(
@@ -158,25 +153,23 @@ def train_challenger(settings: Settings, job_id: UUID, trigger: str) -> dict:
         )
         restored = mlflow.sklearn.load_model(model_info.model_uri)
         np.testing.assert_allclose(
-            restored.predict(x_validation), challenger_prediction, rtol=0, atol=1e-10
+            restored.predict(x_test), challenger_prediction, rtol=0, atol=1e-10
         )
         model_version = mlflow.register_model(model_info.model_uri, settings.registered_model_name)
         version = str(model_version.version)
         champion = champion_version(client, settings.registered_model_name)
-        challenger_score = challenger_report["global"]["macro_nmae_pct"]
-        if challenger_score is None:
-            raise ValueError("NMAE macro indéfinie : un site a une consommation moyenne nulle.")
         champion_score = None
         if champion is not None:
             current_model = mlflow.sklearn.load_model(
                 f"models:/{settings.registered_model_name}/{champion}"
             )
-            champion_prediction = current_model.predict(x_validation)
-            champion_report = evaluate(validation, champion_prediction)
+            champion_prediction = current_model.predict(x_test)
+            champion_report = evaluate(test, champion_prediction)
             champion_score = champion_report["global"]["macro_nmae_pct"]
             if champion_score is None:
-                raise ValueError("NMAE macro du champion indéfinie.")
-            mlflow.log_metric("champion_val_macro_nmae_pct", champion_score)
+                raise ValueError("NMAE macro du champion sur le test indéfinie.")
+            mlflow.log_metric("champion_test_macro_nmae_pct", champion_score)
+            mlflow.log_dict(champion_report, "champion_test_metrics_by_site.json")
         promote = should_promote(champion_score, challenger_score)
         if promote:
             # Vérifie le modèle Registry dans le format réellement servi avant l'alias.
@@ -208,6 +201,8 @@ def train_challenger(settings: Settings, job_id: UUID, trigger: str) -> dict:
             "challenger_score": challenger_score,
             "train_rows": len(train),
             "validation_rows": len(validation),
+            "test_rows": len(test),
+            "promotion_metric": "test_macro_nmae_pct",
         }
         logger.info("Entraînement terminé : %s", json.dumps(result))
         return result
