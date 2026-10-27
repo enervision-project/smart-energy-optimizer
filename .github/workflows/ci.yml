@@ -54,12 +54,12 @@ jobs:
               - '.github/services.json'
             etl-worker:
               - 'services/etl-worker/**'
-              - '.github/workflows/_ci-etl-worker.yml'
+              - '.github/workflows/_ci-python.yml'
             prediction-service:
               - 'services/prediction-service/**'
               - 'services/ml-service/training/**'
               - 'services/ml-service/configs/hgb_production.yaml'
-              - '.github/workflows/_ci-prediction-service.yml'
+              - '.github/workflows/_ci-python.yml'
             infra:
                   - 'infra/**'
                   - '.github/workflows/**'
@@ -100,18 +100,24 @@ jobs:
     needs: changes
     # Exécute si 'services/etl-worker' a changé OU si le workflow est lancé manuellement
     if: ${{ needs.changes.outputs.etl-worker == 'true' || github.event_name == 'workflow_dispatch' }}
-    uses: ./.github/workflows/_ci-etl-worker.yml
+    uses: ./.github/workflows/_ci-python.yml
+    with:
+      name: ETL Worker
+      service-dir: services/etl-worker
     secrets:
-      SONAR_TOKEN_ETL_WORKER: ${{ secrets.SONAR_TOKEN_ETL_WORKER }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_ETL_WORKER }}
 
   call-prediction-service:
     name: Prediction Service
     needs: changes
     # Exécute si 'services/prediction-service' a changé OU si le workflow est lancé manuellement
     if: ${{ needs.changes.outputs.prediction-service == 'true' || github.event_name == 'workflow_dispatch' }}
-    uses: ./.github/workflows/_ci-prediction-service.yml
+    uses: ./.github/workflows/_ci-python.yml
+    with:
+      name: Prediction Service
+      service-dir: services/prediction-service
     secrets:
-      SONAR_TOKEN_PREDICTION_SERVICE: ${{ secrets.SONAR_TOKEN_PREDICTION_SERVICE }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_PREDICTION_SERVICE }}
 
   call-terraform:
     name: Terraform

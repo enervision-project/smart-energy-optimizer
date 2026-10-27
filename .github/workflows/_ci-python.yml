@@ -1,0 +1,80 @@
+name: Python CI
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: 'Nom du service'
+        type: string
+        required: true
+      service-dir:
+        description: 'Dossier du service (ex: services/etl-worker)'
+        type: string
+        required: true
+      python-version:
+        description: 'Version de Python'
+        type: string
+        default: '3.12'
+      timeout-minutes:
+        description: 'Timeout en minutes'
+        type: number
+        default: 10
+    secrets:
+      SONAR_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ inputs.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.service-dir }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v5
+        with:
+          enable-cache: true
+
+      - name: Configuration Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Cache des paquets SonarQube
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Installation dépendances
+        run: uv sync --no-build --extra dev --frozen
+
+      - name: Lint
+        run: |
+          uv run --locked --no-build ruff check .
+          uv run --locked --no-build ruff format --check .
+
+      - name: Test
+        run: uv run --locked --no-build pytest --cov=src --cov-report=xml:coverage.xml --cov-report=term tests/
+
+      - name: Build
+        run: uv build
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8
+        with:
+          projectBaseDir: ${{ inputs.service-dir }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

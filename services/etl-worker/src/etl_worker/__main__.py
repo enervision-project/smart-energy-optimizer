@@ -46,7 +46,9 @@ def cmd_sync_site_profiles(args: argparse.Namespace) -> None:
     # Fichier livré avec l'image ; un profil dont le site n'est pas encore en base est ignoré.
     profiles = read_site_profiles()
     changed = load_site_profiles(profiles)
-    print(f"Profils de référence : {len(profiles)} ; insérés ou mis à jour : {changed}.")
+    print(
+        f"Profils de référence : {len(profiles)} ; insérés ou mis à jour : {changed}."
+    )
 
 
 def _exit_on_site_errors(errors: dict[str, str]) -> None:
@@ -151,8 +153,14 @@ def main() -> None:
     args = parser.parse_args()
     if args.end_time is not None and args.command != "sync-hours":
         parser.error("--end-time est réservé à sync-hours.")
-    if args.hours is not None and args.command not in {"sync-hours", "backfill-readings", "impute-readings"}:
-        parser.error("--hours est réservé à sync-hours, backfill-readings et impute-readings.")
+    if args.hours is not None and args.command not in {
+        "sync-hours",
+        "backfill-readings",
+        "impute-readings",
+    }:
+        parser.error(
+            "--hours est réservé à sync-hours, backfill-readings et impute-readings."
+        )
 
     COMMANDS[args.command](args)
 

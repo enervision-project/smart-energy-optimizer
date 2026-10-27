@@ -16,7 +16,9 @@ class BackfillResult:
     errors: dict[str, str] = field(default_factory=dict)
 
 
-def backfill_window(hours: int, now: datetime | None = None) -> tuple[datetime, datetime]:
+def backfill_window(
+    hours: int, now: datetime | None = None
+) -> tuple[datetime, datetime]:
     """Fenêtre [début, fin) de minutes UTC à examiner.
 
     La fin exclut la minute en cours et la précédente : l'API refuse une fin
@@ -28,7 +30,9 @@ def backfill_window(hours: int, now: datetime | None = None) -> tuple[datetime, 
     reference = now if now is not None else datetime.now(UTC)
     if reference.utcoffset() is None:
         raise ValueError("now doit comporter un fuseau horaire.")
-    end = reference.astimezone(UTC).replace(second=0, microsecond=0) - timedelta(minutes=1)
+    end = reference.astimezone(UTC).replace(second=0, microsecond=0) - timedelta(
+        minutes=1
+    )
     return end - timedelta(hours=hours), end
 
 
@@ -71,7 +75,9 @@ def backfill_readings(
             try:
                 readings = extract_history(site_id, chunk_start, chunk_end, base_url)
                 write_readings_bronze(readings, kind="backfill", label=label)
-                result.inserted += load_readings(readings, database_url, source="backfill")
+                result.inserted += load_readings(
+                    readings, database_url, source="backfill"
+                )
             # OSError couvre HTTPError, URLError et les délais dépassés ; ValueError le JSON invalide.
             except (OSError, TypeError, ValueError) as error:
                 result.errors[label] = str(error) or type(error).__name__
