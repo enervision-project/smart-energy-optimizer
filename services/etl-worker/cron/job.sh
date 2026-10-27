@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-. /run/etl-worker.env
+. /run/etl-worker/etl-worker.env
 
 case "${1:-}" in
     sync-readings|sync-sites|sync-site-profiles|sync-hours|sync-alerts|backfill-readings) ;;
@@ -8,7 +8,7 @@ case "${1:-}" in
 esac
 
 # Un verrou par tâche évite d'empiler les collectes si l'API ralentit.
-exec 9>"/run/etl-$1.lock"
+exec 9>"/run/etl-worker/etl-$1.lock"
 if ! flock -n 9; then
     printf '%s %s ignoré : exécution précédente encore en cours.\n' "$(date -Iseconds)" "$1"
     exit 0
