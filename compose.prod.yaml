@@ -14,6 +14,36 @@ x-mlflow-prod: &mlflow-prod
     MLFLOW_DB_PASSWORD: ${MLFLOW_DB_PASSWORD:?MLFLOW_DB_PASSWORD doit etre fourni par SSM}
 
 services:
+  # metrics and logs collector, pushes to the monitoring EC2 (infra/alloy/config.alloy)
+  alloy:
+    image: docker.io/grafana/alloy:v1.10.2
+    volumes:
+      - ./infra/alloy:/etc/alloy:ro
+      # WAL and log positions: nothing lost or sent twice when the container is recreated
+      - alloydata:/var/lib/alloy/data
+      # host metrics
+      - /proc:/host/proc:ro
+      - /sys:/sys:ro
+      - /:/host/root:ro,rslave
+      # containers: cAdvisor and Docker logs (read-only mount, but full Docker API access)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    environment:
+      MONITORING_HOST: ${MONITORING_HOST:?MONITORING_HOST must come from SSM}
+      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD:?MONITORING_DB_PASSWORD must come from SSM}
+      POSTGRES_DB: ${POSTGRES_DB}
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345 # UI and debug: container only
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    restart: unless-stopped
+    # cAdvisor reads every container's cgroup: host cgroup namespace (cgroup v2)
+    cgroup: host
+    # stable instance label for host metrics
+    hostname: app
+    mem_limit: 256m
+
   core-api:
     image: ${ECR_REGISTRY}/enervision/core-api:${CORE_API_TAG:-latest}
     build: !reset "null"
@@ -36,6 +66,11 @@ services:
     image: ${ECR_REGISTRY}/enervision/etl-worker:${ETL_WORKER_TAG:-latest}
     build: !reset "null"
     restart: unless-stopped
+
+  migrate:
+    environment:
+      # no local default in production
+      MONITORING_DB_PASSWORD: ${MONITORING_DB_PASSWORD:?MONITORING_DB_PASSWORD must come from SSM}
 
   mlflow:
     volumes: !reset []
@@ -71,7 +106,8 @@ services:
     image: docker.io/library/caddy:2.11-alpine
     depends_on: [ web ]
     volumes:
-      - ./infra/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # directory mount: a Caddyfile replaced by the deploy stays visible to the container
+      - ./infra/proxy:/etc/caddy:ro
       - caddydata:/data # certificats
     environment:
       DOMAIN: ${DOMAIN}
@@ -94,4 +130,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  alloydata: {}
   caddydata: {}

@@ -1,0 +1,11 @@
+# App EC2 metrics are pushed by Alloy (remote write): no scrape target for them here.
+# Only the monitoring stack itself is scraped.
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: monitoring-stack
+    static_configs:
+      - targets: [localhost:9090, loki:3100, grafana:3000]
+        labels:
+          machine: monitoring

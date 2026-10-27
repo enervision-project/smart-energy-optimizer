@@ -1,7 +1,21 @@
 # Reverse proxy de production (service proxy de compose.prod.yaml).
 # Certificats Let's Encrypt obtenus et renouvelés automatiquement par Caddy.
+
+# HTTP metrics (requests, status codes, latency), labelled by host
+{
+	metrics {
+		per_host
+	}
+}
+
 {$DOMAIN} {
 	encode zstd gzip
+
+	# JSON access logs on stdout, collected by Alloy (Authorization and cookies are redacted by Caddy)
+	log {
+		output stdout
+		format json
+	}
 
 	# API (core-api), même domaine que le front : pas de CORS
 	handle /api/* {
@@ -16,4 +30,9 @@
 
 www.{$DOMAIN} {
 	redir https://{$DOMAIN}{uri} permanent
+}
+
+# Prometheus endpoint scraped by Alloy: Docker network only (port not published in compose)
+:9180 {
+	metrics
 }

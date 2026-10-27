@@ -1,0 +1,96 @@
+// Grafana Alloy on the app EC2 (alloy service of compose.prod.yaml).
+// Collects host, container, Postgres and Caddy metrics plus every container's logs,
+// and pushes them to the monitoring EC2 (MONITORING_HOST, VPC private IP).
+// Every series and log stream gets machine="app".
+
+// ---------- Metrics
+
+// host: CPU, memory, disks (host /proc and / mounted read-only under /host, host /sys on /sys)
+prometheus.exporter.unix "host" {
+	procfs_path = "/host/proc"
+	sysfs_path  = "/sys"
+	rootfs_path = "/host/root"
+}
+
+// containers: CPU, memory vs limit, restarts; labelled with the compose service name
+prometheus.exporter.cadvisor "containers" {
+	docker_host                  = "unix:///var/run/docker.sock"
+	docker_only                  = true
+	store_container_labels       = false
+	allowlisted_container_labels = ["com.docker.compose.service"]
+}
+
+// Postgres: up, connections, database size (monitoring role, 007_monitoring_role.sql)
+prometheus.exporter.postgres "db" {
+	data_source_names = [
+		"postgresql://monitoring:" + sys.env("MONITORING_DB_PASSWORD") + "@db:5432/" + sys.env("POSTGRES_DB") + "?sslmode=disable",
+	]
+}
+
+prometheus.scrape "host" {
+	scrape_interval = "30s"
+	targets         = prometheus.exporter.unix.host.targets
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.scrape "containers" {
+	scrape_interval = "30s"
+	targets         = prometheus.exporter.cadvisor.containers.targets
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.scrape "db" {
+	scrape_interval = "30s"
+	targets         = prometheus.exporter.postgres.db.targets
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+// Caddy: HTTP requests, status codes, latency (internal :9180, see infra/proxy/Caddyfile)
+prometheus.scrape "caddy" {
+	scrape_interval = "30s"
+	job_name        = "caddy"
+	targets         = [{"__address__" = "proxy:9180"}]
+	forward_to      = [prometheus.remote_write.monitoring.receiver]
+}
+
+prometheus.remote_write "monitoring" {
+	endpoint {
+		url = "http://" + sys.env("MONITORING_HOST") + ":9090/api/v1/write"
+	}
+	external_labels = {machine = "app"}
+}
+
+// ---------- Logs
+
+discovery.docker "containers" {
+	host = "unix:///var/run/docker.sock"
+}
+
+// service = compose service name (core-api, scheduler, proxy…), stream = stdout / stderr
+discovery.relabel "containers" {
+	targets = discovery.docker.containers.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_log_stream"]
+		target_label  = "stream"
+	}
+}
+
+loki.source.docker "containers" {
+	host          = "unix:///var/run/docker.sock"
+	targets       = discovery.docker.containers.targets
+	relabel_rules = discovery.relabel.containers.rules
+	forward_to    = [loki.write.monitoring.receiver]
+}
+
+loki.write "monitoring" {
+	endpoint {
+		url = "http://" + sys.env("MONITORING_HOST") + ":3100/loki/api/v1/push"
+	}
+	external_labels = {machine = "app"}
+}
