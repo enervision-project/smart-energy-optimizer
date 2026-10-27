@@ -98,7 +98,7 @@ Il n'y a pas d'inscription.
       --name /enervision/prod/env/ADMIN_PASSWORD --query Parameter.Value --output text
     ```
 
-- **Autres comptes** : pour l'instant, insertion directe en base, mot de passe hashé avec le préfixe de son encodeur (`{bcrypt}$2a$10$…`) ; un `USER` a besoin de lignes dans `users_sites` pour voir des sites.
+- **Autres comptes** : pour l'instant, insertion directe en base, mot de passe hashé avec le préfixe de son encodeur (`{bcrypt}$2a$10$…`) ; un `USER` a besoin de lignes dans `users_sites` pour voir des sites. Procédure complète : [Gestion des comptes](https://github.com/enervision-project/smart-energy-optimizer/blob/main/docs/doc-technique/gestion-des-comptes.md).
 
 ## Secrets
 
