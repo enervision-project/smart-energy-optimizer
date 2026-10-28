@@ -24,6 +24,13 @@ sql() {
   "${compose[@]}" exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$1"
 }
 
+step "Comptes PostgreSQL (db-bootstrap)"
+status=$(docker inspect -f '{{.State.Status}} {{.State.ExitCode}}' "$("${compose[@]}" ps -aq db-bootstrap)")
+[[ $status == "exited 0" ]] || fail "db-bootstrap : $status"
+roles=$(sql "SELECT count(*) FROM pg_roles WHERE rolname IN ('core_api', 'etl_worker', 'prediction_jobs', 'monitoring', 'enervision_migrator', 'enervision_owner')")
+[[ $roles == 6 ]] || fail "$roles comptes de service sur 6"
+echo "6 comptes de service créés"
+
 step "Migrations Liquibase"
 status=$(docker inspect -f '{{.State.Status}} {{.State.ExitCode}}' "$("${compose[@]}" ps -aq migrate)")
 [[ $status == "exited 0" ]] || fail "migrate : $status"
