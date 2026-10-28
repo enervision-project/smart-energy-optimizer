@@ -39,7 +39,7 @@ jobs:
           restore-keys: ${{ runner.os }}-sonar
 
       - name: Install dependencies
-        run: npm ci
+        run: npm --ignore-scripts ci
 
       - name: Lint
         run: npm run lint

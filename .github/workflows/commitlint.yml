@@ -36,7 +36,7 @@ jobs:
           FROM: ${{ github.event.pull_request.base.sha }}
           TO: ${{ github.event.pull_request.head.sha }}
         run: >
-          npx --yes
+          npx --ignore-scripts --yes
           -p @commitlint/cli@21.2.4
           -p @commitlint/config-conventional@21.2.4
           commitlint --from "$FROM" --to "$TO" --verbose

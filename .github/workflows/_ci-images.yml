@@ -58,7 +58,7 @@ jobs:
 
       - name: Remontée des alertes vers GitHub Security
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        if: always() && hashFiles(format('trivy-results-{0}.sarif', matrix.name)) != ''
         with:
           sarif_file: 'trivy-results-${{ matrix.name }}.sarif'
           category: 'docker-${{ matrix.name }}'

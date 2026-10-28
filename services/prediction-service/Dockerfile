@@ -11,9 +11,12 @@ ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MODEL_DIR=/models PYTHONPATH=/a
 
 WORKDIR /app
 
+COPY services/prediction-service/requirements.lock ./
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.lock
+
 COPY services/prediction-service/pyproject.toml ./
 COPY services/prediction-service/src ./src
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --no-deps .
 
 COPY services/ml-service/training ./training
 COPY services/ml-service/configs ./configs

@@ -18,13 +18,15 @@ on:
       - 'app/web/mkdocs.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   deploy:
     name: Publish
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -37,6 +39,6 @@ jobs:
           python-version: '3.15'
 
       # Installer les dépendances du projet depuis uv.lock / pyproject.toml
-      - run: uv sync --frozen
+      - run: uv sync --locked --no-build
 
-      - run: uv run mkdocs gh-deploy --strict --force
+      - run: uv run --locked --no-build mkdocs gh-deploy --strict --force

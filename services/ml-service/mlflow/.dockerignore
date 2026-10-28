@@ -1,6 +1,7 @@
 *
 !Dockerfile
 !requirements.txt
+!requirements.lock
 !settings.py
 !init_db.py
 !serve.py
