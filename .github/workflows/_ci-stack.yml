@@ -65,12 +65,22 @@ jobs:
           ENERGY_API_PASSWORD: ${{ secrets.ENERGY_API_PASSWORD }}
         run: |
           # Secrets jetables, propres à ce run ; .env n'est jamais publié.
-          db_password=$(openssl rand -hex 16)
+          # Hexadécimal : utilisables tels quels dans les URL de connexion.
+          secret() { openssl rand -hex 16; }
+          etl_password=$(secret)
+          prediction_password=$(secret)
           {
             echo "POSTGRES_USER=enervision"
-            echo "POSTGRES_PASSWORD=$db_password"
+            echo "POSTGRES_PASSWORD=$(secret)"
             echo "POSTGRES_DB=enervision"
-            echo "DATABASE_URL=postgresql://enervision:$db_password@db:5432/enervision"
+            # Un compte par service, créé par db-bootstrap (infra/db/README.md).
+            echo "MIGRATOR_DB_PASSWORD=$(secret)"
+            echo "CORE_API_DB_PASSWORD=$(secret)"
+            echo "ETL_DB_PASSWORD=$etl_password"
+            echo "PREDICTION_DB_PASSWORD=$prediction_password"
+            echo "MONITORING_DB_PASSWORD=$(secret)"
+            echo "ETL_DATABASE_URL=postgresql://etl_worker:$etl_password@db:5432/enervision"
+            echo "PREDICTION_DATABASE_URL=postgresql://prediction_jobs:$prediction_password@db:5432/enervision"
             echo "JWT_SECRET=$(openssl rand -base64 32)"
             echo "ADMIN_EMAIL=admin@enervision.ci"
             echo "ADMIN_PASSWORD=$(openssl rand -hex 16)"
@@ -92,7 +102,7 @@ jobs:
         run: |
           mkdir -p stack-logs
           docker compose --env-file .env ps -a >stack-logs/ps.txt || true
-          for service in db migrate core-api web scheduler; do
+          for service in db db-bootstrap migrate core-api web scheduler; do
             docker compose --env-file .env logs --no-color "$service" >"stack-logs/$service.log" 2>&1 || true
           done
 
