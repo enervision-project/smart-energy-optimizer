@@ -62,7 +62,7 @@ Le **ML Service** n'est pas un conteneur de production : c'est l'outillage hors 
 
 1. **Collecte** : chaque minute, l'ETL lit `/current` de l'API Mock pour chaque site, archive le JSON brut dans S3 puis l'écrit dans `readings_raws`. Les minutes manquées sont rattrapées chaque heure via `/readings`.
 2. **Agrégation** : chaque heure, l'ETL calcule `readings_hours` à partir des mesures brutes.
-3. **Prévision** : chaque heure à :05, `prediction-jobs` calcule 24 h de prévisions avec le champion et les écrit dans `predictions`.
+3. **Prévision** : chaque heure à :05, `prediction-jobs` complète les 24 h à venir avec le champion (en temps normal, la seule heure H+24) et les écrit dans `predictions`.
 4. **Consultation** : le front appelle core-api avec un jeton JWT. core-api lit la base et ne renvoie que les sites visibles par l'utilisateur.
 
 core-api ne dépend ni de l'ETL ni du ML : tout passe par la base. Un service arrêté n'empêche pas les autres de tourner.
