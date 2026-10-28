@@ -19,9 +19,9 @@ flowchart LR
 | --- | --- |
 | Chaque jour à **01:00** | Démarre un entraînement HGB. Le calcul s'exécute dans un thread distinct : il ne bloque pas la génération des prévisions. |
 | Au démarrage, puis au plus une tentative par heure | Si aucun entraînement réussi n'existe dans MLflow ou si le dernier date de **plus de 25 heures**, lance un entraînement de rattrapage. |
-| Chaque heure à **:05**, puis à `:20`, `:35` et `:50` en cas d'échec | Génère une série de 24 prévisions à partir de l'heure suivante, une fois par heure UTC. |
+| Chaque heure à **:05**, puis à `:20`, `:35` et `:50` en cas d'échec | Complète la fenêtre des 24 heures suivantes, une fois par heure UTC : en temps normal, seule la nouvelle heure H+24 est prévue. |
 
-Le conteneur `prediction-jobs` doit rester démarré pour exécuter ces tâches. La table `prediction_jobs` conserve l'état des tentatives. Un verrou PostgreSQL empêche deux exécutions simultanées d'un même type de job ; la clé de l'heure UTC (`2026-10-26T14:00Z`) évite de republier un lot déjà réussi. Une tentative échouée peut être reprise. Les changements d'heure sont traités à partir des instants UTC : une série contient toujours 24 heures successives.
+Le conteneur `prediction-jobs` doit rester démarré pour exécuter ces tâches. La table `prediction_jobs` conserve l'état des tentatives. Un verrou PostgreSQL empêche deux exécutions simultanées d'un même type de job ; la clé de l'heure UTC (`2026-10-26T14:00Z`) évite de republier un lot déjà réussi. Une tentative échouée peut être reprise. Les changements d'heure sont traités à partir des instants UTC : la fenêtre contient toujours 24 heures successives.
 
 ## Entraînement quotidien
 
@@ -46,12 +46,28 @@ La promotion met à jour l'alias MLflow `champion` et le cache versionné dans `
 
 Avant le calcul, le job vérifie qu'un agrégat `readings_hours` suffisamment récent existe. Il charge le champion disponible, puis lit `site_profiles`. Un site doit avoir un profil et être connu du modèle ; les sites avec profil mais inconnus du modèle sont signalés puis ignorés. Si aucun site n'est éligible, le lot échoue.
 
-À 14:05, par exemple, la première heure prévue commence à **15:00** ; les 23 suivantes se suivent d'une heure réelle. L'heure en cours reste couverte par la série de l'heure précédente. Pour chaque site et chaque heure, le job construit les cinq variables du modèle selon l'heure UTC (les heures de travail du CSV d'entraînement et de l'API Mock ne suivent pas l'heure d'été), vérifie que la valeur prédite est finie et positive ou nulle, lui applique le [recalage de niveau](#recalage-de-niveau) du site, puis écrit le lot entier dans une transaction PostgreSQL.
+À 14:05, par exemple, la fenêtre va de **15:00** à 14:00 le lendemain (24 heures réelles successives). L'heure en cours reste couverte par une série précédente.
+
+### Heures manquantes seulement
+
+Le modèle n'utilise que le calendrier : prévoir à nouveau une heure déjà prévue redonnerait la même valeur brute, seul le ratio de recalage bougerait de quelques millièmes. Chaque série ne calcule donc que les **heures manquantes** de la fenêtre : celles dont la prévision affichée (dernier lot complet, comme `core-api`) n'existe pas ou ne vient pas du champion courant, pour au moins un site.
+
+| Situation | Heures calculées |
+| --- | --- |
+| Temps normal | 1 : la nouvelle heure H+24 (les 23 autres ont été prévues par les séries précédentes) |
+| Série précédente en échec | Les heures restées sans prévision : le trou se comble seul |
+| Démarrage, base vide | Les 24 |
+| Nouveau champion (version différente) | Les 24, pour ne pas afficher un mélange de deux modèles |
+| Fenêtre déjà complète | Aucune : rien n'est publié (`Prévisions déjà à jour` dans les logs) |
+
+Conséquence : une heure garde le ratio du moment où elle a été prévue, en général 24 h avant. Les ratios variant de quelques millièmes d'une heure à l'autre, l'écart est négligeable ; un changement de la règle de recalage demande en revanche de recalculer la fenêtre (pas encore de commande dédiée).
+
+Pour chaque site et chaque heure à calculer, le job construit les cinq variables du modèle selon l'heure UTC (les heures de travail du CSV d'entraînement et de l'API Mock ne suivent pas l'heure d'été), vérifie que la valeur prédite est finie et positive ou nulle, lui applique le [recalage de niveau](#recalage-de-niveau) du site, puis écrit le lot entier dans une transaction PostgreSQL.
 
 | Table | Contenu |
 | --- | --- |
 | `prediction_jobs` | Déclenchement, statut et éventuelle erreur des jobs. |
-| `prediction_runs` | Version du modèle, fenêtre de 24 heures, date de génération et taille du lot. |
+| `prediction_runs` | Version du modèle, heures couvertes par le lot (`window_start` = première, `window_end` = dernière + 1 h), date de génération et taille du lot. |
 | `predictions` | `run_id`, `site_id`, `predicted_for` et, pour chaque heure : `prediction_kwh` (valeur publiée, lue par `core-api`), `model_prediction_kwh` (prévision brute du champion) et `level_ratio` (ratio appliqué). Les deux dernières colonnes sont NULL pour les lots antérieurs au changeset 008. |
 
 ## Recalage de niveau
@@ -124,7 +140,7 @@ La référence « profil récent » est très bonne parce que l'API Mock est pre
 - **La dérive devient invisible dans l'erreur publiée.** Il faut suivre séparément l'erreur de `model_prediction_kwh` (champion seul) et `level_ratio` : un ratio durablement loin de 1 signale qu'un réentraînement sur les données récentes est nécessaire (voir [Données, suivi quotidien et nouveaux champions](prediction-service-pratics.md)).
 - Le recalage **ne remplace pas un réentraînement** : il corrige l'échelle, pas les écarts ponctuels (pic inhabituel, panne).
 
-Les versions successives des prévisions restent en base. Si le contrôle de fraîcheur, le chargement du champion ou une valeur échoue, aucun lot partiel n'est publié. Si la tentative de :05 échoue, celle de :20, :35 ou :50 recalcule la fenêtre de 24 heures à partir du prochain début d'heure. Une série est publiée chaque heure : environ 4 000 lignes par jour pour 7 sites.
+Les versions successives des prévisions restent en base. Si le contrôle de fraîcheur, le chargement du champion ou une valeur échoue, aucun lot partiel n'est publié. Si la tentative de :05 échoue, celle de :20, :35 ou :50 calcule les heures manquantes à ce moment ; si toutes échouent, la série de l'heure suivante comble le trou. En temps normal, une série de 7 lignes (une heure × 7 sites) est publiée chaque heure : environ 170 lignes par jour, contre 4 000 quand les 24 heures étaient recalculées.
 
 ## API et chargement du champion
 

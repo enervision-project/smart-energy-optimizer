@@ -157,6 +157,34 @@ def read_forecast_errors(
         return [(row[0], float(row[1]), float(row[2]), float(row[3])) for row in cursor.fetchall()]
 
 
+def read_covered_hours(
+    database_url: str, start: datetime, end: datetime, model_name: str, model_version: str
+) -> set[tuple[str, datetime]]:
+    """Couples `(site, heure)` de `[start, end)` dont la prévision affichée vient de ce champion.
+
+    Prévision affichée = celle du dernier lot complet, départagé comme core-api (date puis
+    run_id). Une heure prévue par un ancien champion n'est donc pas couverte.
+    """
+    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+                SELECT site_id, predicted_for
+                FROM (
+                    SELECT DISTINCT ON (p.site_id, p.predicted_for)
+                           p.site_id, p.predicted_for, r.model_name, r.model_version
+                    FROM predictions p
+                    JOIN prediction_runs r USING (run_id)
+                    WHERE r.status = 'complete'
+                      AND p.predicted_for >= %s AND p.predicted_for < %s
+                    ORDER BY p.site_id, p.predicted_for, r.generated_at DESC, r.run_id DESC
+                ) latest
+                WHERE model_name = %s AND model_version = %s
+                """,
+            (start, end, model_name, model_version),
+        )
+        return {(row[0], row[1]) for row in cursor.fetchall()}
+
+
 def read_site_profiles(database_url: str) -> list[SiteProfile]:
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
         cursor.execute(

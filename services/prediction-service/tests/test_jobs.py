@@ -63,7 +63,13 @@ def test_monitoring_runs_only_after_a_publication_and_never_fails_the_forecast(m
     def claim(*_args):
         yield UUID(int=1)
 
+    # Fenêtre déjà complète : rien de publié, donc pas de suivi.
     monkeypatch.setattr(jobs, "claimed_job", claim)
+    monkeypatch.setattr(jobs, "generate_forecast", lambda *args: None)
+    jobs._forecast("2026-10-26T12:00Z")
+    assert not monitored
+
+    monkeypatch.setattr(jobs, "generate_forecast", lambda *args: UUID(int=2))
     jobs._forecast("2026-10-26T12:00Z")
     assert monitored == [True]
     assert "Suivi du modèle impossible" in caplog.text

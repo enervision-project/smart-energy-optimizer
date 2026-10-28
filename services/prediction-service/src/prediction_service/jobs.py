@@ -32,8 +32,9 @@ def _forecast(schedule_key: str) -> None:
     with claimed_job(settings.database_url, "forecast", schedule_key, "scheduled") as job_id:
         if job_id is not None:
             run_id = generate_forecast(settings, job_id)
-            logger.info("Prévisions publiées : %s", run_id)
-            published = True
+            if run_id is not None:
+                logger.info("Prévisions publiées : %s", run_id)
+                published = True
     if published:
         # Après publication, hors du job : un échec du suivi ne doit pas relancer les prévisions.
         try:
@@ -85,7 +86,8 @@ def run_scheduler() -> None:
                 logger.exception("Job d'entraînement échoué")
             active_training = None
         try:
-            # Une série par heure UTC (clé SQL) : les 24 heures suivantes restent couvertes.
+            # Une série par heure UTC (clé SQL) : elle complète les 24 heures suivantes
+            # (en régime normal, la seule heure H+24).
             # :05 laisse à l'ETL le temps de calculer l'heure close (sync-hours à :02) ;
             # en cas d'échec, nouvel essai à :20, :35 et :50.
             if local.minute % 15 == 5:

@@ -117,3 +117,37 @@ def test_claimed_job_marks_success_and_failure(monkeypatch):
         raise RuntimeError("training failed")
     assert any("status='failed'" in sql for sql in connection.db_cursor.statements)
     assert any("pg_advisory_unlock" in sql for sql in connection.db_cursor.statements)
+
+
+def test_covered_hours_keep_only_the_displayed_prediction_of_this_champion(monkeypatch):
+    hour = datetime(2026, 10, 29, 9, tzinfo=UTC)
+    executed = []
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, sql, parameters):
+            executed.append((sql, parameters))
+
+        def fetchall(self):
+            return [("SITE001", hour), ("SITE002", hour)]
+
+    class Connection(Cursor):
+        def cursor(self):
+            return Cursor()
+
+    monkeypatch.setattr(repository.psycopg, "connect", lambda _url: Connection())
+    start, end = hour - timedelta(hours=23), hour + timedelta(hours=1)
+
+    covered = repository.read_covered_hours("db", start, end, "hourly", "8")
+
+    assert covered == {("SITE001", hour), ("SITE002", hour)}
+    ((sql, parameters),) = executed
+    assert parameters == (start, end, "hourly", "8")
+    # Même départage que core-api : dernier lot complet, puis run_id.
+    assert "r.generated_at DESC, r.run_id DESC" in sql
+    assert "r.status = 'complete'" in sql
