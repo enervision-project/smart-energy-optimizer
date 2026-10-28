@@ -14,6 +14,14 @@ from prediction_service.settings import Settings
 from prediction_service.training import needs_catchup, should_promote
 
 
+@pytest.fixture(autouse=True)
+def nothing_forecast_yet(monkeypatch):
+    """Par défaut, aucune heure déjà prévue : la série couvre les 24 heures."""
+    from prediction_service import forecast
+
+    monkeypatch.setattr(forecast, "read_covered_hours", lambda *args: set())
+
+
 def test_promotion_uses_relative_four_percent():
     assert should_promote(5.0, 4.8)
     assert not should_promote(5.0, 4.81)
@@ -203,6 +211,102 @@ def test_recalibration_can_be_disabled(monkeypatch, tmp_path):
     generate_forecast(settings, UUID(int=2), datetime(2026, 10, 27, 6, 5, tzinfo=UTC))
 
     assert all(row[2:] == (100.0, 100.0, 1.0) for row in captured["rows"])
+
+
+class HourlyPredictor:
+    version = "8"
+
+    def __init__(self):
+        self.site_codes = {"SITE001": 0, "SITE002": 1}
+
+    def predict(self, request):
+        return float(request.hour)
+
+
+@pytest.fixture
+def incremental(monkeypatch, tmp_path):
+    """Deux sites, sans historique ; renvoie (réglages, heure, fenêtre, couverture, appels)."""
+    from prediction_service import forecast
+
+    now = datetime(2026, 10, 28, 10, 5, tzinfo=UTC)
+    window = next_24_hours(now)
+    covered = set()
+    calls = {"covered": [], "saved": []}
+
+    def read_covered(*args):
+        calls["covered"].append(args)
+        return covered
+
+    def save(*args):
+        calls["saved"].append(args)
+        return UUID(int=1)
+
+    monkeypatch.setattr(forecast, "available_predictor", lambda *args: HourlyPredictor())
+    monkeypatch.setattr(
+        forecast,
+        "read_site_profiles",
+        lambda *args: [
+            SiteProfile("SITE001", 8, 19, (1, 2, 3, 4, 5)),
+            SiteProfile("SITE002", 8, 19, (1, 2, 3, 4, 5)),
+        ],
+    )
+    monkeypatch.setattr(forecast, "read_covered_hours", read_covered)
+    monkeypatch.setattr(forecast, "read_measured_hours", lambda *args: [])
+    monkeypatch.setattr(forecast, "save_forecast", save)
+    settings = Settings(model_dir=tmp_path, database_url="postgresql://unused")
+    return settings, now, window, covered, calls
+
+
+def test_forecast_only_adds_the_new_last_hour(incremental):
+    settings, now, window, covered, calls = incremental
+    covered.update((site, hour) for site in ("SITE001", "SITE002") for hour in window[:23])
+
+    assert generate_forecast(settings, UUID(int=2), now) == UUID(int=1)
+
+    # Couverture lue pour la fenêtre [H+1, H+25) et le champion courant.
+    assert calls["covered"] == [
+        (
+            "postgresql://unused",
+            window[0],
+            window[-1] + timedelta(hours=1),
+            settings.registered_model_name,
+            "8",
+        )
+    ]
+    (saved,) = calls["saved"]
+    assert saved[4] == [window[-1]]
+    assert {(site, hour) for site, hour, *_ in saved[5]} == {
+        ("SITE001", window[-1]),
+        ("SITE002", window[-1]),
+    }
+
+
+def test_forecast_fills_the_hours_left_by_a_failed_series(incremental):
+    settings, now, window, covered, calls = incremental
+    covered.update((site, hour) for site in ("SITE001", "SITE002") for hour in window[:22])
+    # Un site manque aussi sur une heure plus ancienne : l'heure est refaite pour tous.
+    covered.discard(("SITE002", window[5]))
+
+    generate_forecast(settings, UUID(int=2), now)
+
+    (saved,) = calls["saved"]
+    assert saved[4] == [window[5], window[22], window[23]]
+    assert len(saved[5]) == 2 * 3
+
+
+def test_forecast_publishes_nothing_when_the_window_is_complete(incremental, monkeypatch):
+    from prediction_service import forecast
+
+    settings, now, window, covered, calls = incremental
+    covered.update((site, hour) for site in ("SITE001", "SITE002") for hour in window)
+
+    def unexpected(*_args):
+        raise AssertionError("Rien à prévoir : l'historique ne doit pas être lu.")
+
+    monkeypatch.setattr(forecast, "read_measured_hours", unexpected)
+
+    assert generate_forecast(settings, UUID(int=2), now) is None
+    assert calls["saved"] == []
 
 
 @pytest.fixture

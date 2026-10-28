@@ -1,6 +1,6 @@
 # Prediction Service
 
-Service interne de prévision de consommation horaire. `prediction-service` sert le champion MLflow en mémoire ; `prediction-jobs` exécute l'entraînement quotidien et écrit chaque heure une série de prévisions dans PostgreSQL. Les deux conteneurs partagent le volume `/models`. MLflow utilise sa base PostgreSQL dédiée et les artefacts S3 déjà configurés.
+Service interne de prévision de consommation horaire. `prediction-service` sert le champion MLflow en mémoire ; `prediction-jobs` exécute l'entraînement quotidien et complète chaque heure la fenêtre des 24 prochaines heures de prévisions dans PostgreSQL. Les deux conteneurs partagent le volume `/models`. MLflow utilise sa base PostgreSQL dédiée et les artefacts S3 déjà configurés.
 
 ## API
 
@@ -25,10 +25,10 @@ curl -s http://127.0.0.1:8000/predict -H 'Content-Type: application/json' -d '{
 - À **01:00 Europe/Paris**, `prediction-jobs` déclenche un entraînement HGB. Au démarrage, il déclenche un rattrapage si le dernier entraînement réussi dans MLflow date strictement de plus de 25 heures.
 - L'entraînement ne lit que les Parquet historiques (configuration `services/ml-service/configs/hgb_production.yaml`) : le modèle est ajusté sur `train.parquet`, puis évalué sur `validation.parquet` et `test.parquet`. Les mesures SQL ne servent pas encore à l'entraînement.
 - Le challenger est comparé au champion sur **les mêmes lignes de `test.parquet`**. Il est promu si `test_macro_nmae_pct_challenger <= 0,96 × test_macro_nmae_pct_champion`, avec un score défini et positif pour le champion. Le premier candidat valide devient champion s'il n'existe pas encore de version.
-- **Chaque heure à :05**, le job de prévisions utilise le champion disponible, même pendant un entraînement. Il calcule 24 heures successives en UTC à partir du prochain début d'heure et publie le lot complet dans `prediction_runs` et `predictions`. Les 24 heures à venir sont donc toujours couvertes ; pour chaque heure, `core-api` lit la série complète la plus récente.
+- **Chaque heure à :05**, le job de prévisions utilise le champion disponible, même pendant un entraînement. Il complète la fenêtre des 24 heures suivantes (UTC) : seules les heures sans prévision du champion courant sont calculées, en temps normal la nouvelle heure H+24, les 24 au démarrage ou après un changement de champion. Le lot est publié dans `prediction_runs` et `predictions` ; pour chaque heure, `core-api` lit la prévision du lot complet le plus récent.
 - **Recalage de niveau** : avant publication, chaque prévision est multipliée par le ratio mesuré / prévu du site sur les 7 derniers jours (un ratio pour les heures travaillées, un pour les autres), car l'API Mock consomme 0,66 à 0,83 fois les niveaux du CSV d'entraînement. `predictions` garde la valeur publiée (`prediction_kwh`), la prévision brute du champion (`model_prediction_kwh`) et le ratio (`level_ratio`). Principe, garde-fous et résultats : section *Recalage de niveau* de la page « Fonctionnement du Prediction Service » ; code : `recalibration.py`.
 
-L'historique des lots et des versions est conservé. `core-api` expose la série la plus récente avec `GET /api/v1/sites/{siteId}/predictions`, affichée par la page Prévisions du front.
+L'historique des lots et des versions est conservé. `core-api` expose, pour chaque heure, la prévision du lot le plus récent avec `GET /api/v1/sites/{siteId}/predictions`, affichée par la page Prévisions du front.
 
 ## Préparation des données initiales
 

@@ -1,4 +1,4 @@
-"""Prévisions horaires avec le champion courant, recalage de niveau et publication atomique."""
+"""Prévisions horaires des heures manquantes, recalage de niveau et publication atomique."""
 
 import logging
 import math
@@ -10,6 +10,7 @@ from prediction_service.recalibration import NEUTRAL, WINDOW_HOURS, LevelRatios,
 from prediction_service.registry import available_predictor
 from prediction_service.repository import (
     SiteProfile,
+    read_covered_hours,
     read_measured_hours,
     read_site_profiles,
     save_forecast,
@@ -63,12 +64,34 @@ def site_ratios(
     return ratios
 
 
-def generate_forecast(settings: Settings, job_id: UUID, now: datetime | None = None) -> UUID:
+def missing_hours(
+    settings: Settings, predictor, profiles: list[SiteProfile], window: list[datetime]
+) -> list[datetime]:
+    """Heures de la fenêtre qu'un site au moins n'a pas encore, prévues par ce champion.
+
+    En régime normal, seule la dernière heure (H+24) manque. Après un échec, toutes les
+    heures restées sans prévision ; au démarrage ou après un changement de champion, les 24.
+    """
+    covered = read_covered_hours(
+        settings.database_url,
+        window[0],
+        window[-1] + timedelta(hours=1),
+        settings.registered_model_name,
+        predictor.version,
+    )
+    return [
+        hour
+        for hour in window
+        if any((profile.site_id, hour) not in covered for profile in profiles)
+    ]
+
+
+def generate_forecast(settings: Settings, job_id: UUID, now: datetime | None = None) -> UUID | None:
+    """Publie les heures manquantes des 24 prochaines ; None si toutes sont déjà prévues."""
     now = now or datetime.now(UTC)
     predictor = available_predictor(
         settings.model_dir, settings.mlflow_tracking_uri or None, settings.registered_model_name
     )
-    hours = next_24_hours(now)
     profiles = read_site_profiles(settings.database_url)
     known = [profile for profile in profiles if profile.site_id in predictor.site_codes]
     if not known:
@@ -78,6 +101,11 @@ def generate_forecast(settings: Settings, job_id: UUID, now: datetime | None = N
     )
     if unknown:
         logger.warning("Sites ignorés car inconnus du champion : %s", unknown)
+    hours = missing_hours(settings, predictor, known, next_24_hours(now))
+    if not hours:
+        logger.info("Prévisions déjà à jour pour les 24 prochaines heures.")
+        return None
+    logger.info("%d heure(s) à prévoir sur 24 avec le champion %s", len(hours), predictor.version)
     ratios = site_ratios(settings, predictor, known, now)
     rows = []
     for profile in known:
