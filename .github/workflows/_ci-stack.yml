@@ -101,10 +101,12 @@ jobs:
         if: ${{ always() }}
         run: |
           mkdir -p stack-logs
-          docker compose --env-file .env ps -a >stack-logs/ps.txt || true
-          for service in db db-bootstrap migrate core-api web scheduler; do
-            docker compose --env-file .env logs --no-color "$service" >"stack-logs/$service.log" 2>&1 || true
-          done
+          if [ -f .env ]; then
+            docker compose --env-file .env ps -a >stack-logs/ps.txt || true
+            for service in db db-bootstrap migrate core-api web scheduler; do
+              docker compose --env-file .env logs --no-color "$service" >"stack-logs/$service.log" 2>&1 || true
+            done
+          fi
 
       - name: Publication des logs
         if: ${{ failure() }}
@@ -116,4 +118,7 @@ jobs:
 
       - name: Arrêt de la stack
         if: ${{ always() }}
-        run: docker compose --env-file .env down -v
+        run: |
+          if [ -f .env ]; then
+            docker compose --env-file .env down -v
+          fi

@@ -1,5 +1,6 @@
 *
 !requirements-training.txt
+!requirements-training.lock
 !training/
 !training/**
 !configs/

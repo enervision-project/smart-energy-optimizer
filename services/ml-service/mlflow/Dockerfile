@@ -3,8 +3,8 @@ FROM docker.io/library/python:3.12-slim
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt \
+COPY requirements.lock .
+RUN pip install --no-cache-dir --only-binary :all: --require-hashes -r requirements.lock \
     && useradd --create-home --uid 10001 mlflow \
     && mkdir /mlartifacts \
     && chown mlflow:mlflow /mlartifacts

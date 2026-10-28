@@ -197,8 +197,10 @@ services:
   web:
     build:
       context: app/web
+    depends_on:
+      - core-api
     ports:
-      - "127.0.0.1:4200:80"
+      - "127.0.0.1:4200:8080"
 
 volumes:
   dbdata: {}

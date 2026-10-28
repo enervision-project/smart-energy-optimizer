@@ -16,9 +16,12 @@ RUN ln -snf /usr/share/zoneinfo/Europe/Paris /etc/localtime \
 
 WORKDIR /app
 
+COPY services/etl-worker/requirements.lock ./
+RUN pip install --only-binary :all: --require-hashes --no-cache-dir -r requirements.lock
+
 COPY services/etl-worker/ .
 
-RUN pip install --no-cache-dir . \
+RUN pip install --no-cache-dir --no-deps . \
     && install -m 0644 cron/etl /etc/cron.d/etl \
     && install -m 0755 cron/start.sh /usr/local/bin/etl-cron-start \
     && install -m 0755 cron/job.sh /usr/local/bin/etl-cron-job \
