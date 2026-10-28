@@ -40,7 +40,7 @@ test_macro_nmae_pct = moyenne(NMAE_site sur test.parquet)
 
 Le challenger et le champion sont évalués sur **les mêmes lignes de `test.parquet`**. Sans champion, le premier candidat valide est promu. Sinon, le challenger remplace le champion uniquement si son score est au moins **4 % meilleur relativement** : `score_challenger <= 0,96 × score_champion`, avec un score champion positif. Par exemple, un score champion de 5,00 % demande au plus 4,80 %. Si la NMAE d'un site est indéfinie, la promotion est refusée. MLflow conserve les métriques Train, Validation et Test, ainsi que le score `champion_test_macro_nmae_pct` pour cette comparaison.
 
-La promotion met à jour l'alias MLflow `champion` et le cache versionné dans `/models/versions/`. Un entraînement réussi peut donc se terminer **sans promotion**. Tant qu'il reste un champion, l'API continue de servir celui qu'elle a déjà chargé pendant le calcul et en cas d'échec du challenger.
+La promotion met à jour l'alias MLflow `champion` et le cache versionné dans `/models/versions/`. Un entraînement réussi peut donc se terminer **sans promotion** : c'est le cas aujourd'hui, les données et la graine étant fixes, le challenger reproduit le champion (voir [pourquoi pas encore de réentraînement sur la prod](prediction-service-pratics.md)). Tant qu'il reste un champion, l'API continue de servir celui qu'elle a déjà chargé pendant le calcul et en cas d'échec du challenger.
 
 ## Prévisions horaires
 

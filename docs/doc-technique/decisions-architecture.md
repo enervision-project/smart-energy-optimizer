@@ -80,9 +80,9 @@ Chaque décision suit le même format : **contexte**, **décision**, **pourquoi*
 ## ADR-009 : Prévisions précalculées chaque heure
 
 - **Contexte** : afficher 24 h de prévisions par site.
-- **Décision** : `prediction-jobs` calcule chaque heure le lot complet et l'écrit dans `predictions`. core-api lit la dernière série complète en base ; il n'appelle jamais `prediction-service`.
+- **Décision** : `prediction-jobs` complète chaque heure la fenêtre des 24 h suivantes dans `predictions` : seules les heures manquantes sont calculées (en temps normal H+24 ; les 24 au démarrage, après un échec ou un changement de champion). core-api lit, pour chaque heure, la prévision du dernier lot complet ; il n'appelle jamais `prediction-service`.
 - **Pourquoi** : la page reste rapide et disponible même si le modèle ou MLflow est en panne, et chaque prévision publiée est historisée.
-- **Conséquences** : une prévision a jusqu'à une heure de retard sur les dernières mesures.
+- **Conséquences** : une heure garde le ratio de recalage du moment où elle a été prévue (en général 24 h avant), écart négligeable car les ratios sont stables. Environ 170 lignes par jour au lieu de 4 000.
 
 ## ADR-010 : Modèle global calendaire, sans météo ni lags
 
@@ -96,7 +96,7 @@ Chaque décision suit le même format : **contexte**, **décision**, **pourquoi*
 - **Contexte** : réentraîner régulièrement sans dégrader la prévision publiée.
 - **Décision** : chaque nuit, un challenger est entraîné et comparé au champion sur les mêmes lignes de `test.parquet`. Il le remplace si sa nMAE est au moins 4 % meilleure. Le registre MLflow porte l'alias `champion`.
 - **Pourquoi** : la marge de 4 % évite de changer de modèle pour un écart dû au hasard. Tout est tracé dans MLflow.
-- **Conséquences** : un entraînement réussi peut se terminer sans promotion. Le champion en place continue de servir pendant l'entraînement et en cas d'échec.
+- **Conséquences** : un entraînement réussi peut se terminer sans promotion. Le champion en place continue de servir pendant l'entraînement et en cas d'échec. Tant que l'entraînement lit les mêmes Parquet (graine fixe), le challenger est identique au champion et n'est jamais promu : l'entraînement nocturne vérifie la chaîne de bout en bout. Le passage aux données de prod est reporté faute de recul (voir [Données, suivi quotidien et nouveaux champions](infra/prediction-service-pratics.md)).
 
 ## ADR-012 : Une EC2 et Docker Compose plutôt qu'un orchestrateur
 

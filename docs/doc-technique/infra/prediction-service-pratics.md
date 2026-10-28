@@ -32,6 +32,9 @@ Le drift est un signal d'évolution. Il ne déclenche pas à lui seul le remplac
 
 ## 2. Accumuler des données propres sur plusieurs semaines
 
+!!! note "Pourquoi pas de réentraînement sur la prod pendant le projet"
+    Fin du projet : environ 9 jours de mesures (depuis le 21/10), un ou deux week-ends, un seul mois. Trop peu pour apprendre le cycle semaine / week-end, exploiter `month` ou décider d'une promotion à 4 % sur 1 à 2 jours de test. Surtout, l'écart observé est une échelle stable par site (0,66 à 0,83) que le recalage corrige déjà (nMAE 37 % → 6 % en prod). La boucle (MLflow, champion / challenger, suivi) est prête : seule la source de données change le moment venu.
+
 Les nouvelles heures restent collectées par l'ETL. On attend d'avoir assez de recul pour couvrir plusieurs cycles de travail et disposer de périodes distinctes pour apprendre et comparer les modèles.
 
 Le nombre de lignes ne suffit pas : il faut vérifier la durée couverte, la qualité et la présence de chaque site. Une semaine complète ne représente qu'un cycle hebdomadaire ; elle ne couvre pas toute la saisonnalité.
