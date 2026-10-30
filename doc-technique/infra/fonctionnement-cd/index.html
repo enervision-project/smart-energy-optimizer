@@ -1,0 +1,2966 @@
+
+<!doctype html>
+<html lang="fr" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Documentation de Smart Energy Optimizer">
+      
+      
+      
+        <link rel="canonical" href="https://github.com/enervision-project/smart-energy-optimizer/doc-technique/infra/fonctionnement-cd/">
+      
+      
+        <link rel="prev" href="../deploiement/">
+      
+      
+        <link rel="next" href="../init-aws/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/logo.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Comprendre le déploiement - Smart Energy Optimizer</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#comprendre-le-deploiement" class="md-skip">
+          Aller au contenu
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="En-tête">
+    <a href="../../.." title="Smart Energy Optimizer" class="md-header__button md-logo" aria-label="Smart Energy Optimizer" data-md-component="logo">
+      
+  <img src="../../../assets/logo-short.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Smart Energy Optimizer
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Comprendre le déploiement
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="indigo"  aria-label="Passer au mode sombre"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Passer au mode sombre" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="custom" data-md-color-accent="indigo"  aria-label="Passer au mode clair"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Passer au mode clair" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Rechercher" placeholder="Rechercher" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Recherche">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Effacer" aria-label="Effacer" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initialisation de la recherche
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/enervision-project/smart-energy-optimizer" title="Aller au dépôt" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Smart Energy Optimizer
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Onglets" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Accueil
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../doc-fonctionnelle/presentation/" class="md-tabs__link">
+          
+  
+  
+  Doc fonctionnelle
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../architecture-applicative/" class="md-tabs__link">
+          
+  
+  
+  Doc technique
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../transverse/infra/sauvegardes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Sauvegardes et intégrité
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../etl-worker/" class="md-tabs__link">
+          
+  
+  
+  ETL Worker
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../ml-service/donnees/" class="md-tabs__link">
+          
+  
+  
+  ML Service
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../prediction-service/" class="md-tabs__link">
+          
+  
+  
+  Prediction Service
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../core-api/module-diagnostic/alertes/" class="md-tabs__link">
+          
+  
+  
+  Core API
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../UI/authentification/" class="md-tabs__link">
+          
+  
+  
+  UI
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Smart Energy Optimizer" class="md-nav__button md-logo" aria-label="Smart Energy Optimizer" data-md-component="logo">
+      
+  <img src="../../../assets/logo-short.png" alt="logo">
+
+    </a>
+    Smart Energy Optimizer
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/enervision-project/smart-energy-optimizer" title="Aller au dépôt" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Smart Energy Optimizer
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accueil
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc fonctionnelle
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Doc fonctionnelle
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../doc-fonctionnelle/presentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation fonctionnelle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc technique
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Doc technique
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture-applicative/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture applicative
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Décisions d'architecture (ADR)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gestion-des-comptes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Gestion des comptes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../modele-de-donnees/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modèle de données
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Infra
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Infra
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-cd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Intégration continue (CI)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploiement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Déploiement CI/CD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comprendre le déploiement
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comprendre le déploiement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table des matières">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table des matières
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#vue-densemble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vue d'ensemble
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-changes-quels-services-ont-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. changes : quels services ont changé ?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-build-compiler-et-construire-limage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. build : compiler et construire l'image
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quest-ce-quecr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qu'est-ce qu'ECR ?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-deploy-du-depot-github-au-serveur" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. deploy : du dépôt GitHub au serveur
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. deploy : du dépôt GitHub au serveur">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#les-etapes-du-job-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Les étapes du job Production
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datasets-ml-dvc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Datasets ML (DVC)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sur-lec2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sur l'EC2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sur-lec2-de-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sur l'EC2 de monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#securite-lacces-de-github-a-aws-oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sécurité : l'accès de GitHub à AWS (OIDC)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sécurité : l&#39;accès de GitHub à AWS (OIDC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#le-probleme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Le problème
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#la-solution-oidc-sans-aucune-cle-stockee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        La solution : OIDC, sans aucune clé stockée
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#le-moindre-privilege" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Le moindre privilège
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#les-autres-protections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Les autres protections
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#depannage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dépannage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lexique" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lexique
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../init-aws/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Init AWS user
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../monitoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction-service-pratics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Données, suivi quotidien et nouveaux champions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../prediction-service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fonctionnement du Prediction Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../renovate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Renovate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sonar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SonarQube et SonarCloud
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutos
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutos
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutos/mkdocs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilisation de MkDocs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../transverse/infra/sauvegardes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sauvegardes et intégrité
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ETL Worker
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ETL Worker
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../etl-worker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ETL Worker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Service
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    ML Service
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ml-service/donnees/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Données et préparation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ml-service/dvc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Versionnement DVC et déploiement des datasets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ml-service/entrainement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Entraînement et MLflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../ml-service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ML Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction Service
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prediction Service
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../prediction-service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prediction Service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_8_1" id="__nav_8_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Module diagnostic
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_8_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Module diagnostic
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core-api/module-diagnostic/alertes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Alertes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core-api/module-diagnostic/recommendations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recommandations énergétiques
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core-api/mesures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Mesures (module telemetry)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../core-api/securite/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sécurité
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UI
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    UI
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../UI/authentification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Connexion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../UI/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture du front
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../UI/recommendation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recommandations énergétiques
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table des matières">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table des matières
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#vue-densemble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vue d'ensemble
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-changes-quels-services-ont-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. changes : quels services ont changé ?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-build-compiler-et-construire-limage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. build : compiler et construire l'image
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quest-ce-quecr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Qu'est-ce qu'ECR ?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-deploy-du-depot-github-au-serveur" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. deploy : du dépôt GitHub au serveur
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. deploy : du dépôt GitHub au serveur">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#les-etapes-du-job-production" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Les étapes du job Production
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#datasets-ml-dvc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Datasets ML (DVC)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sur-lec2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sur l'EC2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sur-lec2-de-monitoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sur l'EC2 de monitoring
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#securite-lacces-de-github-a-aws-oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sécurité : l'accès de GitHub à AWS (OIDC)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sécurité : l&#39;accès de GitHub à AWS (OIDC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#le-probleme" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Le problème
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#la-solution-oidc-sans-aucune-cle-stockee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        La solution : OIDC, sans aucune clé stockée
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#le-moindre-privilege" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Le moindre privilège
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#les-autres-protections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Les autres protections
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#depannage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dépannage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lexique" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lexique
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="comprendre-le-deploiement">Comprendre le déploiement</h1>
+<p>Cette page explique <strong>comment le code de GitHub arrive en production sur AWS</strong> et comment
+cet accès est sécurisé. Pour les commandes et la configuration, voir
+<a href="../deploiement/">Déploiement CI/CD</a>.</p>
+<h2 id="vue-densemble">Vue d'ensemble</h2>
+<p>À chaque push sur <code>main</code>, le workflow <code>Deploy</code> (<code>../../../.github/workflows/services.yml</code>) enchaîne
+trois jobs :</p>
+<pre class="mermaid"><code>flowchart TD
+    PUSH("Push sur main")
+    CHANGES("1. changes : quels services ont changé ?")
+    BUILD("2. build : une image Docker par service modifié")
+    DEPLOY("3. deploy : mise à jour des conteneurs sur l'EC2")
+    ECR("ECR : registre d'images privé")
+    EC2("EC2 enervision-app")
+    NOTHING("Rien à faire")
+
+PUSH --&gt; CHANGES
+CHANGES --&gt;|aucun service| NOTHING
+CHANGES --&gt;|web, etl-worker...| BUILD
+BUILD --&gt;|docker push| ECR
+BUILD --&gt; DEPLOY
+DEPLOY --&gt;|commande SSM| EC2
+ECR --&gt;|docker pull| EC2
+
+classDef ci fill:#fff,stroke:#1971c2,stroke-width:2px
+classDef aws fill:#fff,stroke:#f08c00,stroke-width:2px
+classDef plain fill:#fff,stroke:#333,stroke-width:1px
+class PUSH,CHANGES,BUILD,DEPLOY ci
+class ECR,EC2 aws
+class NOTHING plain</code></pre>
+<p>Ce workflow ne tourne pas sur les PR : c'est le workflow <code>ci.yml</code> (job <code>call-images</code>) qui
+construit alors les images des services modifiés, avec les mêmes règles de sélection, pour
+vérifier qu'elles compilent. Elles ne sont ni publiées ni déployées.</p>
+<h2 id="1-changes-quels-services-ont-change">1. <code>changes</code> : quels services ont changé ?</h2>
+<p>Le job compare le commit actuel au <strong>dernier commit déployé avec succès</strong>, mémorisé dans le
+paramètre SSM <code>/enervision/prod/deployed-sha</code>, puis confronte les fichiers modifiés aux <code>paths</code>
+de <code>../../../.github/services.json</code>.</p>
+<pre class="mermaid"><code>flowchart TD
+    DIFF("git diff entre le dernier commit déployé et le commit actuel")
+    GLOBAL{"Un fichier commun a changé ? compose, workflow, infra/deploy..."}
+    MATCH{"Le fichier commence par les paths d'un service ?"}
+    ALL("Tous les services")
+    SOME("Seulement les services concernés")
+    NONE("Aucun service")
+
+DIFF --&gt; GLOBAL
+GLOBAL --&gt;|oui| ALL
+GLOBAL --&gt;|non| MATCH
+MATCH --&gt;|oui| SOME
+MATCH --&gt;|non| NONE</code></pre>
+<p>Exemple : un commit qui ne touche que <code>app/web/src/...</code> sélectionne uniquement <code>web</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Pourquoi le dernier commit déployé et pas le commit précédent ?</p>
+<p>Si un déploiement échoue, le paramètre n'est pas mis à jour : le push suivant compare
+donc toujours à la dernière version réellement en production et redéploie aussi ce qui
+avait échoué. Rien n'est perdu.</p>
+</div>
+<h2 id="2-build-compiler-et-construire-limage">2. <code>build</code> : compiler et construire l'image</h2>
+<p>Il n'y a <strong>pas d'étape de compilation séparée</strong> : la compilation a lieu <em>dans</em> le
+<code>docker build</code>, sur une machine GitHub. Chaque Dockerfile décrit comment compiler son service
+(multi-stage build). Par exemple <code>../../../app/web/Dockerfile</code> :</p>
+<div class="language-dockerfile highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c"># Étape 1 : image Node, compile l'application Angular</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">FROM</span><span class="w"> </span><span class="s">node:24-alpine</span><span class="w"> </span><span class="k">AS</span><span class="w"> </span><span class="s">build</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">RUN</span><span class="w"> </span>npm<span class="w"> </span>ci<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>build<span class="w">          </span>#<span class="w"> </span>produit<span class="w"> </span>dist/web/browser<span class="w"> </span><span class="o">(</span>HTML,<span class="w"> </span>JS,<span class="w"> </span>CSS<span class="o">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c"># Étape 2 : image finale, uniquement nginx + les fichiers compilés</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="k">FROM</span><span class="w"> </span><span class="s">nginx:1.27-alpine</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">COPY</span><span class="w"> </span>--from<span class="o">=</span>build<span class="w"> </span>/app/dist/web/browser<span class="w"> </span>/usr/share/nginx/html
+</span></code></pre></div>
+<p>L'image finale ne contient ni Node.js ni le code source : seulement ce qui est nécessaire
+pour servir l'application. La pipeline, elle, ne connaît que <code>docker build</code> puis <code>docker push</code> :
+un service Java (Maven) ou Python fonctionne de la même façon, seul son Dockerfile change.</p>
+<p>Les services sont construits <strong>en parallèle</strong>, un job par service, avec un cache des couches
+Docker entre deux runs (les dépendances ne sont pas réinstallées si elles n'ont pas changé).</p>
+<h2 id="quest-ce-quecr">Qu'est-ce qu'ECR ?</h2>
+<p><strong>ECR (Elastic Container Registry)</strong> est un registre d'images Docker <strong>privé</strong>, hébergé par
+AWS : l'équivalent de Docker Hub, mais seules les identités AWS autorisées peuvent y lire ou
+y écrire.</p>
+<p>Terraform crée <strong>un dépôt ECR par service</strong> ayant un <code>build</code> dans <code>services.json</code>, dans le
+compte EnerVision, région Paris (eu-west-3) :</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>&lt;compte&gt;.dkr.ecr.eu-west-3.amazonaws.com/enervision/web
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>&lt;compte&gt;.dkr.ecr.eu-west-3.amazonaws.com/enervision/etl-worker
+</span></code></pre></div>
+<p>Chaque image est poussée avec <strong>deux tags</strong> :</p>
+<table>
+<thead>
+<tr>
+<th>Tag</th>
+<th>Rôle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;sha du commit&gt;</code></td>
+<td>version exacte et traçable : on sait quel commit tourne en production</td>
+</tr>
+<tr>
+<td><code>latest</code></td>
+<td>dernière version, utilisée si aucun tag n'est précisé</td>
+</tr>
+</tbody>
+</table>
+<p>ECR garde les <strong>20 dernières images</strong> de chaque dépôt et les <strong>analyse</strong> (scan des
+vulnérabilités connues) à chaque push. Les services <code>proxy</code> (Caddy) et <code>db</code> (TimescaleDB)
+utilisent des images publiques : ils n'ont pas de dépôt ECR.</p>
+<h2 id="3-deploy-du-depot-github-au-serveur">3. <code>deploy</code> : du dépôt GitHub au serveur</h2>
+<p><strong>GitHub ne se connecte jamais directement à l'EC2</strong> : pas de SSH, aucun port d'administration
+ouvert. Le déploiement passe par <strong>SSM</strong> (AWS Systems Manager) : un agent installé sur l'EC2
+interroge AWS en sortie pour récupérer les commandes à exécuter.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant GH as GitHub Actions
+    participant S3 as S3 enervision-deploy
+    participant SSM as AWS SSM
+    participant EC2 as EC2 agent SSM
+    participant ECR as ECR
+
+    GH-&gt;&gt;S3: dépose compose.yaml, compose.prod.yaml, infra/
+    GH-&gt;&gt;SSM: exécuter deploy.sh pour web sur enervision-app
+    EC2-&gt;&gt;SSM: une commande pour moi ?
+    SSM--&gt;&gt;EC2: deploy.sh sha web
+    EC2-&gt;&gt;S3: récupère les fichiers de la release
+    EC2-&gt;&gt;SSM: lit les paramètres /enervision/prod/env
+    EC2-&gt;&gt;ECR: docker login puis docker pull web:sha
+    EC2-&gt;&gt;EC2: docker compose up -d web
+    GH-&gt;&gt;SSM: résultat de la commande ?
+    SSM--&gt;&gt;GH: Success et logs
+    GH-&gt;&gt;SSM: deployed-sha = sha</code></pre>
+<p>Le serveur ne reçoit <strong>jamais le code source</strong> : seulement les fichiers compose et les images
+déjà construites.</p>
+<h3 id="les-etapes-du-job-production">Les étapes du job <code>Production</code></h3>
+<p>Après la validation manuelle (environment <code>production</code>), le job enchaîne :</p>
+<table>
+<thead>
+<tr>
+<th>Étape</th>
+<th>Ce qu'elle fait</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Datasets ML (DVC)</td>
+<td>Seulement si <code>prediction-service</code> est déployé : voir <a href="#datasets-ml-dvc">ci-dessous</a></td>
+</tr>
+<tr>
+<td>Fichiers de la release</td>
+<td>Copie <code>compose.yaml</code>, <code>compose.prod.yaml</code> et <code>infra/</code> (sans Terraform) dans <code>s3://enervision-deploy-&lt;compte&gt;/releases/&lt;sha&gt;/</code>, avec <code>dataset-release.json</code> le cas échéant</td>
+</tr>
+<tr>
+<td>Identifiants de l'API énergie</td>
+<td>Recopie les secrets GitHub <code>ENERGY_API_USERNAME</code> / <code>ENERGY_API_PASSWORD</code> dans SSM : GitHub reste leur source de vérité</td>
+</tr>
+<tr>
+<td>Déploiement SSM</td>
+<td>Lance <code>deploy.sh</code> sur l'EC2 <code>enervision-app</code> pour les services concernés, puis <code>infra/monitoring/deploy.sh</code> sur l'EC2 <code>enervision-monitoring</code> si <code>monitoring</code> est concerné</td>
+</tr>
+<tr>
+<td>Commit déployé</td>
+<td>Enregistre le SHA dans <code>/enervision/prod/deployed-sha</code>, base de comparaison du prochain déploiement</td>
+</tr>
+</tbody>
+</table>
+<h3 id="datasets-ml-dvc">Datasets ML (DVC)</h3>
+<p>Les Parquet d'entraînement sont versionnés avec DVC (<code>ml-datasets.dvc</code>) et stockés sur S3.
+Quand <code>prediction-service</code> est déployé, le job :</p>
+<ol>
+<li>récupère les Parquet (<code>services/ml-service/run_dvc.py pull</code>) ;</li>
+<li>prépare une <strong>release de dataset</strong> liée au commit (<code>infra/deploy/dataset_release.py prepare</code>) :
+   empreintes des trois fichiers et marqueur de complétude ;</li>
+<li>la publie sous <code>ml/datasets/bootstrap/</code> dans le datalake (<code>scripts/ml/upload-bootstrap.sh</code>),
+   puis vérifie la publication (<code>dataset_release.py verify</code>) ;</li>
+<li>après un déploiement réussi, enregistre son URI dans SSM (<code>/enervision/prod/env/TRAINING_BOOTSTRAP_URI</code>).</li>
+</ol>
+<p>Ainsi, <code>prediction-jobs</code> entraîne toujours sur le dataset correspondant exactement au code
+déployé.</p>
+<h3 id="sur-lec2">Sur l'EC2</h3>
+<p><code>../../../infra/deploy/deploy.sh</code> s'exécute dans <code>/opt/enervision</code>, un seul à la fois (verrou) :</p>
+<ol>
+<li>si <code>prediction-service</code> est déployé, <strong>vérifie la release de dataset</strong> sur S3 : commit,
+   marqueur de complétude et empreintes des trois Parquet ;</li>
+<li>reconstruit <code>.env</code> à partir des paramètres SSM <code>/enervision/prod/env/*</code> (droits <code>600</code>) ;</li>
+<li>prépare un <code>deploy.env</code> <strong>candidat</strong> avec le tag des seuls services déployés (les autres
+   gardent leur version) et, le cas échéant, l'URI du dataset ;</li>
+<li>supprime les images qu'aucun conteneur n'utilise (<code>docker image prune -af</code>) avant le pull et
+   à la fin : sans ce nettoyage, chaque déploiement laisse une image par service et par commit
+   sur <code>/var/lib/docker</code>, jusqu'à saturer le volume ;</li>
+<li>se connecte à ECR et <code>docker compose pull</code> les nouvelles images ;</li>
+<li>pour un nouveau dataset, <strong>le charge à blanc</strong> avec le code de <code>prediction-jobs</code> avant de
+   l'activer ;</li>
+<li>active le candidat (<code>deploy.env</code>) et <code>docker compose up -d</code> sur ces services : les autres
+   conteneurs ne sont pas redémarrés ;</li>
+<li>pour MLflow, lance un test de bout en bout (<code>smoke_test.py</code>).</li>
+</ol>
+<div class="admonition warning">
+<p class="admonition-title">Retour arrière automatique des jobs ML</p>
+<p>Si une étape échoue après l'activation d'un nouveau dataset, <code>deploy.sh</code> restaure
+l'ancien tag de <code>prediction-service</code> et l'ancienne URI, puis redémarre
+<code>prediction-service</code> et <code>prediction-jobs</code> sur l'ancienne version.</p>
+</div>
+<p>Un retour arrière vers un ancien commit retélécharge son image depuis ECR (20 dernières images
+gardées par service).</p>
+<table>
+<thead>
+<tr>
+<th>Fichier sur l'EC2</th>
+<th>Contenu</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>../../../compose.yaml</code>, <code>compose.prod.yaml</code>, <code>infra/</code></td>
+<td>copiés depuis S3 à chaque déploiement</td>
+</tr>
+<tr>
+<td><code>dataset-release.json</code></td>
+<td>release du dataset ML, quand <code>prediction-service</code> est déployé</td>
+</tr>
+<tr>
+<td><code>.env</code></td>
+<td>variables de production, reconstruit depuis SSM (droits <code>600</code>)</td>
+</tr>
+<tr>
+<td><code>deploy.env</code></td>
+<td>registre ECR, tag déployé de chaque service et URI du dataset</td>
+</tr>
+<tr>
+<td><code>/var/lib/docker</code></td>
+<td>volume EBS dédié : images et données TimescaleDB</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sur-lec2-de-monitoring">Sur l'EC2 de monitoring</h3>
+<p>Seuls les fichiers <code>infra/monitoring/</code> sont copiés sur <code>enervision-monitoring</code>.
+<code>infra/monitoring/deploy.sh</code> reconstruit son <code>.env</code> depuis <code>/enervision/prod/monitoring/*</code>, puis
+recrée Prometheus, Loki, Grafana et Caddy pour qu'ils relisent leur configuration (voir
+<a href="../monitoring/">Monitoring</a>).</p>
+<h2 id="securite-lacces-de-github-a-aws-oidc">Sécurité : l'accès de GitHub à AWS (OIDC)</h2>
+<h3 id="le-probleme">Le problème</h3>
+<p>L'approche classique consiste à créer un utilisateur IAM et à copier sa clé d'accès dans les
+secrets GitHub. Ces clés sont <strong>permanentes</strong> : en cas de fuite (log, dépendance compromise…),
+elles donnent accès au compte AWS jusqu'à ce que quelqu'un s'en aperçoive et les révoque.</p>
+<h3 id="la-solution-oidc-sans-aucune-cle-stockee">La solution : OIDC, sans aucune clé stockée</h3>
+<p>Avec <strong>OIDC</strong> (OpenID Connect), GitHub prouve à AWS l'identité du workflow avec un jeton signé,
+et AWS lui remet des <strong>identifiants temporaires</strong> (1 heure).</p>
+<pre class="mermaid"><code>sequenceDiagram
+    participant JOB as Job GitHub Actions
+    participant GH as GitHub fournisseur OIDC
+    participant STS as AWS STS
+    participant IAM as Rôle enervision-github-deploy
+
+    JOB-&gt;&gt;GH: demande un jeton, permission id-token write
+    GH--&gt;&gt;JOB: jeton JWT signé, avec aud et sub
+    JOB-&gt;&gt;STS: AssumeRoleWithWebIdentity avec le jeton
+    STS-&gt;&gt;STS: vérifie la signature de GitHub
+    STS-&gt;&gt;IAM: lit la politique de confiance
+    IAM--&gt;&gt;STS: aud = sts.amazonaws.com et sub = ce dépôt, branche main ou environment production
+    STS--&gt;&gt;JOB: identifiants temporaires, valables 1 heure</code></pre>
+<p>Le jeton contient notamment :</p>
+<table>
+<thead>
+<tr>
+<th>Champ</th>
+<th>Valeur</th>
+<th>Vérifié par AWS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>aud</code></td>
+<td><code>sts.amazonaws.com</code></td>
+<td>le jeton est bien destiné à AWS</td>
+</tr>
+<tr>
+<td><code>sub</code></td>
+<td><code>repo:enervision-project@318340507/smart-energy-optimizer@1425361683:ref:refs/heads/main</code> (jobs <code>Changed services</code>, <code>Image …</code>) ou <code>…:environment:production</code> (job <code>Production</code>)</td>
+<td>dépôt <strong>et</strong> branche, ou environment, autorisés</td>
+</tr>
+</tbody>
+</table>
+<p>Le rôle n'accepte que deux <code>sub</code> : <strong>la branche <code>main</code> de ce dépôt</strong>, et <strong>l'environment
+<code>production</code></strong>, utilisé par le job <code>Production</code>. Un job lié à un environment reçoit un <code>sub</code>
+qui nomme l'environment et non la branche : c'est la règle <em>Deployment branches</em> de
+l'environment (<code>main</code> uniquement) qui garantit qu'on ne déploie que depuis <code>main</code>. Une PR, une
+autre branche, un fork ou un autre dépôt obtiennent un jeton avec un <code>sub</code> différent, refusé
+par AWS.
+C'est pour cela que, sur une PR, <code>ci.yml</code> construit les images sans pouvoir les publier.</p>
+<div class="admonition info">
+<p class="admonition-title">Format immuable du <code>sub</code></p>
+<p>Le dépôt utilise le format <strong>immuable</strong> de GitHub : les noms de l'organisation et du dépôt
+sont suivis de leurs identifiants numériques (<code>@318340507</code>, <code>@1425361683</code>). Si le dépôt
+était supprimé puis recréé sous le même nom, il aurait un autre identifiant et ne pourrait
+pas déployer. Format à vérifier avec :
+<code>gh api repos/enervision-project/smart-energy-optimizer/actions/oidc/customization/sub</code></p>
+</div>
+<h3 id="le-moindre-privilege">Le moindre privilège</h3>
+<p>Même avec ce rôle, GitHub ne peut faire que le strict nécessaire :</p>
+<table>
+<thead>
+<tr>
+<th>Action autorisée</th>
+<th>Ressource</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pousser des images</td>
+<td>les dépôts ECR <code>enervision/*</code></td>
+</tr>
+<tr>
+<td>Déposer des fichiers</td>
+<td><code>s3://enervision-deploy-&lt;compte&gt;/releases/*</code></td>
+</tr>
+<tr>
+<td>Lire les datasets DVC, publier une release de dataset</td>
+<td><code>ml/datasets/dvc/*</code> (lecture) et <code>ml/datasets/bootstrap/*</code> (lecture, écriture) du datalake</td>
+</tr>
+<tr>
+<td>Envoyer une commande</td>
+<td>les instances <code>enervision-app</code> et <code>enervision-monitoring</code>, document <code>AWS-RunShellScript</code></td>
+</tr>
+<tr>
+<td>Lire et écrire un paramètre</td>
+<td><code>/enervision/prod/deployed-sha</code> et <code>/enervision/prod/env/TRAINING_BOOTSTRAP_URI</code></td>
+</tr>
+<tr>
+<td>Écrire un paramètre</td>
+<td><code>/enervision/prod/env/ENERGY_API_USERNAME</code> et <code>ENERGY_API_PASSWORD</code></td>
+</tr>
+</tbody>
+</table>
+<p>GitHub <strong>ne peut pas</strong> lire les secrets de la base, créer ou supprimer des ressources, ni
+accéder au reste du compte. Les sauvegardes utilisent un rôle distinct
+(<code>enervision-github-backup</code>, voir <a href="../../transverse/infra/sauvegardes/">Sauvegardes</a>), et le plan
+Terraform des PR un rôle en lecture seule (<code>enervision-github-plan</code>).</p>
+<h3 id="les-autres-protections">Les autres protections</h3>
+<pre class="mermaid"><code>flowchart TD
+    INTERNET("Internet")
+    GHA("GitHub Actions")
+
+subgraph AWS["Compte AWS"]
+direction TB
+ROLE_GH("Rôle github-deploy : push ECR, commande SSM")
+ROLE_EC2("Rôle enervision-app : lecture ECR, S3, paramètres")
+PARAMS("SSM Parameter Store : secrets chiffrés")
+
+subgraph EC2["EC2 : ports 80 et 443 uniquement"]
+direction TB
+PROXY("proxy Caddy HTTPS")
+APP("web, etl-worker, db")
+PROXY --&gt; APP
+end
+end
+
+INTERNET --&gt;|HTTPS| PROXY
+GHA --&gt;|OIDC| ROLE_GH
+ROLE_GH --&gt;|commande SSM| EC2
+ROLE_EC2 --&gt; PARAMS
+EC2 -.- ROLE_EC2
+
+classDef ci fill:#fff,stroke:#1971c2,stroke-width:2px
+classDef aws fill:#fff,stroke:#f08c00,stroke-width:2px
+classDef plain fill:#fff,stroke:#333,stroke-width:1px
+class GHA ci
+class ROLE_GH,ROLE_EC2,PARAMS aws
+class INTERNET,PROXY,APP plain
+style AWS fill:#d0d4da,stroke:#333</code></pre>
+<ul>
+<li><strong>Deux rôles distincts</strong> : celui de GitHub (publier, déclencher) et celui de l'EC2 (lire les
+  images, les fichiers de release et les secrets). Les secrets ne passent jamais par GitHub.</li>
+<li><strong>Secrets chiffrés</strong> dans SSM Parameter Store (<code>SecureString</code>), mot de passe de la base
+  généré par Terraform : il n'est écrit nulle part dans le dépôt.</li>
+<li><strong>Réseau</strong> : seuls les ports 80 et 443 sont ouverts, vers Caddy. Pas de SSH : l'accès shell
+  passe par <code>aws ssm start-session</code>, authentifié par le SSO.</li>
+<li><strong>IMDSv2 obligatoire</strong> et inaccessible depuis les conteneurs : un conteneur compromis ne
+  peut pas récupérer les identifiants du rôle de l'instance.</li>
+</ul>
+<h2 id="depannage">Dépannage</h2>
+<table>
+<thead>
+<tr>
+<th>Erreur</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Not authorized to perform sts:AssumeRoleWithWebIdentity</code></td>
+<td>le <code>sub</code> du jeton ne correspond pas à la politique de confiance (format, branche)</td>
+<td>vérifier <code>github_oidc_sub_prefix</code> dans <code>variables.tf</code></td>
+</tr>
+<tr>
+<td><code>not authorized to perform: ssm:GetParametersByPath</code></td>
+<td>chemin lu différent de celui autorisé (<code>/env</code> et <code>/env/</code> sont deux ressources IAM différentes)</td>
+<td><code>deploy.sh</code> lit <code>/enervision/prod/env</code>, sans <code>/</code> final</td>
+</tr>
+<tr>
+<td><code>instance enervision-app introuvable</code></td>
+<td>instance arrêtée ou renommée</td>
+<td><code>aws ec2 describe-instances --filters Name=tag:Name,Values=enervision-app</code></td>
+</tr>
+<tr>
+<td><code>failed to register layer: … no space left on device</code></td>
+<td><code>/var/lib/docker</code> plein (anciennes images)</td>
+<td>sur l'EC2 : <code>df -h /var/lib/docker</code>, <code>sudo docker image prune -af</code>, puis <code>gh run rerun &lt;id&gt; --failed</code></td>
+</tr>
+<tr>
+<td><code>Échec : restauration de la configuration précédente des jobs ML</code></td>
+<td>le nouveau dataset ou la nouvelle image de <code>prediction-service</code> n'a pas pu être activé</td>
+<td>lire la sortie de la commande SSM dans le job <code>Production</code> ; l'ancienne version des jobs ML tourne toujours</td>
+</tr>
+<tr>
+<td>Le déploiement attend indéfiniment</td>
+<td>validation manuelle de l'environment <code>production</code></td>
+<td><em>Review deployments → Approve and deploy</em> dans le run du workflow <code>Deploy</code></td>
+</tr>
+</tbody>
+</table>
+<p>Commandes utiles :</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>gh<span class="w"> </span>run<span class="w"> </span>list<span class="w"> </span>--workflow<span class="w"> </span>services.yml<span class="w">          </span><span class="c1"># derniers runs</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>gh<span class="w"> </span>run<span class="w"> </span>view<span class="w"> </span>&lt;id&gt;<span class="w"> </span>--log-failed<span class="w">                </span><span class="c1"># logs du job en échec</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>aws<span class="w"> </span>ssm<span class="w"> </span>start-session<span class="w"> </span>--target<span class="w"> </span>&lt;instance_id&gt;<span class="w"> </span><span class="c1"># shell sur l'EC2</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># puis, sur l'EC2 :</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">cd</span><span class="w"> </span>/opt/enervision
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>sudo<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>compose.yaml<span class="w"> </span>-f<span class="w"> </span>compose.prod.yaml<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>--env-file<span class="w"> </span>deploy.env<span class="w"> </span>ps
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>sudo<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>compose.yaml<span class="w"> </span>-f<span class="w"> </span>compose.prod.yaml<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>--env-file<span class="w"> </span>deploy.env<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>web
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Revenir à une version précédente</p>
+<p>Faire un <code>git revert</code> du commit fautif sur <code>main</code> : la pipeline reconstruit et redéploie
+automatiquement le service concerné.</p>
+</div>
+<h2 id="lexique">Lexique</h2>
+<table>
+<thead>
+<tr>
+<th>Terme</th>
+<th>Définition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Image Docker</strong></td>
+<td>paquet figé contenant une application et tout ce qu'il faut pour l'exécuter</td>
+</tr>
+<tr>
+<td><strong>ECR</strong></td>
+<td>registre privé AWS où sont stockées les images</td>
+</tr>
+<tr>
+<td><strong>EC2</strong></td>
+<td>machine virtuelle AWS qui exécute les conteneurs</td>
+</tr>
+<tr>
+<td><strong>SSM</strong></td>
+<td>service AWS pour piloter les serveurs (commandes, sessions) et stocker des paramètres</td>
+</tr>
+<tr>
+<td><strong>IAM</strong></td>
+<td>gestion des droits AWS : rôles et politiques</td>
+</tr>
+<tr>
+<td><strong>Rôle IAM</strong></td>
+<td>ensemble de droits qu'une identité (GitHub, l'EC2) peut endosser temporairement</td>
+</tr>
+<tr>
+<td><strong>OIDC</strong></td>
+<td>protocole qui permet à GitHub de prouver son identité à AWS sans mot de passe ni clé</td>
+</tr>
+<tr>
+<td><strong>STS</strong></td>
+<td>service AWS qui délivre les identifiants temporaires</td>
+</tr>
+<tr>
+<td><strong>Terraform</strong></td>
+<td>outil qui crée l'infrastructure AWS à partir du code de <code>../../../infra/terraform</code></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Pied de page" >
+        
+          
+          <a href="../deploiement/" class="md-footer__link md-footer__link--prev" aria-label="Précédent: Déploiement CI/CD">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Précédent
+              </span>
+              <div class="md-ellipsis">
+                Déploiement CI/CD
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../init-aws/" class="md-footer__link md-footer__link--next" aria-label="Suivant: Init AWS user">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Suivant
+              </span>
+              <div class="md-ellipsis">
+                Init AWS user
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2026 EnerVision
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/enervision-project" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.footer", "navigation.instant"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copi\u00e9 dans le presse-papier", "clipboard.copy": "Copier dans le presse-papier", "search.result.more.one": "1 de plus sur cette page", "search.result.more.other": "# de plus sur cette page", "search.result.none": "Aucun document trouv\u00e9", "search.result.one": "1 document trouv\u00e9", "search.result.other": "# documents trouv\u00e9s", "search.result.placeholder": "Taper pour d\u00e9marrer la recherche", "search.result.term.missing": "Non trouv\u00e9", "select.version": "S\u00e9lectionner la version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../javascripts/external-links.js"></script>
+      
+    
+  </body>
+</html>
