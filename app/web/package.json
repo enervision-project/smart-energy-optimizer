@@ -9,6 +9,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "e2e": "playwright test",
+    "e2e:install": "playwright install --with-deps chromium",
     "lint": "ng lint",
     "format": "ng lint --fix"
   },
