@@ -14,10 +14,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.Locale;
 
-/**
- * Creates the first administrator from {@link InitialAdminProperties} when no user exists yet, so that a new
- * environment can be logged into. Does nothing once a user exists: changing the properties afterwards has no effect.
- */
+/** Creates the first administrator so that a new environment can be logged into; no effect once a user exists. */
 @Slf4j
 @Component
 @RequiredArgsConstructor

@@ -11,11 +11,7 @@ import org.hibernate.annotations.Immutable;
 
 import java.time.Instant;
 
-/**
- * Alert received from the energy API. Read-only: rows are written by the ETL worker.
- * {@code severity} and {@code type} are kept as raw strings: the table has no CHECK constraint, and an unexpected
- * value must not prevent the other alerts from being read.
- */
+/** Read-only, written by the ETL; raw strings so that an unexpected value cannot break reads. */
 @Entity
 @Immutable
 @Table(name = "alerts")

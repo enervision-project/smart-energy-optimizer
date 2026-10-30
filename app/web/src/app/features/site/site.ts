@@ -20,7 +20,7 @@ import { imputationLabel, nullReasonLabel, sensorStatuses } from './sensor-statu
 import { SiteAlerts } from './site-alerts/site-alerts';
 
 const HOUR_MS = 3_600_000;
-/** core-api refuse le pas d'une minute au-delà de 48 h. */
+/** core-api refuses the one-minute step beyond 48 h. */
 const ONE_MINUTE_MAX_HOURS = 48;
 
 const PERIODS = [
@@ -39,7 +39,6 @@ const SITE_TYPE_LABELS: Record<string, string> = {
   hospital: 'hôpital',
 };
 
-/** Cartes de la dernière mesure : champ, unité, capteur (`null_reasons`) et décimales. */
 const MEASURES: {
   key: keyof LatestReading;
   label: string;
@@ -109,7 +108,6 @@ export class Site {
   private readonly api = inject(EnergyApi);
   private readonly router = inject(Router);
 
-  /** Paramètre `:id` de la route (via `withComponentInputBinding`) ; absent sur `/sites`. */
   readonly id = input<string>();
 
   protected readonly periods = PERIODS;
@@ -119,7 +117,6 @@ export class Site {
 
   protected readonly periodHours = signal(48);
   private readonly selectedStep = signal<ReadingStep>('15m');
-  /** Le pas d'une minute repasse à 15 min quand la période dépasse 48 h. */
   protected readonly step = computed<ReadingStep>(() =>
     this.selectedStep() === '1m' && this.periodHours() > ONE_MINUTE_MAX_HOURS
       ? '15m'
@@ -139,7 +136,6 @@ export class Site {
     stream: ({ params: id }) => this.api.getSite(id),
   });
 
-  /** Dernière mesure, courbe et synthèse sont rafraîchies chaque minute ; la période glisse avec l'heure. */
   protected readonly latest = rxResource({
     params: () => this.id(),
     stream: ({ params: id }) =>
@@ -180,8 +176,7 @@ export class Site {
   });
 
   constructor() {
-    // Sans site dans l'URL (`/sites`), le premier site visible est affiché ; `replaceUrl` évite qu'un retour
-    // arrière ramène sur `/sites` et redirige de nouveau.
+    // Without a site in the URL, show the first visible one; `replaceUrl` keeps back navigation working.
     effect(() => {
       const first = this.siteOptions()[0];
       if (!this.id() && first) {
@@ -193,7 +188,6 @@ export class Site {
     reloadOnError(this.summary, READING_REFRESH_MS);
   }
 
-  /** `value()` lève une erreur quand la ressource est en échec : on passe par `hasValue()`. */
   protected readonly profile = computed(() =>
     this.site.hasValue() ? this.site.value() : undefined,
   );
@@ -226,7 +220,6 @@ export class Site {
     this.selectedStep.set((event.target as HTMLSelectElement).value as ReadingStep);
   }
 
-  /** Âge et date de la dernière mesure ; `stale` quand la collecte semble arrêtée. */
   protected readonly freshness = computed(() => {
     const latest = this.latestReading();
     if (!latest) {
@@ -315,16 +308,12 @@ export class Site {
     };
   });
 
-  /** Pas sans aucune mesure reçue, hachurés sur la courbe. */
   private readonly gapIndices = computed(() =>
     this.points().flatMap((p, i) => (p.minutesExpected > 0 && p.minutesReceived === 0 ? [i] : [])),
   );
   protected readonly chartPlugins = [noDataPlugin(() => this.gapIndices())];
 
-  /**
-   * Trois séries : consommation brute, valeur imputée (pointillés, seulement là où l'imputation change la
-   * valeur, avec ses voisins pour relier la ligne) et capacité du site. Les pas sans valeur restent des trous.
-   */
+  /** Raw consumption, imputed value (dashed, with neighbours to join the line) and capacity; gaps stay gaps. */
   protected readonly chartData = computed<ChartData<'line', (number | null)[], string>>(() => {
     const points = this.points();
     const capacity = this.profile()?.capacityKw ?? null;
@@ -386,7 +375,6 @@ export class Site {
     },
   };
 
-  /** Survol : qualité, minutes reçues, méthode d'imputation et raisons des NULL du pas. */
   private tooltipDetails(items: TooltipItem<'line'>[]): string[] {
     const point = this.points()[items[0]?.dataIndex ?? -1];
     if (!point) {

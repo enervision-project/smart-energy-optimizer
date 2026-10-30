@@ -1,5 +1,3 @@
-"""Rattrapage des minutes jamais reçues, via l'historique simulé GET /readings."""
-
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
@@ -19,12 +17,7 @@ class BackfillResult:
 def backfill_window(
     hours: int, now: datetime | None = None
 ) -> tuple[datetime, datetime]:
-    """Fenêtre [début, fin) de minutes UTC à examiner.
-
-    La fin exclut la minute en cours et la précédente : l'API refuse une fin
-    dans le futur (avec quelques secondes de marge) et sync-readings a encore
-    la minute précédente à collecter.
-    """
+    """The end excludes the current and previous minutes: the API refuses a future end."""
     if hours < 1:
         raise ValueError("hours doit valoir au moins 1.")
     reference = now if now is not None else datetime.now(UTC)
@@ -37,12 +30,7 @@ def backfill_window(
 
 
 def split_range(start: datetime, end: datetime) -> list[tuple[datetime, datetime]]:
-    """Découpe [start, end) en morceaux d'au plus HISTORY_MAX_MINUTES minutes.
-
-    Les bornes passent en UTC : la base renvoie des dates dans le fuseau de session
-    (Europe/Paris), et Python ajoute un timedelta en heure locale, ce qui fausse la
-    durée d'un morceau qui traverse un changement d'heure (1060 minutes au lieu de 1000).
-    """
+    """Bounds go through UTC: a local timedelta skews a chunk crossing a DST change."""
     start, end = start.astimezone(UTC), end.astimezone(UTC)
     step = timedelta(minutes=HISTORY_MAX_MINUTES)
     chunks = []
@@ -59,13 +47,7 @@ def backfill_readings(
     base_url: str | None = None,
     database_url: str | None = None,
 ) -> BackfillResult:
-    """Comble les minutes sans ligne des dernières heures et retourne le bilan.
-
-    Chaque morceau est archivé dans le bronze puis inséré avec source = backfill ;
-    ON CONFLICT DO NOTHING garantit qu'une mesure /current n'est jamais remplacée.
-    Un morceau en erreur (API, réponse incomplète) est noté dans errors sans
-    empêcher les autres ; il sera retenté au prochain passage.
-    """
+    """ON CONFLICT DO NOTHING: a /current reading is never replaced; a failed chunk is retried next run."""
     start, end = backfill_window(hours, now)
     result = BackfillResult()
     for site_id, first, last in read_missing_ranges(start, end, database_url):
@@ -78,7 +60,7 @@ def backfill_readings(
                 result.inserted += load_readings(
                     readings, database_url, source="backfill"
                 )
-            # OSError couvre HTTPError, URLError et les délais dépassés ; ValueError le JSON invalide.
+            # OSError covers HTTPError, URLError and timeouts; ValueError covers invalid JSON.
             except (OSError, TypeError, ValueError) as error:
                 result.errors[label] = str(error) or type(error).__name__
                 continue

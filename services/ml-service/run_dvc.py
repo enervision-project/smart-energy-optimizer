@@ -1,21 +1,4 @@
-"""Versionner ou récupérer les trois Parquet existants avec DVC dans Docker.
-
-Depuis la racine, sous Linux/WSL (Python standard, sans venv) :
-    python3 services/ml-service/run_dvc.py status
-    python3 services/ml-service/run_dvc.py pull --profile enervision
-    python3 services/ml-service/run_dvc.py add
-    python3 services/ml-service/run_dvc.py push --profile enervision
-    python3 services/ml-service/run_dvc.py pull --dry-run
-
-Après un changement volontaire des données : add, push, puis commit Git du
-fichier ml-datasets.dvc. Pour récupérer une version : git checkout, puis pull.
-Les commandes add/push/pull portent ensemble sur train, validation et test ;
-aucun entraînement ni préparation des données n'est lancé.
-
-Les identifiants restent sur le poste. Avec AWS SSO, se connecter d'abord sur
-l'hôte : aws sso login --profile enervision. Le dossier ~/.aws est monté en
-lecture seule ; le conteneur ne peut pas renouveler cette session à ta place.
-"""
+"""Version or fetch the three Parquet files with DVC in Docker: run_dvc.py status|pull|add|push [--profile P] [--dry-run]"""
 
 from __future__ import annotations
 
@@ -39,7 +22,7 @@ AWS_ENV = (
 
 def dvc_arguments(command: str) -> list[str]:
     if command == "add":
-        # Le cache est alimenté sans remplacer ni relier les fichiers originaux.
+        # The cache is filled without replacing or linking the original files.
         return ["add", "--no-relink", DATASET]
     if command == "version":
         return ["version"]
@@ -90,7 +73,7 @@ def docker_commands(root: Path, command: str, aws_dir: Path, env: dict[str, str]
     if command in {"push", "pull"}:
         if aws_dir.is_dir():
             run += ["--mount", f"type=bind,source={aws_dir},target=/tmp/.aws,readonly"]
-        # Passer les noms, jamais les valeurs des secrets dans les arguments.
+        # Pass names, never secret values, in the arguments.
         for name in (*AWS_ENV, "AWS_PROFILE"):
             if env.get(name):
                 run += ["--env", name]

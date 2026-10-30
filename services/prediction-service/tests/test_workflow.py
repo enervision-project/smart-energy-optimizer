@@ -16,7 +16,6 @@ from prediction_service.training import needs_catchup, should_promote
 
 @pytest.fixture(autouse=True)
 def nothing_forecast_yet(monkeypatch):
-    """Par défaut, aucune heure déjà prévue : la série couvre les 24 heures."""
     from prediction_service import forecast
 
     monkeypatch.setattr(forecast, "read_covered_hours", lambda *args: set())
@@ -49,8 +48,8 @@ def test_rolling_24_hours_remain_distinct_during_dst():
 @pytest.mark.parametrize(
     "now",
     [
-        datetime(2026, 10, 27, 6, 5, tzinfo=UTC),  # heure d'hiver (UTC+1)
-        datetime(2026, 7, 7, 6, 5, tzinfo=UTC),  # heure d'été (UTC+2)
+        datetime(2026, 10, 27, 6, 5, tzinfo=UTC),  # winter time (UTC+1)
+        datetime(2026, 7, 7, 6, 5, tzinfo=UTC),  # summer time (UTC+2)
     ],
 )
 def test_forecast_features_follow_utc_hours_whatever_the_season(monkeypatch, tmp_path, now):
@@ -74,18 +73,18 @@ def test_forecast_features_follow_utc_hours_whatever_the_season(monkeypatch, tmp
         "read_site_profiles",
         lambda *args: [SiteProfile("SITE001", 8, 19, (1, 2, 3, 4, 5))],
     )
-    # Pas d'historique : aucune prévision du passé, seulement les 24 heures à venir.
+    # No history: only the next 24 hours are forecast.
     monkeypatch.setattr(forecast, "read_measured_hours", lambda *args: [])
     monkeypatch.setattr(forecast, "save_forecast", lambda *args: UUID(int=1))
     settings = Settings(model_dir=tmp_path, database_url="postgresql://unused")
 
     generate_forecast(settings, UUID(int=2), now)
 
-    # Un seul site : une requête par heure prévue, dans l'ordre de next_24_hours.
+    # One site: one request per forecast hour, in next_24_hours order.
     by_utc_hour = {
         instant.hour: request for instant, request in zip(next_24_hours(now), recorded, strict=True)
     }
-    # Mardi, heures de travail 8 h-19 h UTC.
+    # Tuesday, working hours 8:00-19:00 UTC.
     assert all(hour == request.hour for hour, request in by_utc_hour.items())
     assert by_utc_hour[7].is_working_hours == 0
     assert by_utc_hour[8].is_working_hours == 1
@@ -127,7 +126,7 @@ def test_forecast_uses_loaded_champion_while_training_is_irrelevant(monkeypatch,
     assert captured["args"][3] == "7"
     assert len(captured["args"][4]) == len(captured["args"][5]) == 24
     assert all(np.isfinite(value) for _, _, value, _, _ in captured["args"][5])
-    # Sans historique, la prévision du champion est publiée telle quelle (ratio 1).
+    # Without history, the champion forecast is published as is (ratio 1).
     assert all(value == raw and ratio == 1.0 for _, _, value, raw, ratio in captured["args"][5])
 
 
@@ -135,8 +134,6 @@ def test_forecast_applies_the_level_ratio_of_the_last_week(monkeypatch, tmp_path
     from prediction_service import forecast
 
     class FlatPredictor:
-        """100 kWh en heures travaillées, 50 sinon."""
-
         version = "7"
 
         def __init__(self):
@@ -148,7 +145,7 @@ def test_forecast_applies_the_level_ratio_of_the_last_week(monkeypatch, tmp_path
     now = datetime(2026, 10, 27, 6, 5, tzinfo=UTC)
     profile = SiteProfile("SITE001", 8, 19, (1, 2, 3, 4, 5))
     end = now.replace(minute=0)
-    # Semaine passée : le site consomme 76 % du prévu en journée, 80 % le reste du temps.
+    # Past week: the site consumes 76% of the forecast by day, 80% otherwise.
     history = []
     for back in range(1, 169):
         hour = end - timedelta(hours=back)
@@ -225,7 +222,6 @@ class HourlyPredictor:
 
 @pytest.fixture
 def incremental(monkeypatch, tmp_path):
-    """Deux sites, sans historique ; renvoie (réglages, heure, fenêtre, couverture, appels)."""
     from prediction_service import forecast
 
     now = datetime(2026, 10, 28, 10, 5, tzinfo=UTC)
@@ -263,7 +259,7 @@ def test_forecast_only_adds_the_new_last_hour(incremental):
 
     assert generate_forecast(settings, UUID(int=2), now) == UUID(int=1)
 
-    # Couverture lue pour la fenêtre [H+1, H+25) et le champion courant.
+    # Coverage read for the [H+1, H+25) window and the current champion.
     assert calls["covered"] == [
         (
             "postgresql://unused",
@@ -284,7 +280,7 @@ def test_forecast_only_adds_the_new_last_hour(incremental):
 def test_forecast_fills_the_hours_left_by_a_failed_series(incremental):
     settings, now, window, covered, calls = incremental
     covered.update((site, hour) for site in ("SITE001", "SITE002") for hour in window[:22])
-    # Un site manque aussi sur une heure plus ancienne : l'heure est refaite pour tous.
+    # A site is also missing an older hour: the hour is redone for all.
     covered.discard(("SITE002", window[5]))
 
     generate_forecast(settings, UUID(int=2), now)

@@ -1,7 +1,6 @@
 import { Chart } from 'chart.js';
 import { noDataPlugin } from './no-data-plugin';
 
-/** Graphique minimal : 4 pas de 100 px, zone de tracé de 0 à 400 px. */
 function fakeChart(labels: number) {
   const fillRect = vi.fn();
   const ctx = {

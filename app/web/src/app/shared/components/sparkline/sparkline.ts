@@ -3,7 +3,6 @@ import { Component, computed, input } from '@angular/core';
 const WIDTH = 100;
 const HEIGHT = 24;
 
-/** Mini-courbe SVG sans axe ; les `null` coupent le tracé. */
 @Component({
   imports: [],
   selector: 'app-sparkline',

@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Installs into ~/.local (no sudo): AWS CLI v2, Terraform and GitHub CLI (gh).
-# Also adds `export AWS_PROFILE=enervision` to ~/.bashrc (profile created by `aws configure sso`).
-# Usage: scripts/aws/install-tools.sh
+# Installs AWS CLI v2, Terraform and gh into ~/.local, and sets AWS_PROFILE=enervision in ~/.bashrc.
 set -euo pipefail
 
 bin=$HOME/.local/bin

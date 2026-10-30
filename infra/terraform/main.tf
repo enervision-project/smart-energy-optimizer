@@ -1,5 +1,4 @@
-# Une EC2 qui exécute compose.yaml + compose.prod.yaml ; images dans ECR ; déploiement via SSM.
-# Pas de SSH : accès shell avec `aws ssm start-session --target <instance_id>`.
+# One EC2 running compose.yaml + compose.prod.yaml; no SSH: aws ssm start-session --target <instance_id>
 
 data "aws_caller_identity" "current" {}
 
@@ -7,12 +6,12 @@ locals {
   name                    = "enervision"
   mlflow_artifacts_prefix = "mlflow/artifacts"
   ml_datasets_prefix      = "ml/datasets"
-  # services avec une image à construire : un dépôt ECR chacun
+  # services with an image to build: one ECR repository each
   services = jsondecode(file("${path.module}/../../.github/services.json")).services
   images   = [for k, s in local.services : k if contains(keys(s), "build")]
 }
 
-# --- Réseau : VPC par défaut, sous-réseau public
+# --- Network: default VPC, public subnet
 data "aws_vpc" "default" {
   default = true
 }
@@ -30,7 +29,7 @@ resource "aws_security_group" "app" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "web" {
-  # 80 : challenge Let's Encrypt + redirection HTTPS ; 443/udp : HTTP/3
+  # 80: Let's Encrypt challenge + HTTPS redirect; 443/udp: HTTP/3
   for_each          = { http = ["tcp", 80], https = ["tcp", 443], http3 = ["udp", 443] }
   security_group_id = aws_security_group.app.id
   cidr_ipv4         = "0.0.0.0/0"
@@ -55,7 +54,7 @@ data "aws_ssm_parameter" "al2023" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }
 
-# volume séparé pour survivre à un remplacement de l'instance (données TimescaleDB)
+# separate volume to survive an instance replacement (TimescaleDB data)
 resource "aws_ebs_volume" "data" {
   availability_zone = data.aws_subnet.app.availability_zone
   size              = var.data_volume_size
@@ -81,7 +80,7 @@ resource "aws_instance" "app" {
 
   metadata_options {
     http_tokens                 = "required" # IMDSv2
-    http_put_response_hop_limit = 2          # conteneurs (etl-worker) : rôle de l'instance pour écrire en bronze
+    http_put_response_hop_limit = 2          # containers (etl-worker): instance role to write to bronze
   }
 
   root_block_device {
@@ -90,10 +89,10 @@ resource "aws_instance" "app" {
     encrypted   = true
   }
 
-  tags = { Name = "${local.name}-app" } # utilisé par le workflow pour trouver l'instance
+  tags = { Name = "${local.name}-app" } # used by the workflow to find the instance
 
   lifecycle {
-    # une nouvelle AMI ou un nouveau user_data ne doit pas remplacer l'instance en silence
+    # a new AMI or user_data must not silently replace the instance
     ignore_changes = [ami, user_data]
   }
 }
@@ -128,7 +127,7 @@ resource "aws_route53_record" "app" {
 resource "aws_ecr_repository" "service" {
   for_each             = toset(local.images)
   name                 = "${local.name}/${each.key}"
-  image_tag_mutability = "MUTABLE" # tag latest
+  image_tag_mutability = "MUTABLE" # latest tag
 
   image_scanning_configuration {
     scan_on_push = true
@@ -148,7 +147,7 @@ resource "aws_ecr_lifecycle_policy" "service" {
   })
 }
 
-# --- Fichiers de release (compose, scripts) copiés sur l'instance à chaque déploiement
+# --- Release files (compose, scripts), copied to the instance on each deployment
 resource "aws_s3_bucket" "deploy" {
   bucket = "${local.name}-deploy-${data.aws_caller_identity.current.account_id}"
 }
@@ -187,7 +186,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "deploy" {
   }
 }
 
-# --- Data lake : données brutes (bronze/) de l'ETL, privées et chiffrées
+# --- Data lake: raw ETL data (bronze/), private and encrypted
 resource "aws_s3_bucket" "datalake" {
   bucket = "${local.name}-datalake-${data.aws_caller_identity.current.account_id}"
 
@@ -207,17 +206,17 @@ resource "aws_s3_bucket_public_access_block" "datalake" {
 resource "aws_s3_bucket_versioning" "datalake" {
   bucket = aws_s3_bucket.datalake.id
   versioning_configuration {
-    status = "Enabled" # un écrasement ou une suppression ne perd pas la donnée brute
+    status = "Enabled" # an overwrite or deletion does not lose raw data
   }
 }
 
-# --- .env de production : /enervision/prod/env/<NOM>, relu à chaque déploiement
+# --- Production .env: /enervision/prod/env/<NAME>, read on each deployment
 resource "random_password" "db" {
   length  = 32
-  special = false # pas de $ ni de caractères à échapper dans .env / l'URL
+  special = false # no $ or characters to escape in .env / the URL
 }
 
-# Compte PostgreSQL dedie a MLflow ; aucune valeur locale reutilisee en production.
+# Dedicated PostgreSQL account for MLflow; no local value reused in production.
 resource "random_password" "mlflow_db" {
   length  = 32
   special = false
@@ -229,14 +228,14 @@ resource "random_password" "monitoring_db" {
   special = false
 }
 
-# mot de passe du premier ADMIN de core-api (créé au démarrage tant que la table users est vide)
+# first core-api ADMIN password; read: aws ssm get-parameter --with-decryption --name /enervision/prod/env/ADMIN_PASSWORD
 # lecture : aws ssm get-parameter --with-decryption --name /enervision/prod/env/ADMIN_PASSWORD
 resource "random_password" "admin" {
   length  = 24
   special = false
 }
 
-# clé HMAC de core-api : 32 octets aléatoires, encodés en Base64 (format attendu par l'API)
+# core-api HMAC key: 32 random bytes, Base64-encoded
 resource "random_bytes" "jwt" {
   length = 32
 }
@@ -251,7 +250,7 @@ resource "random_password" "service_db" {
 locals {
   db_user = "enervision"
   db_name = "enervision"
-  # ENERGY_API_USERNAME / ENERGY_API_PASSWORD : écrits par le workflow Deploy depuis les secrets GitHub.
+  # ENERGY_API_USERNAME / ENERGY_API_PASSWORD: written by the Deploy workflow from GitHub secrets.
   env = merge(var.app_env, {
     POSTGRES_USER                = local.db_user
     POSTGRES_PASSWORD            = random_password.db.result
@@ -286,7 +285,7 @@ resource "aws_ssm_parameter" "env" {
   type     = "SecureString"
   value    = local.env[each.key]
 }
-# Le paramètre existant est conservé ; Deploy pilote ensuite la version active.
+# The existing parameter is kept; Deploy then drives the active version.
 moved {
   from = aws_ssm_parameter.env["TRAINING_BOOTSTRAP_URI"]
   to   = aws_ssm_parameter.training_bootstrap_uri

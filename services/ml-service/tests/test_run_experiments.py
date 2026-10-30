@@ -1,5 +1,3 @@
-"""Tests du lanceur sur des répertoires temporaires et des commandes simulées."""
-
 import base64
 from contextlib import redirect_stderr, redirect_stdout
 import importlib.util

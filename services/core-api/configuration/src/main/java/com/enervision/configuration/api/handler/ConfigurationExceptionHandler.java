@@ -6,10 +6,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/**
- * Maps the configuration module's exceptions to ProblemDetail responses.
- * Scoped to this module's controllers so it does not interfere with other modules.
- */
+/** Scoped to this module's controllers so it does not interfere with other modules. */
 @RestControllerAdvice(basePackages = "com.enervision.configuration")
 class ConfigurationExceptionHandler {
 

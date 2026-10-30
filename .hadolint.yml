@@ -1,5 +1,5 @@
 failure-threshold: warning
 
 ignored:
-  # DL3008 : On n'épingle pas les versions des paquets apt-get.
+  # DL3008: apt-get package versions are not pinned.
   - DL3008

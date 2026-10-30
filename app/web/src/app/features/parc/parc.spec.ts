@@ -6,10 +6,7 @@ import { EnergyApi } from '../../core/services/energy-api';
 import { MockEnergyApi } from '../../core/services/mock-energy-api';
 import { MAX_ALERTS, Parc } from './parc';
 
-/**
- * Dans le mock : SITE003 (Data Center Marseille) est en perte réseau, sans consommation ni imputation sur la
- * dernière minute ; SITE002 a une panne du capteur de température ; 7 alertes ont moins d'une heure.
- */
+/** In the mock, SITE003 has network loss, SITE002 a temperature sensor failure, and 7 alerts are recent. */
 describe('Parc', () => {
   let fixture: ComponentFixture<Parc>;
   let api: MockEnergyApi;

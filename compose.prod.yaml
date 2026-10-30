@@ -1,10 +1,6 @@
-# Surcharge production (EC2), appliquée par infra/deploy/deploy.sh :
-#   docker compose -f compose.yaml -f compose.prod.yaml ...
-# Les images viennent d'ECR (construites par la CI) au lieu d'être construites sur place.
-# ECR_REGISTRY et <SERVICE>_TAG sont écrits dans deploy.env par le script de déploiement.
+# Production override (EC2), applied by infra/deploy/deploy.sh; images come from ECR.
 
-# Meme image pour les migrations et le serveur. Le profil "ml" est conserve : MLflow ne demarre
-# pas avec un `up` sans argument, seul deploy.sh le demarre quand il est deploye explicitement.
+# The ml profile is kept: MLflow only starts when deploy.sh deploys it explicitly.
 x-mlflow-prod: &mlflow-prod
   build: !reset "null"
   image: ${ECR_REGISTRY}/enervision/mlflow:${MLFLOW_TAG:-latest}
@@ -49,13 +45,13 @@ services:
     build: !reset "null"
     environment:
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75
-      # pas de documentation OpenAPI / Swagger UI en production
+      # no OpenAPI / Swagger UI in production
       SPRINGDOC_API_DOCS_ENABLED: "false"
       SPRINGDOC_SWAGGER_UI_ENABLED: "false"
-    # joignable uniquement via proxy (/api/*)
+    # only reachable through the proxy (/api/*)
     ports: !reset []
     restart: unless-stopped
-    # EC2 de 2 Go partagée : JVM limitée à 75 % du conteneur
+    # shared 2 GB EC2: JVM limited to 75% of the container
     mem_limit: 512m
 
   db:
@@ -95,7 +91,7 @@ services:
     environment:
       ENABLE_DOCS: "false"
     restart: unless-stopped
-    # jamais derrière Caddy : seul l'hôte (tunnel SSM) et les autres conteneurs y accèdent
+    # never behind Caddy: only the host (SSM tunnel) and other containers reach it
     mem_limit: 512m
   proxy:
     image: docker.io/library/caddy:2.11-alpine
@@ -103,7 +99,7 @@ services:
     volumes:
       # directory mount: a Caddyfile replaced by the deploy stays visible to the container
       - ./infra/proxy:/etc/caddy:ro
-      - caddydata:/data # certificats
+      - caddydata:/data # certificates
     environment:
       DOMAIN: ${DOMAIN}
     ports:
@@ -120,7 +116,7 @@ services:
   web:
     image: ${ECR_REGISTRY}/enervision/web:${WEB_TAG:-latest}
     build: !reset "null"
-    # joignable uniquement via proxy
+    # only reachable through the proxy
     ports: !reset []
     restart: unless-stopped
 

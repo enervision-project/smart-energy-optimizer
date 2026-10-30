@@ -36,7 +36,7 @@ def test_load_sklearn_predictor(sklearn_model_dir, payload):
     predictor = load_predictor(sklearn_model_dir)
     assert predictor.version == "sk-1"
     assert predictor.site_codes == {"SITE001": 0, "SITE002": 1}
-    # lags et température absents : valeurs manquantes gérées nativement
+    # missing lags and temperature: natively handled
     value = predictor.predict(PredictRequest(**{**payload, "lag_24h": None, "lag_168h": None}))
     assert value == pytest.approx(value)
 

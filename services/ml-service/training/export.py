@@ -1,7 +1,4 @@
-"""Exporter un run MLflow vers le répertoire MODEL_DIR du prediction-service.
-
-python -m training.export --run-id <id> --out-dir /export --version 2026-10-23
-"""
+"""Export an MLflow run: python -m training.export --run-id <id> --out-dir /export --version 2026-10-23"""
 
 import argparse
 import json

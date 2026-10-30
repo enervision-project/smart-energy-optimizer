@@ -63,7 +63,7 @@ def test_monitoring_runs_only_after_a_publication_and_never_fails_the_forecast(m
     def claim(*_args):
         yield UUID(int=1)
 
-    # Fenêtre déjà complète : rien de publié, donc pas de suivi.
+    # Window already complete: nothing published, so no monitoring.
     monkeypatch.setattr(jobs, "claimed_job", claim)
     monkeypatch.setattr(jobs, "generate_forecast", lambda *args: None)
     jobs._forecast("2026-10-26T12:00Z")
@@ -84,7 +84,7 @@ def test_forecast_key_is_the_current_utc_hour():
     ("instant", "last_success", "expected_trigger", "forecast_expected"),
     [
         (datetime(2026, 10, 26, 0, 0, tzinfo=UTC), None, "scheduled", False),
-        # 00:05 à Paris : les prévisions tournent aussi la nuit, avant l'entraînement de 01:00.
+        # 00:05 in Paris: forecasts also run at night, before the 01:00 training.
         (
             datetime(2026, 10, 25, 23, 5, tzinfo=UTC),
             datetime(2026, 10, 25, 1, tzinfo=UTC),

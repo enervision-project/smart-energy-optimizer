@@ -1,7 +1,4 @@
-// Grafana Alloy on the app EC2 (alloy service of compose.prod.yaml).
-// Collects host, container, Postgres and Caddy metrics plus every container's logs,
-// and pushes them to the monitoring EC2 (MONITORING_HOST, VPC private IP).
-// Every series and log stream gets machine="app".
+// Collects app EC2 metrics and logs and pushes them to the monitoring EC2; every series gets machine="app".
 
 // ---------- Metrics
 

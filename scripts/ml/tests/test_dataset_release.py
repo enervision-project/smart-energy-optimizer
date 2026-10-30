@@ -1,5 +1,3 @@
-"""Publication testée sur un stockage en mémoire ; aucun appel AWS réel."""
-
 from contextlib import redirect_stderr
 from hashlib import md5
 import importlib.util

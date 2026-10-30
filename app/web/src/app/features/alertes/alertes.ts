@@ -17,7 +17,7 @@ import { severityLabel, typeLabel } from './alert-labels';
 const HOUR_MS = 3_600_000;
 export const PAGE_SIZE = 20;
 
-/** Périodes proposées, en heures ; 1 h = alertes récentes (fenêtre de l'API Mock). */
+/** In hours; 1 h matches the Mock API's recent-alert window. */
 const PERIODS = [
   { hours: 1, label: 'Dernière heure' },
   { hours: 6, label: '6 heures' },
@@ -53,7 +53,6 @@ export class Alertes {
   protected readonly severityLabel = severityLabel;
   protected readonly typeLabel = typeLabel;
 
-  /** Paramètre `?site=` de l'URL (lien « Voir toutes les alertes du site » de la vue site). */
   readonly site = input<string>();
 
   protected readonly siteId = linkedSignal(() => this.site() ?? '');
@@ -68,7 +67,6 @@ export class Alertes {
     periodHours: this.periodHours(),
   }));
 
-  /** Revient à la première page à chaque changement de filtre. */
   protected readonly page = linkedSignal({ source: this.filters, computation: () => 0 });
 
   protected readonly lastUpdate = signal<Date | undefined>(undefined);
@@ -78,7 +76,6 @@ export class Alertes {
     defaultValue: [],
   });
 
-  /** Relancé toutes les 30 s ; la période glisse avec l'heure courante. */
   protected readonly alerts = rxResource({
     params: () => ({ filters: this.filters(), page: this.page() }),
     stream: ({ params }) =>
@@ -96,7 +93,7 @@ export class Alertes {
       ),
   });
 
-  /** `value()` lève une erreur quand la ressource est en échec : on passe par `hasValue()`. */
+  /** `value()` throws when the resource failed, hence `hasValue()`. */
   protected readonly alertPage = computed(() =>
     this.alerts.hasValue() ? this.alerts.value() : undefined,
   );
@@ -116,7 +113,7 @@ export class Alertes {
     reloadOnError(this.alerts, ALERT_REFRESH_MS);
     reloadOnError(this.summary, ALERT_REFRESH_MS);
 
-    // Des alertes sortent de la période à chaque rafraîchissement : la page affichée peut ne plus exister.
+    // Alerts leave the period on each refresh: the displayed page may no longer exist.
     effect(() => {
       const p = this.alertPage();
       if (p && p.page.number > 0 && p.page.number >= p.page.totalPages) {
@@ -141,7 +138,6 @@ export class Alertes {
     this.periodHours.set(Number((event.target as HTMLSelectElement).value));
   }
 
-  /** Un clic sur un compteur filtre sur sa sévérité ; un second clic retire le filtre. */
   protected toggleSeverity(severity: AlertSeverity): void {
     this.severity.update((current) => (current === severity ? '' : severity));
   }

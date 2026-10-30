@@ -1,5 +1,3 @@
-"""Préparer les Parquet depuis le CSV historique, sans entraînement ni MLflow."""
-
 import argparse
 import json
 from pathlib import Path
@@ -36,7 +34,6 @@ def load_site_schedules(metadata_dir: Path, site_ids) -> dict:
         )
         if metadata.get("site_id") != site or not valid_hours or not valid_days:
             raise ValueError(f"Planning invalide pour {site} dans {path}")
-        # Aucun recours aux statistiques globales ni aux annotations historiques.
         schedules[site] = {"working_hours": hours, "working_days": sorted(set(days))}
     return schedules
 
@@ -91,7 +88,7 @@ def prepare_hourly_dataset(source_frame: pd.DataFrame, schedules: dict) -> pd.Da
         dataset[column] = history.reindex(lookup).to_numpy()
         if not (previous + pd.Timedelta(hours=1) <= dataset.timestamp.dt.normalize()).all():
             raise ValueError("Un lag utilise une heure indisponible au début de la journée.")
-    # Les cibles manquantes restent dans l'historique jusqu'au calcul des lags.
+    # Missing targets stay in the history until the lags are computed.
     dataset = dataset.dropna(subset=[TARGET]).reset_index(drop=True)
     dataset = dataset.loc[:, COLUMNS]
     validate_frame(dataset, "Données préparées")
@@ -126,7 +123,7 @@ def export_parquets(source: Path, metadata_dir: Path, output_dir: Path) -> dict:
         raise ValueError("Colonne source manquante : site_id")
     schedules = load_site_schedules(metadata_dir, source_frame.site_id.dropna().unique())
     splits = split_dataset(prepare_hourly_dataset(source_frame, schedules))
-    # Toutes les validations précèdent la création ou le remplacement des sorties.
+    # All validations come before creating or replacing outputs.
     output_dir.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(prefix=".prepare-", dir=output_dir) as temporary:
         staged = {}

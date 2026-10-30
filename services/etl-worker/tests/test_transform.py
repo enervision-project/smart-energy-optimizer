@@ -1,5 +1,3 @@
-"""Tests du calcul horaire ; PostgreSQL isolé via TEST_DATABASE_URL."""
-
 import os
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -164,7 +162,7 @@ class AggregateHourPostgresTests(unittest.TestCase):
                 "timestamp": self.start + timedelta(minutes=minute),
                 "site_type": "office",
                 "consumption_kw": 120.0,
-                # Valeur volontairement différente : l'énergie utilise les kW.
+                # Deliberately different: energy uses the kW value.
                 "consumption_kwh": 9999.0,
                 "voltage_v": 220.0,
                 "current_a": 10.0,
@@ -217,7 +215,7 @@ class AggregateHourPostgresTests(unittest.TestCase):
         aggregate_hour(self.database_url, end_time=END)
 
         row = self.stored_hours()[0]
-        self.assertAlmostEqual(row["voltage_v"], 222.0)  # 45 valeurs, pas 60.
+        self.assertAlmostEqual(row["voltage_v"], 222.0)  # 45 values, not 60.
         self.assertAlmostEqual(row["current_a"], 15.5)
         self.assertEqual(row["power_factor"], Decimal("0.90"))
         self.assertIsNone(row["temperature_celsius"])
@@ -233,7 +231,7 @@ class AggregateHourPostgresTests(unittest.TestCase):
         aggregate_hour(self.database_url, end_time=END)
 
         row = self.stored_hours()[0]
-        # Moyenne des valeurs 16 à 60 : 38 kW, soit 38 kWh estimés sur 1 heure.
+        # Average of values 16 to 60: 38 kW, so 38 kWh over 1 hour.
         self.assertEqual(row["consumption_kwh"], Decimal("38.00"))
         self.assertAlmostEqual(row["voltage_v"], 220.0)
 
@@ -298,7 +296,7 @@ class AggregateHourPostgresTests(unittest.TestCase):
         aggregate_hour(self.database_url, end_time=END)
         row = self.stored_hours()[0]
         self.assertTrue(all(row[field] is None for field in METRICS))
-        # 0 distingue « rien reçu » de « capteurs en panne ».
+        # 0 distinguishes "nothing received" from "failed sensors".
         self.assertEqual(
             (
                 row["minutes_received"],

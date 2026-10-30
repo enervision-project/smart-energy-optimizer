@@ -11,9 +11,7 @@ import org.hibernate.annotations.Immutable;
 
 import java.time.Instant;
 
-/**
- * Monitored site. Read-only: rows are written by the ETL worker from the energy API.
- */
+/** Monitored site. Read-only: rows are written by the ETL worker from the energy API. */
 @Entity
 @Immutable
 @Table(name = "sites")

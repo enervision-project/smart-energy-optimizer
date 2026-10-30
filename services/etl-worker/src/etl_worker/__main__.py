@@ -1,5 +1,3 @@
-"""Commandes ponctuelles de collecte et de calcul horaire."""
-
 import argparse
 import json
 import sys
@@ -43,7 +41,7 @@ def cmd_sync_sites(args: argparse.Namespace) -> None:
 
 
 def cmd_sync_site_profiles(args: argparse.Namespace) -> None:
-    # Fichier livré avec l'image ; un profil dont le site n'est pas encore en base est ignoré.
+    # A profile whose site is not yet in the database is ignored.
     profiles = read_site_profiles()
     changed = load_site_profiles(profiles)
     print(
@@ -52,7 +50,7 @@ def cmd_sync_site_profiles(args: argparse.Namespace) -> None:
 
 
 def _exit_on_site_errors(errors: dict[str, str]) -> None:
-    # Code 1 pour que job.sh journalise l'échec ; les sites reçus ont déjà été traités.
+    # Exit code 1 so that job.sh logs the failure; received sites are already processed.
     for site_id, message in errors.items():
         print(f"{site_id} : {message}", file=sys.stderr)
     if errors:
@@ -70,7 +68,7 @@ def cmd_sync_readings(args: argparse.Namespace) -> None:
     readings, errors = extract_readings(_require_site_ids())
     inserted = 0
     if readings:
-        # Bronze d'abord : la donnée brute est archivée même si la base échoue.
+        # Bronze first: raw data is archived even if the database fails.
         bronze_key = write_readings_bronze(readings, collected_at=collected_at)
         if bronze_key is not None:
             print(f"Bronze : {bronze_key}.")
@@ -80,7 +78,7 @@ def cmd_sync_readings(args: argparse.Namespace) -> None:
         f"insérées : {inserted} ; déjà présentes : {len(readings) - inserted}."
     )
     if readings:
-        # 15 minutes : une interpolation attend la valeur suivante, reçue aux passages d'après.
+        # 15 minutes: an interpolation waits for the next value.
         _print_imputed(impute_consumption(minutes=_IMPUTE_RECENT_MINUTES))
     _exit_on_site_errors(errors)
 
@@ -93,7 +91,7 @@ def _print_imputed(imputed: int) -> None:
 
 
 def cmd_sync_hours(args: argparse.Namespace) -> None:
-    # 6 heures par défaut : les minutes comblées par backfill-readings y sont intégrées.
+    # 6 hours by default, to include minutes filled by backfill-readings.
     updated = aggregate_hour(end_time=args.end_time, hours=args.hours or 6)
     print(f"Lignes horaires calculées dans readings_hours : {updated}.")
 
@@ -105,7 +103,7 @@ def cmd_backfill_readings(args: argparse.Namespace) -> None:
         f"Plages manquantes : {result.ranges} ; mesures rattrapées : {result.received} ; "
         f"insérées : {result.inserted}."
     )
-    # Les minutes rattrapées peuvent compléter une interpolation restée en attente.
+    # Backfilled minutes can complete a pending interpolation.
     _print_imputed(impute_consumption(minutes=hours * 60))
     for label, message in result.errors.items():
         print(f"{label} : {message}", file=sys.stderr)
@@ -114,7 +112,7 @@ def cmd_backfill_readings(args: argparse.Namespace) -> None:
 
 
 def cmd_impute_readings(args: argparse.Namespace) -> None:
-    # Rattrapage ponctuel, par exemple --hours 168 après le déploiement du changeset 005.
+    # One-off backfill, e.g. --hours 168 after deploying changeset 005.
     _print_imputed(impute_consumption(minutes=(args.hours or 6) * 60))
 
 

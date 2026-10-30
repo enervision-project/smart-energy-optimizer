@@ -63,7 +63,7 @@ jobs:
               - 'services/ml-service/training/**'
               - 'services/ml-service/configs/hgb_production.yaml'
               - '.github/workflows/_ci-python.yml'
-            # staging éphémère : tout ce que la stack démarrée en CI embarque
+            # ephemeral staging: everything the stack started in CI ships
             stack:
               - 'app/**'
               - 'services/core-api/**'
@@ -97,7 +97,7 @@ jobs:
   call-frontend:
     name: Frontend
     needs: changes
-    # Exécute si 'app/' a changé OU si le workflow est lancé manuellement
+    # runs when app/ changed, or on a manual run
     if: ${{ needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/_ci-frontend.yml
     secrets:
@@ -115,7 +115,7 @@ jobs:
   call-etl-worker:
     name: ETL Worker
     needs: changes
-    # Exécute si 'services/etl-worker' a changé OU si le workflow est lancé manuellement
+    # runs when services/etl-worker changed, or on a manual run
     if: ${{ needs.changes.outputs.etl-worker == 'true' || github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/_ci-python.yml
     with:
@@ -127,7 +127,7 @@ jobs:
   call-prediction-service:
     name: Prediction Service
     needs: changes
-    # Exécute si 'services/prediction-service' a changé OU si le workflow est lancé manuellement
+    # runs when services/prediction-service changed, or on a manual run
     if: ${{ needs.changes.outputs.prediction-service == 'true' || github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/_ci-python.yml
     with:
@@ -156,7 +156,7 @@ jobs:
       SONAR_TOKEN_INFRA_ROOT: ${{ secrets.SONAR_TOKEN_INFRA_ROOT }}
 
 
-  # staging éphémère : la stack compose démarrée et vérifiée sur le runner (collecte réelle de l'ETL)
+  # ephemeral staging: compose stack started and checked on the runner
   call-stack:
     name: Stack
     needs: changes
@@ -182,7 +182,7 @@ jobs:
   # exist when their paths changed.
   mr-ok:
     needs: [changes, call-frontend, call-core-api, call-terraform, call-images, call-etl-worker, call-prediction-service, call-stack, call-infra]
-    # Uniquement sur les Pull Requests
+    # pull requests only
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5

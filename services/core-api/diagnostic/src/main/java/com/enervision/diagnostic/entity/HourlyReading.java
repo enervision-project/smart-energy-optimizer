@@ -13,9 +13,7 @@ import org.hibernate.annotations.Immutable;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/**
- * Hourly aggregated readings. Read-only: rows are computed and written by the ETL worker.
- */
+/** Read-only: rows are written by the ETL worker. */
 @Entity
 @Immutable
 @Table(name = "readings_hours")

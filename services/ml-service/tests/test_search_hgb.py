@@ -1,5 +1,3 @@
-"""Validation des campagnes HGB, sans lire les Parquet ni joindre MLflow."""
-
 from collections import Counter
 from copy import deepcopy
 from pathlib import Path

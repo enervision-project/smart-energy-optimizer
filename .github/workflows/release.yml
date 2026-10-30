@@ -1,12 +1,11 @@
-# Publie une release (tag vX.Y.Z + notes GitHub) à chaque push sur main,
-# si les commits depuis la dernière release le justifient.
+# Publishes a release on each push to main, when the commits justify one.
 name: Release
 
 on:
   push:
     branches: [main]
 
-# aucun droit par défaut, le job déclare uniquement ce dont il a besoin
+# no default permissions
 permissions: {}
 
 concurrency:
@@ -19,13 +18,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: write       # créer le tag et la release
-      issues: write         # commenter les issues résolues
-      pull-requests: write  # commenter les PR incluses
+      contents: write
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0    # semantic-release a besoin de tout l'historique et des tags
+          fetch-depth: 0    # semantic-release needs the full history and tags
           persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7

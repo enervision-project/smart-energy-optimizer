@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exécuté sur l'EC2 via SSM. La release contient dataset-release.json pour les jobs ML.
+# Run on the EC2 through SSM. Usage: deploy.sh <sha> <ECR registry> <service>...
 # Usage : deploy.sh <sha> <registre ECR> <service>...
 set -euo pipefail
 umask 077
@@ -31,7 +31,7 @@ compose_command() {
 dataset_uri=
 for svc in "$@"; do
   if [[ $svc == prediction-service ]]; then
-    # Vérifie le commit, le marqueur de complétude et les trois empreintes sur S3.
+    # Checks the commit, the completeness marker and the three hashes on S3.
     dataset_uri=$(python3 infra/deploy/dataset_release.py verify \
       --release dataset-release.json --git-revision "$sha" --remote)
   fi
@@ -55,7 +55,7 @@ finish() {
         prediction-service prediction-jobs \
         || echo "La restauration des conteneurs ML a échoué ; intervention requise." >&2
     else
-      # Premier déploiement : aucun ancien tag connu à redémarrer.
+      # First deployment: no old tag to restart.
       "${compose[@]}" stop prediction-jobs \
         || echo "Impossible d'arrêter les nouveaux jobs ML." >&2
     fi
@@ -77,7 +77,7 @@ for svc in "$@"; do
   set_var "$candidate" "$(echo "$svc" | tr 'a-z-' 'A-Z_')_TAG" "$sha"
 done
 if [[ -n $dataset_uri ]]; then
-  # L'URI est attachée à la release ; SSM sera actualisé par CI après son succès.
+  # The URI is tied to the release; CI updates SSM after it succeeds.
   set_var "$candidate" TRAINING_BOOTSTRAP_URI "$dataset_uri"
 fi
 
@@ -93,14 +93,11 @@ for svc in "$@"; do
     *) deploy_services+=("$svc") ;;
   esac
 done
-# Images d'anciens commits : chaque déploiement en ajoute (une par service et par SHA), et
-# `prune -f` seul ne retire que les images sans tag. `-a` supprime toute image qu'aucun conteneur
-# n'utilise, même arrêté (migrate, mlflow-init) : les services en place restent intacts.
-# Avant le pull, pour laisser la place aux nouvelles images ; un retour arrière les retélécharge d'ECR.
+# `-a` removes every image no container uses, even stopped; before the pull, to make room for the new ones.
 docker image prune -af
 "${compose[@]}" pull "${deploy_services[@]}"
 if [[ -n $dataset_uri ]]; then
-  # Validation avec le chargeur existant ; aucun fit ni modèle n'est exécuté ici.
+  # Validation with the existing loader; no fit or model runs here.
   "${compose[@]}" run --rm --no-deps --entrypoint python prediction-jobs -c \
     'import os; from prediction_service.datasets import load_bootstrap; load_bootstrap(os.environ["TRAINING_BOOTSTRAP_URI"])'
 fi
@@ -134,7 +131,7 @@ if [[ -n $dataset_uri ]]; then
   "${compose[@]}" exec -T prediction-jobs python -c \
     'import os,sys; assert os.environ["TRAINING_BOOTSTRAP_URI"] == sys.argv[1]' "$dataset_uri"
 fi
-# Les images remplacées par ce déploiement ne servent plus.
+# Images replaced by this deployment are no longer needed.
 docker image prune -af
 "${compose[@]}" ps
 activation_started=false

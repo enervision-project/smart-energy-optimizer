@@ -5,11 +5,6 @@ import org.jspecify.annotations.Nullable;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * Aggregate of the readings of one step; only steps with at least one reading are returned.
- *
- * @param worstQuality 0 ({@code good}) to 3 ({@code critical})
- */
 public record BucketRow(
 		Instant bucket,
 		@Nullable Double consumptionKw,

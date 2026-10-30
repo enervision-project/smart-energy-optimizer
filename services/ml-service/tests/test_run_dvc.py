@@ -1,5 +1,3 @@
-"""Tests du lanceur DVC, sans accès AWS ni ouverture des Parquet."""
-
 from contextlib import redirect_stdout
 import importlib.util
 from io import StringIO

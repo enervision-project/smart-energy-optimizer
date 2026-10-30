@@ -1,10 +1,5 @@
-# Vérifie à la PR le format Conventional Commits (règles dans commitlint.config.mjs) :
-# - chaque commit de la PR (déjà vérifiés en local par le hook .githooks/commit-msg) ;
-# - le nom de la branche (feature/… ou fix/…, ou renovate/… pour les mises à jour de dépendances).
-# Les PR sont fusionnées en rebase : ces commits arrivent tels quels sur main
-# et c'est eux que semantic-release analyse ; le titre de la PR n'est pas utilisé.
-# synchronize (nouveaux commits sur une PR ouverte) est nécessaire : un check
-# obligatoire est lié au dernier commit de la PR, sans lui la PR resterait bloquée.
+# Checks the commits and branch name of each PR; PRs are rebased, so semantic-release reads these commits.
+# synchronize is required: a mandatory check is bound to the PR's latest commit.
 name: Conventions
 
 on:
@@ -12,7 +7,7 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened]
 
-# aucun droit par défaut, chaque job déclare uniquement ce dont il a besoin
+# no default permissions
 permissions: {}
 
 jobs:
@@ -20,11 +15,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      contents: read        # checkout du dépôt
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0    # tout l'historique, pour comparer avec main
+          fetch-depth: 0    # full history, to compare with main
           persist-credentials: false
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -44,13 +39,13 @@ jobs:
   branch-name:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    permissions: {}         # lit seulement le nom de branche de l'événement
+    permissions: {}         # reads only the branch name from the event
     steps:
       - name: Nom de branche feature/…, fix/… ou renovate/…
         env:
           BRANCH: ${{ github.head_ref }}
         run: |
-          # renovate/ : branches créées par Renovate (préfixe par défaut)
+          # renovate/: default Renovate prefix
           if [[ ! "$BRANCH" =~ ^(feature|fix|renovate)/[A-Za-z0-9._-]+ ]]; then
             echo "::error::Branche « $BRANCH » refusée : elle doit commencer par feature/, fix/ ou renovate/ (ex. feature/SEO-12-vue-parc)."
             exit 1

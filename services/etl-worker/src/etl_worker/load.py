@@ -30,9 +30,7 @@ _UPSERT_SITE = """
 """
 
 
-# Insère les sites nouveaux et met à jour uniquement les sites modifiés.
-# Le résultat est le nombre de sites insérés ou modifiés ; les sites identiques sont ignorés.
-# Le lot est validé en une transaction, annulée entièrement en cas d'erreur.
+# Upserts changed sites in one transaction; returns the number inserted or changed.
 def load_sites(
     sites: Sequence[Mapping[str, Any]],
     database_url: str | None = None,
@@ -92,7 +90,6 @@ _PREVIOUS_CONSUMPTIONS = """
 """
 
 _CONSUMPTION_FIELDS = ("consumption_kw", "consumption_kwh")
-# Origine d'une mesure (colonne source, changeset 005).
 READING_SOURCES = frozenset({"current", "readings", "backfill"})
 _logger = logging.getLogger(__name__)
 
@@ -151,21 +148,7 @@ def load_readings(
     fill_consumptions: bool = False,
     source: str = "current",
 ) -> int:
-    """Charge une copie des mesures, avec timestamps UTC ramenés au début de leur minute.
-
-    Une ligne par site et par minute : une seconde collecte dans la même minute
-    est ignorée ; le timestamp exact reste dans le bronze.
-    source indique l'origine de tout le lot (current, readings ou backfill).
-    Le mode fill_consumptions, non activé par sync-readings, reprend chaque
-    consommation NULL depuis le même champ du même site strictement antérieur.
-    Sans antécédent, NULL est conservé. Les zéros sont des valeurs disponibles.
-    Le mode par défaut conserve les NULL pour les imports historiques existants.
-
-    Aucun objet source n'est modifié. Les autres indicateurs et les informations
-    de qualité restent ceux de l'API. La clé (site_id, ts) existante est ignorée ;
-    une erreur annule toute la transaction. Les lignes sont traitées dans l'ordre
-    chronologique afin que le report fonctionne également à l'intérieur du lot.
-    """
+    """One row per site and minute: a second collection in the same minute is ignored."""
     if not readings:
         return 0
     if source not in READING_SOURCES:
@@ -212,7 +195,6 @@ def load_readings(
 def read_site_ids(
     database_url: str | None = None, *, connect_timeout: int = 10
 ) -> list[str]:
-    """Lit les sites connus en base sans solliciter l'API des sites."""
     connection_url = (
         database_url if database_url is not None else os.environ.get("DATABASE_URL", "")
     ).strip()
@@ -227,8 +209,7 @@ def read_site_ids(
         return [row[0] for row in cursor.fetchall()]
 
 
-# Minutes sans aucune ligne, regroupées en plages consécutives par site
-# (« gaps and islands » : ts − rang × 1 min est constant dans une même plage).
+# Gaps and islands: ts − rank × 1 min is constant within a range.
 _MISSING_RANGES = """
     WITH expected AS (
         SELECT sites.site_id, minute
@@ -264,11 +245,7 @@ def read_missing_ranges(
     *,
     connect_timeout: int = 10,
 ) -> list[tuple[str, datetime, datetime]]:
-    """Retourne les plages [début, fin) de minutes sans mesure, par site, dans [start, end).
-
-    Seule l'absence de ligne compte : une mesure reçue avec des NULL n'est pas
-    un trou. start et end sont des débuts de minute avec fuseau.
-    """
+    """Only a missing row is a gap: a reading received with NULLs is not."""
     for bound in (start, end):
         if bound.utcoffset() is None or bound.second or bound.microsecond:
             raise ValueError("Les bornes doivent être des minutes avec fuseau.")
@@ -288,7 +265,7 @@ def read_missing_ranges(
         return [(site_id, first, last) for site_id, first, last in cursor.fetchall()]
 
 
-# Un profil dont le site n'existe pas (encore) en base est ignoré plutôt que de faire échouer le lot.
+# A profile whose site is not yet in the database is ignored rather than failing the batch.
 _UPSERT_SITE_PROFILE = """
     INSERT INTO site_profiles (
         site_id, base_consumption, peak_consumption, working_hour_start, working_hour_end,
@@ -321,12 +298,7 @@ _UPSERT_SITE_PROFILE = """
 
 
 def _site_profile_row(profile: Mapping[str, Any]) -> tuple[Any, ...]:
-    """Convertit un profil du format source vers les colonnes de site_profiles.
-
-    Jours : 0 = lundi dans la source (weekday() Python), ISO 1 = lundi en base.
-    working_hours [début, fin] devient deux colonnes. shift_pattern absent vaut
-    false, weekend_factor absent vaut NULL.
-    """
+    """Source days: 0 = Monday (Python weekday()); database: ISO 1 = Monday."""
     start, end = profile["working_hours"]
     return (
         profile["site_id"],
@@ -343,9 +315,7 @@ def _site_profile_row(profile: Mapping[str, Any]) -> tuple[Any, ...]:
     )
 
 
-# Insère les nouveaux profils de référence et met à jour uniquement les profils modifiés.
-# Le résultat est le nombre de profils insérés ou modifiés ; identiques ou sans site en base : ignorés.
-# Le lot est validé en une transaction, annulée entièrement en cas d'erreur (ex. CHECK).
+# Upserts changed profiles in one transaction; returns the number inserted or changed.
 def load_site_profiles(
     profiles: Sequence[Mapping[str, Any]],
     database_url: str | None = None,
@@ -389,16 +359,12 @@ def _alert_timestamp(value: str) -> datetime:
         raise ValueError("Timestamp d'alerte invalide.") from error
 
     if timestamp.utcoffset() is None:
-        # Vérifié avec /health et l'en-tête HTTP Date : cette API utilise UTC.
+        # Checked with /health and the HTTP Date header: this API uses UTC.
         timestamp = timestamp.replace(tzinfo=UTC)
     return timestamp.astimezone(UTC)
 
 
-# Insère les nouvelles alertes et retourne le nombre de lignes insérées
-# Les huit champs API sont conservés, sans arrondir les nombres.
-# Un alert_id existant est ignoré, même si son contenu diffère
-# Le lot est validé en une transaction et annulé entièrement en cas d'erreur.
-# Une liste vide retourne 0 sans ouvrir de connexion. La table doit exister.
+# An existing alert_id is ignored, even if its content differs; returns the number inserted.
 def load_alerts(
     alerts: Sequence[Mapping[str, Any]],
     database_url: str | None = None,
@@ -437,7 +403,6 @@ def load_alerts(
 
 
 def alerts_main() -> None:
-    """Extrait et charge une fois les alertes, sans planification."""
     parser = argparse.ArgumentParser(
         description="Récupère les alertes de l'API et les insère dans PostgreSQL."
     )

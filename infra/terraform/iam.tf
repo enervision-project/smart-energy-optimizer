@@ -1,4 +1,4 @@
-# --- Rôle de l'instance : SSM (agent + paramètres .env), lecture ECR et S3
+# --- Instance role: SSM (agent + .env parameters), read ECR and S3
 data "aws_iam_policy_document" "ec2_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -37,12 +37,12 @@ data "aws_iam_policy_document" "app" {
     resources = [aws_s3_bucket.deploy.arn]
   }
   statement {
-    # etl-worker : écriture seule des mesures brutes
+    # etl-worker: write-only raw readings
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.datalake.arn}/bronze/readings/*"]
   }
   statement {
-    # MLflow : lister uniquement son prefixe, sans ouvrir la lecture du bronze.
+    # MLflow: list only its prefix, without opening read access to bronze.
     actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.datalake.arn]
     condition {
@@ -55,7 +55,7 @@ data "aws_iam_policy_document" "app" {
     }
   }
   statement {
-    # Les uploads multipart utilisent PutObject ; Abort permet de nettoyer un echec.
+    # Multipart uploads use PutObject; Abort cleans up a failure.
     actions = [
       "s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload",
     ]
@@ -113,7 +113,7 @@ resource "aws_iam_instance_profile" "monitoring" {
   role = aws_iam_role.monitoring.name
 }
 
-# --- GitHub Actions (OIDC) : push ECR + déploiement SSM, depuis main uniquement
+# --- GitHub Actions (OIDC): ECR push + SSM deployment, from main only
 resource "aws_iam_openid_connect_provider" "github" {
   url            = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
@@ -165,7 +165,7 @@ data "aws_iam_policy_document" "github_deploy" {
     actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.deploy.arn}/releases/*"]
   }
-  # Données choisies par DVC : lecture du cache et publication des snapshots uniquement.
+  # Data selected by DVC: read the cache and publish snapshots only.
   statement {
     actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.datalake.arn]
@@ -202,7 +202,7 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name}/prod/deployed-sha"]
   }
   statement {
-    # identifiants de l'API énergie : source de vérité = secrets GitHub, recopiés à chaque déploiement
+    # energy API credentials: source of truth is GitHub secrets, copied on each deployment
     actions = ["ssm:PutParameter"]
     resources = [for k in ["ENERGY_API_USERNAME", "ENERGY_API_PASSWORD"] :
     "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter/${local.name}/prod/env/${k}"]

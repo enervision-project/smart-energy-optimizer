@@ -63,6 +63,8 @@ docker compose --profile ml up -d mlflow prediction-service prediction-jobs
 
 ## Documentation
 
+La documentation est disponible à cette adresse : https://enervision-project.github.io/smart-energy-optimizer/
+
 La documentation complète est un site MkDocs (`docs/` et `docs/` de chaque service) :
 
 ```bash

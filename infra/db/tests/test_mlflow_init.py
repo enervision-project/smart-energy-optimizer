@@ -20,7 +20,7 @@ class MlflowDatabaseTests(unittest.TestCase):
             "host": "db",
             "port": 5432,
         }
-        # Driver and settings are supplied at import time; no SQL or MLflow server
+        # Driver and settings are supplied at import time; no SQL or MLflow server is contacted.
         # is contacted by these initializer orchestration tests.
         with patch.dict(
             "sys.modules", {"psycopg2": self.driver, "settings": self.settings}

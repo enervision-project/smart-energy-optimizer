@@ -1,12 +1,9 @@
-"""Accès SQL pour les snapshots, les jobs et les prévisions."""
-
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
-import pandas as pd
 import psycopg
 
 
@@ -22,7 +19,7 @@ class SiteProfile:
 def claimed_job(
     database_url: str, job_type: str, schedule_key: str, trigger: str
 ) -> Iterator[UUID | None]:
-    """Une seule exécution par type et créneau, même après un redémarrage."""
+    """A single run per type and slot, even after a restart."""
     lock_key = 576_000 + (1 if job_type == "training" else 2)
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
         cursor.execute("SELECT pg_try_advisory_lock(%s)", (lock_key,))
@@ -89,32 +86,10 @@ def claimed_job(
             connection.commit()
 
 
-def read_recent_hours(database_url: str, before: datetime) -> pd.DataFrame:
-    """Snapshot cohérent des heures terminées ; exclut les cibles NULL."""
-    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
-        cursor.execute(
-            """
-                SELECT site_id, ts, consumption_kwh
-                FROM readings_hours
-                WHERE ts < %s AND consumption_kwh IS NOT NULL
-                ORDER BY ts, site_id
-                """,
-            (before,),
-        )
-        rows = cursor.fetchall()
-    return pd.DataFrame(rows, columns=["site_id", "timestamp", "consumption_kwh"])
-
-
 def read_measured_hours(
     database_url: str, start: datetime, end: datetime, min_minutes: int = 10
 ) -> list[tuple[str, datetime, float]]:
-    """Heures `[start, end)` mesurées, pour le recalage de niveau.
-
-    Une heure dont la consommation repose sur moins de `min_minutes` minutes est écartée.
-    Seuil bas : avec /current, l'API Mock renvoie la consommation sur 18 à 32 minutes par heure
-    seulement, et leur moyenne suffit à estimer le niveau. Les heures antérieures au
-    changeset 005 (compteur NULL) sont gardées.
-    """
+    """Low threshold: /current only returns consumption on 18 to 32 minutes per hour."""
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
         cursor.execute(
             """
@@ -132,11 +107,7 @@ def read_measured_hours(
 def read_forecast_errors(
     database_url: str, start: datetime, end: datetime, min_minutes: int = 10
 ) -> list[tuple[str, float, float, float]]:
-    """Heures `[start, end)` mesurées avec la dernière prévision publiée avant chacune.
-
-    Lignes `(site, mesuré, champion seul, publié)`. Avant le changeset 008, la prévision brute
-    n'était pas enregistrée : la valeur publiée était alors celle du champion.
-    """
+    """Before changeset 008 only the published value was stored: it was the champion's."""
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
         cursor.execute(
             """
@@ -160,11 +131,7 @@ def read_forecast_errors(
 def read_covered_hours(
     database_url: str, start: datetime, end: datetime, model_name: str, model_version: str
 ) -> set[tuple[str, datetime]]:
-    """Couples `(site, heure)` de `[start, end)` dont la prévision affichée vient de ce champion.
-
-    Prévision affichée = celle du dernier lot complet, départagé comme core-api (date puis
-    run_id). Une heure prévue par un ancien champion n'est donc pas couverte.
-    """
+    """Displayed forecast = latest complete batch, tie-broken like core-api (date then run_id)."""
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
         cursor.execute(
             """
@@ -212,10 +179,6 @@ def save_forecast(
     rows: Sequence[tuple[str, datetime, float, float, float]],
     site_count: int,
 ) -> UUID:
-    """Publie le lot complet et ses lignes en une transaction.
-
-    Chaque ligne : site, heure, valeur publiée, prévision brute du champion, ratio appliqué.
-    """
     if not hours or not rows or len(rows) != site_count * len(hours):
         raise ValueError("Lot de prévisions incomplet.")
     with psycopg.connect(database_url) as connection:

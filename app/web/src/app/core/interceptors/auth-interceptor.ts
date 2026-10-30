@@ -5,10 +5,7 @@ import { catchError, throwError } from 'rxjs';
 import { API_BASE_URL } from '../services/api';
 import { Auth, LOGIN_URL } from '../services/auth';
 
-/**
- * Ajoute le jeton aux appels à core-api. Une réponse 401 (jeton expiré ou révoqué) ferme la session
- * et renvoie vers la page de connexion, qui ramènera ensuite à la page courante.
- */
+/** Adds the token to core-api calls; a 401 closes the session and redirects to login. */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   if (!req.url.startsWith(API_BASE_URL) || req.url === LOGIN_URL) {
     return next(req);

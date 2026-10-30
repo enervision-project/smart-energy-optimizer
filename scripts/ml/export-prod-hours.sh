@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
-# Exporte, en lecture seule, les heures mesurées (readings_hours) et les prévisions publiées de la
-# production vers .data/ml/prod/, pour le notebook 02_recalage_niveau_prod.ipynb.
-# Passe par SSM Run Command sur l'EC2 applicative : aucune connexion directe à la base.
-# Un appel par site : la sortie d'une commande SSM est tronquée au-delà de 24 000 caractères.
-# Usage : scripts/ml/export-prod-hours.sh [profil-aws]
+# Read-only export of production hours and forecasts to .data/ml/prod/, through SSM.
+# One call per site: SSM output is truncated beyond 24,000 characters.
+# Usage: scripts/ml/export-prod-hours.sh [aws-profile]
 set -euo pipefail
 
 profile=${1:-enervision}
@@ -17,11 +15,10 @@ test -n "$instance"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# Exécute une requête SQL (COPY ... TO STDOUT) sur l'EC2 et écrit le résultat dans $2.
-# Le SQL voyage en base64 jusqu'à l'entrée de psql : aucun échappement de guillemets.
+# SQL travels as base64 to psql's stdin: no quote escaping.
 run_sql() {
   local sql=$1 target=$2 parameters=$work/parameters.json command_id encoded
-  # base64 ne contient ni guillemet ni antislash : insertion sûre dans le JSON.
+  # base64 has no quote or backslash: safe to insert in JSON.
   encoded=$(printf '%s\n' "$sql" | base64 -w0)
   cat >"$parameters" <<EOF
 {"commands":[
@@ -48,7 +45,7 @@ while read -r site; do
   run_sql "COPY (SELECT site_id, ts, consumption_kwh, minutes_received, minutes_consumption \
 FROM readings_hours WHERE site_id = '$site' ORDER BY ts) TO STDOUT WITH CSV" "$work/hours.csv"
   cat "$work/hours.csv" >>"$work/readings_hours.csv"
-  # Pour chaque heure, la dernière prévision publiée avant cette heure.
+  # For each hour, the last forecast published before it.
   run_sql "COPY (SELECT DISTINCT ON (p.predicted_for) p.site_id, p.predicted_for, p.prediction_kwh, \
 r.generated_at, r.model_version FROM predictions p JOIN prediction_runs r USING (run_id) \
 WHERE p.site_id = '$site' AND r.generated_at < p.predicted_for \

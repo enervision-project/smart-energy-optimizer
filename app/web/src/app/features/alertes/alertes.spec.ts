@@ -6,10 +6,7 @@ import { EnergyApi } from '../../core/services/energy-api';
 import { MockEnergyApi } from '../../core/services/mock-energy-api';
 import { Alertes } from './alertes';
 
-/**
- * Le mock contient 9 alertes : 7 de moins d'une heure (2 critical, 1 high, 3 medium, 1 low),
- * puis une à 1 h 35 (SITE004) et une à 3 h (SITE001).
- */
+/** The mock has 9 alerts: 7 under an hour old, then one at 1 h 35 and one at 3 h. */
 const ALERT: Alert = {
   alertId: 'ALR-SITE002-1792667216',
   siteId: 'SITE002',
@@ -42,7 +39,6 @@ describe('Alertes', () => {
     await fixture.whenStable();
   }
 
-  /** Avec des timers simulés : avance le temps, puis laisse se terminer rendu et effets. */
   async function advance(ms: number): Promise<void> {
     fixture.detectChanges();
     await vi.advanceTimersByTimeAsync(ms);
@@ -142,7 +138,7 @@ describe('Alertes', () => {
   it('relit les alertes toutes les 30 secondes', async () => {
     vi.useFakeTimers();
     const getAlerts = vi.spyOn(api, 'getAlerts');
-    // whenStable() attend des timers réels : avec des timers simulés, on avance le temps à la main
+    // whenStable() waits for real timers: with fake timers, advance time by hand
     fixture = TestBed.createComponent(Alertes);
     fixture.detectChanges();
     await vi.advanceTimersByTimeAsync(0);
@@ -200,7 +196,7 @@ describe('Alertes', () => {
     }
     expect(el().querySelector('.pager')?.textContent).toContain('Page 3 sur 3');
 
-    // au rafraîchissement suivant, des alertes sont sorties de la période
+    // on the next refresh, alerts left the period
     totalPages = 2;
     await advance(ALERT_REFRESH_MS);
     expect(getAlerts).toHaveBeenLastCalledWith(expect.anything(), 1, 20);

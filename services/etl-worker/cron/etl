@@ -1,15 +1,14 @@
 SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
 
-# Fuseau du conteneur : Europe/Paris (heure d'été/hiver).
-# Tâches lancées en root : seul root peut écrire dans /proc/1/fd/1 et 2 (logs du conteneur) ;
-# job.sh exécute ensuite la commande ETL sous appuser (setpriv).
+# Container timezone: Europe/Paris.
+# Run as root: only root can write to /proc/1/fd/1 and 2; job.sh then runs the command as appuser.
 * * * * * root /usr/local/bin/etl-cron-job sync-readings >> /proc/1/fd/1 2>> /proc/1/fd/2
 * * * * * root /usr/local/bin/etl-cron-job sync-alerts >> /proc/1/fd/1 2>> /proc/1/fd/2
 0 16 * * * root /usr/local/bin/etl-cron-job sync-sites >> /proc/1/fd/1 2>> /proc/1/fd/2
-# Après sync-sites : un nouveau site reçoit son profil le jour même.
+# After sync-sites: a new site gets its profile the same day.
 1 16 * * * root /usr/local/bin/etl-cron-job sync-site-profiles >> /proc/1/fd/1 2>> /proc/1/fd/2
-# Rattrapage via /readings des minutes jamais reçues sur les 6 dernières heures.
+# Backfills minutes never received over the last 6 hours.
 1 * * * * root /usr/local/bin/etl-cron-job backfill-readings >> /proc/1/fd/1 2>> /proc/1/fd/2
-# Après le rattrapage : recalcule les 6 dernières heures pour intégrer les minutes comblées.
+# After the backfill: recomputes the last 6 hours with the filled minutes.
 2 * * * * root /usr/local/bin/etl-cron-job sync-hours >> /proc/1/fd/1 2>> /proc/1/fd/2

@@ -3,9 +3,7 @@ package com.enervision.telemetry.api.dto;
 import java.time.Duration;
 import java.util.Arrays;
 
-/**
- * Width of the points of a reading series. Each step caps the requested period so that a series stays small.
- */
+/** Each step caps the requested period so that a series stays small. */
 public enum ReadingStep {
 
 	ONE_MINUTE("1m", Duration.ofMinutes(1), Duration.ofHours(48)),

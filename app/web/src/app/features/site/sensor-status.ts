@@ -8,7 +8,6 @@ export interface SensorStatus {
   state: SensorState;
 }
 
-/** Capteur ↔ raison de NULL envoyée par l'API (`null_reasons`). */
 const SENSORS: { key: string; label: string; reason: string }[] = [
   { key: 'consumption', label: 'Consommation', reason: 'consumption_sensor_failure' },
   { key: 'electrical', label: 'Électrique', reason: 'electrical_sensor_failure' },
@@ -30,10 +29,7 @@ const IMPUTATION_LABELS: Record<string, string> = {
   linear: 'interpolation linéaire',
 };
 
-/**
- * État des capteurs déduit de la dernière mesure. Sans mesure récente, tous sont « inconnus » plutôt
- * qu'« OK » ; en perte réseau, seule la panne réseau est certaine.
- */
+/** Without a recent reading sensors are "unknown", not "OK"; on network loss only that failure is certain. */
 export function sensorStatuses(latest: LatestReading | null): SensorStatus[] {
   const stale = !latest || latest.ageSeconds > STALE_AFTER_SECONDS;
   const networkLoss = latest?.nullReasons.includes('network_loss') ?? false;

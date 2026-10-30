@@ -1,5 +1,3 @@
-"""Chargement des trois splits historiques, sans données SQL récentes."""
-
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
@@ -25,7 +23,6 @@ def _bootstrap_file(uri: str, name: str, s3_client=None) -> bytes:
 def load_bootstrap(
     uri: str, s3_client=None
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict]:
-    """Préserve Train, Validation et Test, avec vérification de leur séparation."""
     frames, manifest = {}, {}
     for name in ("train", "validation", "test"):
         content = _bootstrap_file(uri, name, s3_client)
@@ -36,8 +33,7 @@ def load_bootstrap(
         frame = frame[["timestamp", *FEATURES, TARGET]].copy()
         frame["timestamp"] = pd.to_datetime(frame.timestamp)
         if frame.timestamp.dt.tz is None:
-            # L'historique encode 24 heures par jour, même aux changements d'heure.
-            # Ses dates servent à l'ordre chronologique ; les features sont déjà présentes.
+            # The history has 24 hours per day, even across DST changes; dates only give the order.
             frame["timestamp"] = frame.timestamp.dt.tz_localize("UTC")
         else:
             frame["timestamp"] = frame.timestamp.dt.tz_convert("UTC")

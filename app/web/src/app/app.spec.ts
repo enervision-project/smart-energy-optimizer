@@ -59,7 +59,7 @@ describe('App', () => {
       const badge = (fixture.nativeElement as HTMLElement).querySelector(
         '[data-testid="alert-badge"]',
       );
-      // le mock contient 7 alertes de moins d'une heure, dont 2 critiques
+      // the mock has 7 alerts under an hour old, 2 of them critical
       expect(badge?.textContent?.trim()).toBe('7');
       expect(badge?.classList).toContain('critical');
     });

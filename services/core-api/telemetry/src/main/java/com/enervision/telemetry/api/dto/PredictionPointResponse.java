@@ -6,10 +6,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * One UTC hour, starting at ts. Missing forecasts have a null value and null publication metadata.
- * predictionKwh is energy over that hour, not instantaneous power.
- */
+/** {@code predictionKwh} is energy over the UTC hour starting at {@code ts}, not instantaneous power. */
 public record PredictionPointResponse(
 		Instant ts,
 		@Nullable BigDecimal predictionKwh,

@@ -21,7 +21,6 @@ export class App {
 
   protected readonly title = signal('web');
 
-  /** Page de connexion : affichée sans le menu. */
   protected readonly onLoginPage = toSignal(
     this.router.events.pipe(
       filter((event) => event instanceof NavigationEnd),
@@ -30,7 +29,6 @@ export class App {
     { initialValue: false },
   );
 
-  /** Utilisateur connecté, pour l'en-tête ; rien quand la connexion est désactivée (données factices). */
   protected readonly user = rxResource({
     params: () => (this.auth.enabled && this.auth.loggedIn()) || undefined,
     stream: () => this.auth.me(),
@@ -43,13 +41,12 @@ export class App {
 
   protected readonly canLogout = computed(() => this.auth.enabled && this.auth.loggedIn());
 
-  /** Alertes de la dernière heure, pour le badge du menu ; relu toutes les 30 s, une fois connecté. */
+  /** Alerts of the last hour for the menu badge, reloaded every 30 s once logged in. */
   private readonly alertSummary = rxResource({
     params: () => this.auth.loggedIn() || undefined,
     stream: () => timer(0, ALERT_REFRESH_MS).pipe(switchMap(() => this.api.getAlertSummary())),
   });
 
-  /** Nombre d'alertes récentes et sévérité la plus grave présente ; rien en cas d'échec. */
   protected readonly alertBadge = computed(() => {
     const summary = this.alertSummary.hasValue() ? this.alertSummary.value() : undefined;
     if (!summary || summary.total === 0) {

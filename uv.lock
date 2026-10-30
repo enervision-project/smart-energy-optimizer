@@ -628,7 +628,7 @@ wheels = [
 [[package]]
 name = "smart-energy-optimizer"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "mkdocs" },
     { name = "mkdocs-awesome-pages-plugin" },

@@ -1,5 +1,3 @@
-"""MLflow Model Registry et cache local versionné du champion."""
-
 import json
 import logging
 import os
@@ -47,11 +45,10 @@ def cached_predictor(root: Path) -> Predictor:
     if marker.is_file():
         version = str(json.loads(marker.read_text(encoding="utf-8"))["version"])
         return load_predictor(_cache_dir(root, version))
-    return load_predictor(root)  # compatibilité avec les exports manuels existants
+    return load_predictor(root)  # compatibility with existing manual exports
 
 
 def prepare_version(root: Path, model_name: str, version: str) -> Predictor:
-    """Télécharge et valide un modèle avant de modifier le pointeur actif."""
     target = _cache_dir(root, version)
     if target.is_dir():
         return load_predictor(target)
@@ -83,7 +80,7 @@ def prepare_version(root: Path, model_name: str, version: str) -> Predictor:
             encoding="utf-8",
         )
         predictor = load_predictor(staged)
-        # Vérifie aussi l'inférence réelle avant de publier ce cache.
+        # Also checks real inference before publishing this cache.
         from prediction_service.schemas import PredictRequest
 
         if len(sites) == 0:

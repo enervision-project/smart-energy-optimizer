@@ -19,7 +19,6 @@ const dateTime = new Intl.DateTimeFormat('fr-FR', {
   minute: '2-digit',
 });
 
-/** Alertes d'un site : compteurs de la dernière heure et dernières alertes sur 24 h, rafraîchis toutes les 30 s. */
 @Component({
   imports: [RouterLink],
   selector: 'app-site-alerts',
@@ -36,7 +35,6 @@ export class SiteAlerts {
   protected readonly severityLabel = severityLabel;
   protected readonly typeLabel = typeLabel;
 
-  /** La fenêtre de 24 h glisse avec l'heure courante à chaque rafraîchissement. */
   protected readonly alerts = rxResource({
     params: () => this.siteId(),
     stream: ({ params: siteId }) =>
@@ -57,7 +55,6 @@ export class SiteAlerts {
       timer(0, ALERT_REFRESH_MS).pipe(switchMap(() => this.api.getAlertSummary(siteId))),
   });
 
-  /** `value()` lève une erreur quand la ressource est en échec : on passe par `hasValue()`. */
   protected readonly alertPage = computed(() =>
     this.alerts.hasValue() ? this.alerts.value() : undefined,
   );

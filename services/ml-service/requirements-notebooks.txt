@@ -1,4 +1,3 @@
-# Environnement d'exploration valide avec Python 3.12.
 pandas==3.0.6
 numpy==2.5.4
 matplotlib==3.11.2
@@ -8,6 +7,6 @@ nbclient==0.11.0
 ipykernel==7.4.0
 jupyterlab==4.6.4
 pyarrow==26.0.0
-# 02_recalage_niveau_prod : champion reconstruit comme à l'entraînement (requirements-training.txt)
+# 02_recalage_niveau_prod: champion rebuilt as in training (requirements-training.txt)
 scikit-learn==1.9.1
 PyYAML==6.0.3

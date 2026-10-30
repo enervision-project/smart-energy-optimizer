@@ -1,8 +1,5 @@
 package com.enervision.diagnostic.entity;
 
-/**
- * Types of energy recommendations computed by the diagnostic module.
- */
 public enum RecommendationType {
 
 	POWER_FACTOR("POWER_FACTOR", "Facteur de puissance", ""),

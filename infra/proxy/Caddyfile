@@ -1,5 +1,4 @@
-# Reverse proxy de production (service proxy de compose.prod.yaml).
-# Certificats Let's Encrypt obtenus et renouvelés automatiquement par Caddy.
+# Production reverse proxy; Caddy obtains and renews the Let's Encrypt certificates.
 
 # HTTP metrics (requests, status codes, latency), labelled by host
 {
@@ -17,12 +16,12 @@
 		format json
 	}
 
-	# API (core-api), même domaine que le front : pas de CORS
+	# API (core-api), same domain as the front end: no CORS
 	handle /api/* {
 		reverse_proxy core-api:8080
 	}
 
-	# tout le reste : front Angular
+	# everything else: Angular front end
 	handle {
 		reverse_proxy web:8080
 	}

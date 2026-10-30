@@ -13,10 +13,7 @@ import java.util.UUID;
 /** Read-only repository: one latest complete publication per site and target hour. */
 public interface PredictionRepository extends Repository<Prediction, UUID> {
 
-	/**
-	 * Keeps the most recently generated complete run for each hour of [from, to).
-	 * Run ids break generation-time ties deterministically. Fetch metadata in the same query.
-	 */
+	/** Keeps the latest complete run for each hour; run ids break generation-time ties. */
 	@EntityGraph(attributePaths = "run")
 	@Query("""
 			SELECT prediction FROM Prediction prediction

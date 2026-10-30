@@ -1,4 +1,3 @@
-"""Régressions de sécurité : chemins bornés, liens symboliques et transport AWS."""
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 import json

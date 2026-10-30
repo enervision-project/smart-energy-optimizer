@@ -2,12 +2,10 @@ import { PredictionPoint } from '../../core/models/prediction';
 
 const HOUR_MS = 3_600_000;
 
-/** Heures dont la fin est encore à venir : l'heure en cours et les suivantes. */
 function upcoming(points: PredictionPoint[], now: Date): PredictionPoint[] {
   return points.filter((p) => Date.parse(p.ts) + HOUR_MS > now.getTime());
 }
 
-/** Plus forte puissance moyenne prévue sur les heures à venir. */
 export function forecastPeak(
   points: PredictionPoint[],
   now: Date,
@@ -21,7 +19,6 @@ export function forecastPeak(
   return peak;
 }
 
-/** Énergie prévue sur les heures à venir (kWh), `null` sans aucune prévision. */
 export function forecastEnergy(points: PredictionPoint[], now: Date): number | null {
   const values = upcoming(points, now).flatMap((p) =>
     p.predictionKwh === null ? [] : [p.predictionKwh],
@@ -29,7 +26,6 @@ export function forecastEnergy(points: PredictionPoint[], now: Date): number | n
   return values.length ? values.reduce((sum, kwh) => sum + kwh, 0) : null;
 }
 
-/** Fin de la dernière heure prévue (ISO 8601), `null` sans aucune prévision. */
 export function coveredUntil(points: PredictionPoint[]): string | null {
   for (let i = points.length - 1; i >= 0; i--) {
     if (points[i].predictionKwh !== null) {
@@ -39,7 +35,6 @@ export function coveredUntil(points: PredictionPoint[]): string | null {
   return null;
 }
 
-/** Série la plus récente utilisée : modèle, version et heure de publication. */
 export function latestRun(
   points: PredictionPoint[],
 ): { modelName: string; modelVersion: string; generatedAt: string } | null {

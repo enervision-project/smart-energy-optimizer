@@ -8,10 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Immutable;
 
-/**
- * Site visible by a user with the USER role (an ADMIN sees every site and has no row).
- * Holds the user id only, without a JPA link to the user module's entity.
- */
+/** Holds the user id only, without a JPA link to the user module's entity; an ADMIN has no row. */
 @Entity
 @Immutable
 @Table(name = "users_sites")

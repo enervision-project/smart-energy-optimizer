@@ -2,10 +2,7 @@ package com.enervision.common.security;
 
 import java.util.UUID;
 
-/**
- * Authenticated user of the current request. Declare it as a controller method parameter to have it injected
- * (see {@link CurrentUserArgumentResolver}), then pass it to the service.
- */
+/** Authenticated user of the request, injectable as a controller method parameter. */
 public record CurrentUser(UUID id, Role role) {
 
 	public boolean isAdmin() {

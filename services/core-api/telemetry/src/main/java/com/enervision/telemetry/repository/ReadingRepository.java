@@ -17,11 +17,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Read-only queries on {@code readings_raws}, written by the ETL worker (one row per site and per minute).
- * Native SQL: aggregates per step ({@code date_bin}) and PostgreSQL arrays are out of JPQL's reach.
- * Steps are aligned on UTC ({@code date_bin} origin 2000-01-01T00:00Z).
- */
+/** Native SQL: {@code date_bin} and PostgreSQL arrays are out of JPQL's reach; steps are aligned on UTC. */
 @Repository
 @RequiredArgsConstructor
 public class ReadingRepository {

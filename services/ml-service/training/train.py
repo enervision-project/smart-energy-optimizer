@@ -1,4 +1,4 @@
-"""Lancer un essai : python -m training.train --config configs/ridge.yaml."""
+"""Run one trial: python -m training.train --config configs/ridge.yaml"""
 
 import argparse
 from pathlib import Path

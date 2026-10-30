@@ -6,10 +6,6 @@ import { EnergyApi } from '../../core/services/energy-api';
 import { MockEnergyApi } from '../../core/services/mock-energy-api';
 import { Previsions } from './previsions';
 
-/**
- * Dans le mock, chaque site a une prévision horaire publiée jusqu'à l'heure en cours + 24 h (modèle
- * enervision-hourly-consumption, version 3), et des mesures sur les 12 dernières heures.
- */
 describe('Previsions', () => {
   let fixture: ComponentFixture<Previsions>;
   let api: MockEnergyApi;

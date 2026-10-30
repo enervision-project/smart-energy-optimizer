@@ -1,5 +1,3 @@
-"""Entraînement quotidien d'un challenger HGB et promotion contrôlée."""
-
 import json
 import logging
 from datetime import UTC, datetime, timedelta
@@ -77,7 +75,6 @@ def _configuration(path: Path) -> dict:
 
 
 def train_challenger(settings: Settings, job_id: UUID, trigger: str) -> dict:
-    """Le succès d'entraînement inclut enregistrement et rechargement du challenger."""
     if not settings.training_bootstrap_uri:
         raise ValueError("TRAINING_BOOTSTRAP_URI requis pour entraîner le modèle initial.")
     config = _configuration(settings.training_config)
@@ -172,7 +169,7 @@ def train_challenger(settings: Settings, job_id: UUID, trigger: str) -> dict:
             mlflow.log_dict(champion_report, "champion_test_metrics_by_site.json")
         promote = should_promote(champion_score, challenger_score)
         if promote:
-            # Vérifie le modèle Registry dans le format réellement servi avant l'alias.
+            # Checks the Registry model in the format actually served, before setting the alias.
             prepare_version(settings.model_dir, settings.registered_model_name, version)
             client.set_registered_model_alias(settings.registered_model_name, "champion", version)
             try:

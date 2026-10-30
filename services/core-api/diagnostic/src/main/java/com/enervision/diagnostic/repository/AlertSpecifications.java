@@ -9,18 +9,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * Search criteria for {@link AlertRepository#findAll(Specification, org.springframework.data.domain.Pageable)}.
- */
 public final class AlertSpecifications {
 
 	private AlertSpecifications() {
 	}
 
-	/**
-	 * Alerts of the given sites whose timestamp is in [{@code from}, {@code to}]; an empty severity or type
-	 * collection means no filter on that field.
-	 */
+	/** An empty severity or type collection means no filter on that field. */
 	public static Specification<Alert> matching(Collection<String> siteIds, Collection<String> severities,
 			Collection<String> types, Instant from, Instant to) {
 		return (root, query, builder) -> {

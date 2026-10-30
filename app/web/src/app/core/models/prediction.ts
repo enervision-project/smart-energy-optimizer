@@ -1,11 +1,7 @@
-/**
- * Une heure de prévision (GET /api/v1/sites/{siteId}/predictions de core-api). Une heure sans prévision
- * publiée est renvoyée avec des valeurs `null`.
- */
+/** An hour without a published forecast is returned with `null` values. */
 export interface PredictionPoint {
-  /** Début de l'heure (UTC). */
   ts: string;
-  /** Énergie prévue sur l'heure, en kWh : c'est aussi la puissance moyenne de l'heure, en kW. */
+  /** Energy over the hour, in kWh: also the hour's average power, in kW. */
   predictionKwh: number | null;
   runId: string | null;
   modelName: string | null;
@@ -13,7 +9,6 @@ export interface PredictionPoint {
   generatedAt: string | null;
 }
 
-/** Prévisions horaires d'un site sur `[from, to)`, issues pour chaque heure de la série complète la plus récente. */
 export interface PredictionSeries {
   siteId: string;
   step: '1h';

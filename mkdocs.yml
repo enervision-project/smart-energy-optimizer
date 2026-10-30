@@ -1,18 +1,9 @@
-# ==============================================================================
-# Informations du Projet
-# ==============================================================================
 site_name: Smart Energy Optimizer
 site_url: https://github.com/enervision-project/smart-energy-optimizer
 site_description: Documentation de Smart Energy Optimizer
 copyright: Copyright &copy; 2026 EnerVision
-# ==============================================================================
-# Configuration du Dépôt
-# ==============================================================================
 repo_name: Smart Energy Optimizer
 repo_url: https://github.com/enervision-project/smart-energy-optimizer
-# ==============================================================================
-# Configuration du Thème (Material)
-# ==============================================================================
 theme:
   name: material
   language: fr
@@ -23,21 +14,18 @@ theme:
     - navigation.footer
     - navigation.instant
   palette:
-    # Mode clair
+    # Light mode
     - scheme: default
       primary: custom
       toggle:
         icon: material/weather-night
         name: Passer au mode sombre
-    # Mode sombre
+    # Dark mode
     - scheme: slate
       primary: custom
       toggle:
         icon: material/weather-sunny
         name: Passer au mode clair
-# ==============================================================================
-# Plugins
-# ==============================================================================
 plugins:
   - search
   - monorepo
@@ -67,16 +55,10 @@ markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
 
-            # ==============================================================================
-            # Configurations Supplémentaires
-          # ==============================================================================
 extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/enervision-project
-# ==============================================================================
-# Navigation
-# ==============================================================================
 nav:
   - Accueil: index.md
   - ...

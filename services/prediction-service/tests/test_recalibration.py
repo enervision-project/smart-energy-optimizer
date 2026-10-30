@@ -4,7 +4,6 @@ from prediction_service.recalibration import MAX_RATIO, MIN_RATIO, level_ratios
 
 
 def week(working_measured, working_predicted, off_measured, off_predicted, hours=84):
-    """Une semaine d'observations : `hours` heures travaillées et autant d'autres."""
     return [(1, working_measured, working_predicted)] * hours + [
         (0, off_measured, off_predicted)
     ] * hours
@@ -22,11 +21,11 @@ def test_ratio_is_measured_over_predicted_per_group():
 
 
 def test_sum_ratio_is_not_driven_by_low_night_hours():
-    # Une heure de nuit très basse ne pèse pas autant qu'une heure de pointe.
+    # A very low night hour does not weigh as much as a peak hour.
     observations = [(1, 80.0, 100.0)] * 30 + [(1, 1.0, 0.5)]
     ratio = level_ratios(observations).working
     assert ratio == pytest.approx((30 * 80 + 1) / (30 * 100 + 0.5))
-    # Une moyenne des ratios horaires aurait donné (30 * 0.8 + 2) / 31, soit environ 0,84.
+    # An average of hourly ratios would give (30 * 0.8 + 2) / 31, about 0.84.
     assert ratio < 0.81
 
 
@@ -38,7 +37,7 @@ def test_without_enough_history_the_champion_is_kept():
 
 
 def test_small_group_falls_back_to_the_site_ratio():
-    # Data center : toujours en activité, aucune heure « non travaillée ».
+    # Data center: always active, no non-working hour.
     ratios = level_ratios([(1, 77.0, 100.0)] * 48)
 
     assert ratios.working == pytest.approx(0.77)

@@ -1,8 +1,5 @@
 package com.enervision.diagnostic.entity;
 
-/**
- * Quality levels for a recommendation indicator.
- */
 public enum RecommendationQuality {
 
 	GOOD("good"),

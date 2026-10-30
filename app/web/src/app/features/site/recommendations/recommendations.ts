@@ -12,10 +12,6 @@ const QUALITY_LABELS: Record<string, string> = {
   unknown: 'Indisponible',
 };
 
-/**
- * Recommandations d'un site calculées en temps réel par core-api à partir de sa dernière mesure.
- * Affiche un panneau par indicateur (facteur de puissance, tension, taux de charge) avec sa qualité.
- */
 @Component({
   imports: [],
   selector: 'app-recommendations',
@@ -32,7 +28,6 @@ export class Recommendations {
     stream: ({ params: siteId }) => (siteId ? this.api.getRecommendations(siteId) : of(null)),
   });
 
-  /** `value()` lève une erreur quand la ressource est en échec : on passe par `hasValue()`. */
   protected readonly response = computed(() =>
     this.recommendations.hasValue() ? this.recommendations.value() : undefined,
   );

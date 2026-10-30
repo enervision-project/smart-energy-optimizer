@@ -10,10 +10,7 @@ import org.jspecify.annotations.Nullable;
 import java.time.Instant;
 import java.util.Optional;
 
-/**
- * Readings of a site visible to the user (see {@code SiteService}); a site the user cannot see is reported as not
- * found. Without {@code from} and {@code to}, a period covers the last 48 hours.
- */
+/** A site the user cannot see is reported as not found; the default period is the last 48 hours. */
 public interface ReadingService {
 
 	/** One point per step of {@code [from, to)}, aligned on UTC, steps without any reading included. */

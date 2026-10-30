@@ -76,7 +76,6 @@ def test_bootstrap_and_training_register_a_champion(tmp_path, monkeypatch):
         training_experiment="coverage-training",
         training_bootstrap_uri=str(bootstrap),
         training_config=config,
-        validation_days=1,
     )
     first = training.train_challenger(settings, UUID(int=1), "catchup")
     assert first["promoted"] is True

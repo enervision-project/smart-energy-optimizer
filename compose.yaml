@@ -11,7 +11,7 @@ x-etl: &etl
     BRONZE_BUCKET: ${BRONZE_BUCKET:-}
     AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-west-3}
     LOG_LEVEL: ${LOG_LEVEL:-INFO}
-  # API lancée sur l'hôte : disponible aussi sous Linux.
+  # API running on the host: also available on Linux.
   extra_hosts: [ "host.docker.internal:host-gateway" ]
   depends_on:
     migrate:
@@ -28,7 +28,6 @@ x-mlflow: &mlflow
     MLFLOW_DB_NAME: ${MLFLOW_DB_NAME:-mlflow}
     MLFLOW_DB_USER: ${MLFLOW_DB_USER:-mlflow}
     MLFLOW_DB_PASSWORD: ${MLFLOW_DB_PASSWORD:-mlflow-local}
-# EnerVision — stack Docker Compose du projet.
 name: enervision
 
 services:
@@ -43,10 +42,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: core_api
       SPRING_DATASOURCE_PASSWORD: ${CORE_API_DB_PASSWORD:?CORE_API_DB_PASSWORD doit être défini}
-      # secret obligatoire : compose refuse de démarrer si JWT_SECRET est absent du .env
+      # compose refuses to start if JWT_SECRET is missing from .env
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET doit être défini dans .env}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-1h}
-      # premier compte ADMIN, créé au démarrage tant que la table users est vide (facultatif)
+      # optional first ADMIN account, created while the users table is empty
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     ports:
@@ -101,7 +100,7 @@ services:
     volumes:
       - ./infra/db/changelog:/liquibase/changelog:ro
     environment:
-      # SET ROLE dès la connexion : tous les objets appartiennent au rôle NOLOGIN.
+      # SET ROLE on connect: all objects belong to the NOLOGIN role.
       LIQUIBASE_COMMAND_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}?currentSchema=public&options=-c%20role%3Denervision_owner&ApplicationName=migrate
       LIQUIBASE_COMMAND_USERNAME: enervision_migrator
       LIQUIBASE_COMMAND_PASSWORD: ${MIGRATOR_DB_PASSWORD:?MIGRATOR_DB_PASSWORD doit être défini}
@@ -118,7 +117,7 @@ services:
       MLFLOW_TRACKING_URI: http://127.0.0.1:5000
       MLFLOW_SQLALCHEMYSTORE_POOL_SIZE: "2"
       MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW: "2"
-      # sans ça, MLflow 3.17 lance 7 workers de jobs (~1,6 Go) : OOM sur l'EC2
+      # otherwise MLflow 3.17 starts 7 job workers (~1.6 GB): OOM on the EC2
       MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
     ports:
       - "127.0.0.1:${MLFLOW_PORT:-5000}:5000"
@@ -162,9 +161,7 @@ services:
       REGISTERED_MODEL_NAME: ${REGISTERED_MODEL_NAME:-enervision-hourly-consumption}
       TRAINING_BOOTSTRAP_URI: ${TRAINING_BOOTSTRAP_URI:-/bootstrap}
       TRAINING_TIMEZONE: ${TRAINING_TIMEZONE:-Europe/Paris}
-      VALIDATION_DAYS: ${VALIDATION_DAYS:-14}
-      MIN_CURRENT_VALIDATION_HOURS: ${MIN_CURRENT_VALIDATION_HOURS:-168}
-      # Recalage de niveau des prévisions ; false = prévision brute du champion publiée.
+      # Forecast level recalibration; false publishes the raw champion forecast.
       LEVEL_RECALIBRATION: ${LEVEL_RECALIBRATION:-true}
     command: [ "python", "-m", "prediction_service.jobs" ]
     restart: unless-stopped

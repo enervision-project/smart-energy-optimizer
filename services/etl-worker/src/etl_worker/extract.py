@@ -1,5 +1,3 @@
-"""Extract : récupération des données depuis l'API énergie."""
-
 import argparse
 import base64
 import json
@@ -13,7 +11,7 @@ from urllib.request import Request, urlopen
 
 from etl_worker.timestamps import parse_reading_timestamp
 
-# Plafond de limit pour GET /readings (documentation de l'API Mock).
+# limit cap for GET /readings (Mock API docs).
 HISTORY_MAX_MINUTES = 1000
 
 _ALERT_FIELDS = frozenset(
@@ -34,7 +32,6 @@ _ALERT_FIELDS = frozenset(
 
 
 def _api_headers() -> dict[str, str]:
-    """En-têtes communs ; authentification Basic si ENERGY_API_USERNAME est renseigné."""
     headers = {"Accept": "application/json"}
     username = os.environ.get("ENERGY_API_USERNAME", "")
     if username:
@@ -59,7 +56,6 @@ def _resolve_base_url(base_url: str | None, caller: str) -> str:
 def _get_json(
     base_url: str, path: str, timeout: float, params: dict[str, Any] | None = None
 ) -> Any:
-    """GET JSON ; les erreurs HTTP, réseau et de décodage remontent à l'appelant."""
     url = f"{base_url}{path}"
     if params:
         url = f"{url}?{urlencode(params)}"
@@ -73,13 +69,9 @@ def _require_list_of_dicts(data: Any, message: str) -> list[dict[str, Any]]:
     return data
 
 
-# --- Sites et profils ------------------------------------------------------
-
-
 def extract_sites(
     base_url: str | None = None, *, timeout: float = 10.0
 ) -> list[dict[str, Any]]:
-    """Récupère les sites. Une réponse qui n'est pas une liste d'objets JSON lève ValueError."""
     api_base_url = _resolve_base_url(base_url, "extract_sites")
     return _require_list_of_dicts(
         _get_json(api_base_url, "/api/v1/sites", timeout),
@@ -88,11 +80,7 @@ def extract_sites(
 
 
 def read_site_profiles() -> list[dict[str, Any]]:
-    """Lit les profils de référence livrés avec le paquet (data/site_profiles.json).
-
-    Source : clé « profile » des fichiers *_metadata.json du jeu de données (pas d'endpoint API).
-    Le format source est conservé (jours 0 = lundi, working_hours [début, fin]) ; load les convertit.
-    """
+    """No API endpoint: from the dataset's *_metadata.json files; load converts the source format."""
     content = (
         files("etl_worker")
         .joinpath("data/site_profiles.json")
@@ -101,9 +89,6 @@ def read_site_profiles() -> list[dict[str, Any]]:
     return _require_list_of_dicts(
         json.loads(content), "site_profiles.json doit être une liste d'objets JSON."
     )
-
-
-# --- Mesures ---------------------------------------------------------------
 
 
 def _validate_reading(reading: dict[str, Any], site_id: str) -> None:
@@ -133,14 +118,7 @@ def extract_readings(
     *,
     timeout: float = 10.0,
 ) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    """Retourne les mesures /current reçues et les erreurs par site.
-
-    Les timestamps, leur précision et leurs éventuels fuseaux sont conservés
-    tels que reçus, tout comme les NULL, la qualité et les champs supplémentaires.
-    Chaque site est interrogé indépendamment : une erreur HTTP, réseau ou une
-    réponse invalide est retournée pour ce site sans empêcher la collecte des autres.
-    Une URL d'API absente reste une erreur de configuration qui arrête tout.
-    """
+    """Each site is fetched independently: an error for one does not stop the others."""
     if not site_ids:
         return [], {}
     api_base_url = _resolve_base_url(base_url, "extract_readings")
@@ -149,7 +127,7 @@ def extract_readings(
     for site_id in site_ids:
         try:
             readings.append(_fetch_reading(api_base_url, site_id, timeout))
-        # OSError couvre HTTPError, URLError et les délais dépassés ; ValueError le JSON invalide.
+        # OSError covers HTTPError, URLError and timeouts; ValueError covers invalid JSON.
         except (OSError, TypeError, ValueError) as error:
             errors[site_id] = str(error) or type(error).__name__
     return readings, errors
@@ -163,15 +141,7 @@ def extract_history(
     *,
     timeout: float = 30.0,
 ) -> list[dict[str, Any]]:
-    """Retourne une mesure /readings par minute de [start, end), pour le rattrapage.
-
-    start et end sont des débuts de minute avec fuseau ; la plage compte au plus
-    HISTORY_MAX_MINUTES minutes. limit vaut le nombre de minutes : avec moins,
-    l'API échantillonnerait la plage au lieu de renvoyer chaque minute.
-    La réponse doit contenir exactement une mesure de ce site pour chaque minute,
-    sinon ValueError (ou TypeError) : rien n'est retourné pour une plage douteuse.
-    Les valeurs sont recalculées par l'API à chaque appel (historique simulé).
-    """
+    """limit equals the minute count, otherwise the API samples the range. A doubtful range raises."""
     for bound in (start, end):
         if bound.utcoffset() is None or bound.second or bound.microsecond:
             raise ValueError(
@@ -220,7 +190,6 @@ def extract_history(
 def extract_alerts(
     base_url: str | None = None, *, timeout: float = 10.0
 ) -> list[dict[str, Any]]:
-    """Récupère toutes les alertes actives."""
     api_base_url = _resolve_base_url(base_url, "extract_alerts")
     alerts = _require_list_of_dicts(
         _get_json(api_base_url, "/api/v1/alerts", timeout),
@@ -236,7 +205,6 @@ def extract_alerts(
 
 
 def alerts_main() -> None:
-    """Extrait une fois les alertes et affiche le JSON, sans base de données."""
     parser = argparse.ArgumentParser(
         description="Extrait une fois les alertes actives de l'API et affiche le JSON."
     )

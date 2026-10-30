@@ -27,7 +27,7 @@ import { EnergyApi } from './energy-api';
 const HOUR_MS = 3_600_000;
 const MINUTE_MS = 60_000;
 
-/** Réponse réelle de GET /api/v1/sites de l'API Mock de l'école. */
+/** Actual response of the Mock API's GET /api/v1/sites. */
 const SITES: Site[] = [
   site('SITE001', 'office', 'Bureau Paris La Défense', 'Paris, France', 200),
   site('SITE002', 'factory', 'Usine Lyon Vénissieux', 'Lyon, France', 1000),
@@ -38,10 +38,6 @@ const SITES: Site[] = [
   site('SITE007', 'factory', 'Usine Nantes Rezé', 'Nantes, France', 950),
 ];
 
-/**
- * Profils de charge par type, en fraction de `capacityKw`, inspirés des profils du jeu de données
- * fourni (talon, pic, heures et jours d'activité).
- */
 const PROFILES: Record<
   string,
   { base: number; peak: number; hours: [number, number]; weekdaysOnly: boolean }
@@ -53,21 +49,13 @@ const PROFILES: Record<
   hospital: { base: 0.55, peak: 0.75, hours: [8, 20], weekdaysOnly: false },
 };
 
-/**
- * Site en perte réseau sur les 3 dernières heures : mesures reçues mais toutes à null, qualité `critical` ;
- * la consommation des 15 premières minutes de la panne est imputée (`previous_value`).
- */
+/** Site with network loss over the last 3 hours. */
 const NETWORK_LOSS_SITE_ID = 'SITE003';
-/**
- * Site avec des pannes de 2 minutes du capteur de consommation (`degraded`, imputées en `linear`), une panne du
- * capteur de température sur les 20 dernières minutes (`partial`) et une coupure de collecte d'une heure,
- * de 10 h à 9 h avant maintenant (aucune mesure reçue).
- */
+/** Site with sensor failures and a one-hour collection outage. */
 const SENSOR_FAILURE_SITE_ID = 'SITE002';
 const LOSS_MINUTES = 180;
 const TEMPERATURE_FAILURE_MINUTES = 20;
 const GAP_MINUTES_AGO: [number, number] = [600, 660];
-/** Modèle enregistré dans MLflow (variable REGISTERED_MODEL_NAME de prediction-jobs). */
 const PREDICTION_MODEL = 'enervision-hourly-consumption';
 const PREDICTION_MODEL_VERSION = '3';
 const STEP_MS: Record<ReadingStep, number> = {
@@ -76,7 +64,6 @@ const STEP_MS: Record<ReadingStep, number> = {
   '1h': HOUR_MS,
 };
 
-/** Seuils fixes par site observés sur GET /api/v1/alerts de l'API Mock. */
 const ALERT_THRESHOLDS: Record<string, number> = {
   SITE001: 135,
   SITE002: 720,
@@ -87,7 +74,6 @@ const ALERT_THRESHOLDS: Record<string, number> = {
   SITE007: 675,
 };
 
-/** Début des messages de l'API Mock, suivi du nom du site. */
 const ALERT_MESSAGES: Record<AlertType, string> = {
   spike: 'Pic de consommation détecté sur',
   threshold: 'Seuil de consommation dépassé sur',
@@ -96,7 +82,6 @@ const ALERT_MESSAGES: Record<AlertType, string> = {
   sensor: 'Défaillance capteur détectée sur',
 };
 
-/** Alertes du mock : [site, il y a N minutes, sévérité, type, dépassement du seuil]. Les deux dernières ont plus d'une heure. */
 const ALERTS: [string, number, AlertSeverity, AlertType, number][] = [
   ['SITE003', 4, 'critical', 'outage', 1.31],
   ['SITE002', 12, 'high', 'spike', 1.27],
@@ -109,7 +94,7 @@ const ALERTS: [string, number, AlertSeverity, AlertType, number][] = [
   ['SITE001', 180, 'low', 'anomaly', 1.18],
 ];
 
-/** Données factices pour développer sans back-end (voir `environment.development.ts`). */
+/** Fake data for developing without a back end. */
 @Service()
 export class MockEnergyApi extends EnergyApi {
   getSites(): Observable<Site[]> {
@@ -222,7 +207,6 @@ export class MockEnergyApi extends EnergyApi {
     });
   }
 
-  /** Dernière minute collectée de chaque site, calculée comme core-api (valeur imputée si le capteur est en panne). */
   getParcSummary(): Observable<ParcSummary> {
     const now = Date.now();
     const sites: ParcSiteLoad[] = SITES.map((s) => {
@@ -291,12 +275,8 @@ export class MockEnergyApi extends EnergyApi {
     return of({ since: since.toISOString(), total: recent.length, bySeverity });
   }
 
-  /** Aucune donnée de mock pour les recommandations : l'application s'appuie uniquement sur l'API réelle. */
-  /**
-   * Prévisions comme les publie `prediction-jobs` : une série chaque heure pour les 24 heures suivantes.
-   * Les heures passées gardent la prévision de leur série ; au-delà de l'heure en cours + 24 h, rien n'est publié.
-   * Valeurs : profil du site avec un bruit différent des mesures, pour que prévu et mesuré se distinguent.
-   */
+  /** No mock recommendations: the app relies on the real API only. */
+  /** Mimics `prediction-jobs`: one series per hour for the next 24 hours. */
   getPredictions(siteId: string, from: Date, to: Date): Observable<PredictionSeries> {
     const found = SITES.find((s) => s.siteId === siteId);
     if (!found) {
@@ -343,7 +323,6 @@ export class MockEnergyApi extends EnergyApi {
   }
 }
 
-/** Alertes datées par rapport à maintenant, de la plus récente à la plus ancienne. */
 function mockAlerts(): Alert[] {
   const now = Date.now();
   return ALERTS.map(([siteId, minutesAgo, severity, type, ratio]) => {
@@ -375,7 +354,6 @@ function site(
   return { siteId, siteType, siteName, location, capacityKw, status: 'active' };
 }
 
-/** Ligne de `readings_raws` simulée. */
 interface MockMinute {
   ts: number;
   source: string;
@@ -391,7 +369,6 @@ interface MockMinute {
   dataQuality: DataQuality;
 }
 
-/** Minutes reçues de `[from, until)`, sans les minutes de la coupure de collecte. */
 function minutes(s: Site, from: number, until: number, now: number): MockMinute[] {
   const rows: MockMinute[] = [];
   for (let t = from; t < until; t += MINUTE_MS) {
@@ -403,7 +380,6 @@ function minutes(s: Site, from: number, until: number, now: number): MockMinute[
   return rows;
 }
 
-/** Mesure de la minute `t`, ou `null` si elle n'a jamais été reçue. */
 function mockMinute(s: Site, t: number, now: number): MockMinute | null {
   const minutesAgo = (floor(now, MINUTE_MS) - t) / MINUTE_MS;
   if (
@@ -478,7 +454,7 @@ function mockMinute(s: Site, t: number, now: number): MockMinute | null {
   return row;
 }
 
-/** Point de courbe calculé comme core-api : moyennes, pire qualité, raisons des NULL et compteurs. */
+/** Computed like core-api. */
 function aggregate(ts: number, rows: MockMinute[], minutesExpected: number): ReadingPoint {
   const worst = Math.max(-1, ...rows.map((r) => DATA_QUALITIES.indexOf(r.dataQuality)));
   return {
@@ -520,7 +496,6 @@ function ceil(t: number, width: number): number {
   return Math.ceil(t / width) * width;
 }
 
-/** Courbe déterministe : talon + activité selon le profil du type de site + bruit, avec une pointe en fin de matinée pour les usines. */
 function consumption(s: Site, date: Date, index: number): number {
   const p = PROFILES[s.siteType] ?? PROFILES['office'];
   const hour = date.getHours();

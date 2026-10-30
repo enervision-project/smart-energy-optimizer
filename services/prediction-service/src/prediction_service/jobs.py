@@ -1,5 +1,3 @@
-"""Ordonnanceur unique : entraînement à 01:00 Europe/Paris, prévisions chaque heure à :05."""
-
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -36,7 +34,7 @@ def _forecast(schedule_key: str) -> None:
                 logger.info("Prévisions publiées : %s", run_id)
                 published = True
     if published:
-        # Après publication, hors du job : un échec du suivi ne doit pas relancer les prévisions.
+        # After publication, outside the job: a monitoring failure must not re-run forecasts.
         try:
             log_forecast_errors(settings.database_url)
         except Exception:
@@ -44,7 +42,6 @@ def _forecast(schedule_key: str) -> None:
 
 
 def forecast_key(now: datetime) -> str:
-    """Créneau de prévision : l'heure UTC en cours (par exemple 2026-10-26T14:00Z)."""
     return now.astimezone(UTC).strftime("%Y-%m-%dT%H:00Z")
 
 
@@ -86,10 +83,7 @@ def run_scheduler() -> None:
                 logger.exception("Job d'entraînement échoué")
             active_training = None
         try:
-            # Une série par heure UTC (clé SQL) : elle complète les 24 heures suivantes
-            # (en régime normal, la seule heure H+24).
-            # :05 laisse à l'ETL le temps de calculer l'heure close (sync-hours à :02) ;
-            # en cas d'échec, nouvel essai à :20, :35 et :50.
+            # One series per UTC hour; :05 follows sync-hours (:02), retries at :20, :35 and :50.
             if local.minute % 15 == 5:
                 _forecast(forecast_key(now))
         except Exception:

@@ -45,7 +45,7 @@ class LoadRateRecommendationRuleTest {
 
 	@Test
 	void shouldReturnGood_whenLoadRateBelowOrEqualEightyPercent() {
-		// Capacity 200 kW -> I_nominale ~310.32 A. 132.5 A -> 42.7%
+		// Capacity 200 kW -> I_nominal ~310.32 A. 132.5 A -> 42.7%
 		HourlyReading reading = new HourlyReading();
 		reading.setCurrentA(BigDecimal.valueOf(132.5));
 

@@ -1,4 +1,4 @@
-# Dashboards loaded from JSON files at Grafana startup (infra/monitoring/grafana/dashboards).
+# Loaded at Grafana startup; UI edits are not saved: export the JSON and commit it.
 # Edits made in the UI are not saved to git: export the JSON and commit it.
 apiVersion: 1
 

@@ -1,11 +1,6 @@
 name: Terraform CI
 
-# Called by ci.yml when infra/terraform/ or .github/services.json changes.
-# - validate: format and syntax, no AWS access needed.
-# - plan: changes the apply would make, with a read-only AWS role.
-#   Pull requests only (the role trusts pull_request OIDC tokens), and skipped
-#   until the role exists (repository variable AWS_PLAN_ROLE_ARN, Terraform output).
-#   Terraform variable without default: ENERGY_API_BASE_URL (repository variable).
+# validate needs no AWS access; plan runs on pull requests once AWS_PLAN_ROLE_ARN exists.
 
 on:
   workflow_call:

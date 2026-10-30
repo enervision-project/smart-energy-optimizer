@@ -1,5 +1,3 @@
-"""Pipelines complets : prétraitements appris sur train, puis réutilisés."""
-
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.impute import SimpleImputer

@@ -1,5 +1,3 @@
-"""Configuration lue dans l'environnement (variables non préfixées, comme les autres services)."""
-
 from functools import lru_cache
 from pathlib import Path
 
@@ -7,7 +5,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # répertoire contenant model.json (XGBoost) et model_meta.json
+    # directory holding model.json (XGBoost) and model_meta.json
     model_dir: Path = Path("/models")
     database_url: str = ""
     mlflow_tracking_uri: str = ""
@@ -15,18 +13,15 @@ class Settings(BaseSettings):
     training_experiment: str = "consommation-horaire-production"
     training_bootstrap_uri: str = ""
     training_config: Path = Path("/app/configs/hgb_production.yaml")
-    # Réservés au futur cycle SQL ; le cycle actuel utilise les trois Parquet historiques.
-    validation_days: int = 14
-    min_current_validation_hours: int = 168
-    # Planification de l'entraînement (01:00) ; les features calendaires sont en UTC.
+    # Training schedule (01:00); calendar features are in UTC.
     training_timezone: str = "Europe/Paris"
     model_refresh_seconds: int = 60
-    # Recalage de niveau des prévisions (recalibration.py) ; false = champion brut publié.
+    # Forecast level recalibration; false publishes the raw champion forecast.
     level_recalibration: bool = True
     log_level: str = "INFO"
-    # Swagger / OpenAPI : désactivés en production
+    # Swagger / OpenAPI: disabled in production
     enable_docs: bool = True
-    host: str = "0.0.0.0"  # noqa: S104 - le conteneur n'est joignable que via le réseau Docker
+    host: str = "0.0.0.0"  # noqa: S104 - the container is only reachable through the Docker network
     port: int = 8000
 
 

@@ -16,10 +16,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Builds the {@link CurrentUser} from the Spring Security authentication: its name is the user id (JWT subject)
- * and its role authority gives the {@link Role}. Independent of how the request was authenticated.
- */
 class CurrentUserArgumentResolver implements HandlerMethodArgumentResolver {
 
 	@Override

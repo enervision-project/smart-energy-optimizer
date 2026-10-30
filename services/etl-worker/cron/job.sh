@@ -7,14 +7,14 @@ case "${1:-}" in
     *) echo "Commande cron inconnue." >&2; exit 2 ;;
 esac
 
-# Un verrou par tâche évite d'empiler les collectes si l'API ralentit.
+# One lock per task, so collections do not pile up if the API slows down.
 exec 9>"/run/etl-worker/etl-$1.lock"
 if ! flock -n 9; then
     printf '%s %s ignoré : exécution précédente encore en cours.\n' "$(date -Iseconds)" "$1"
     exit 0
 fi
 
-# Verrou et messages en root ; la commande ETL tourne sous appuser.
+# Lock and messages as root; the ETL command runs as appuser.
 run_job() {
     if [ "$1" = sync-alerts ]; then
         setpriv --reuid=appuser --regid=appuser --init-groups etl-sync-alerts

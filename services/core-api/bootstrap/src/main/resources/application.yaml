@@ -2,14 +2,12 @@ spring:
   application:
     name: core-api
 
-  # Local run (java -jar or IDE from services/core-api): read the root .env (gitignored).
+  # Local run: read the root .env (gitignored). Optional: compose.yaml passes the variables in a container.
   # Optional: in a container there is no .env, compose.yaml passes the variables instead.
   config:
     import: optional:file:../../.env[.properties]
 
-  # TimescaleDB database, from the environment (compose.yaml) or the root .env (local run).
-  # Explicit placeholders: a .env key such as SPRING_DATASOURCE_URL is not relaxed-bound like an
-  # environment variable. Empty defaults on purpose: the app refuses to start without them.
+  # Explicit placeholders: .env keys are not relaxed-bound. Empty defaults on purpose: the app refuses to start.
   datasource:
     url: ${SPRING_DATASOURCE_URL:}
     username: ${SPRING_DATASOURCE_USERNAME:}
@@ -28,12 +26,12 @@ spring:
 enervision:
   security:
     jwt:
-      # Base64-encoded HMAC-SHA256 key (at least 32 bytes, e.g. openssl rand -base64 32).
+      # Base64 HMAC-SHA256 key, at least 32 bytes. Empty default on purpose: required at startup.
       # Secret: empty default on purpose, the app refuses to start (@NotBlank) without JWT_SECRET.
       secret: ${JWT_SECRET:}
       expiration: ${JWT_EXPIRATION:1h}
       issuer: enervision-core-api
-    # First ADMIN account, created at startup only while the users table is empty (password: 12 characters min).
+    # First ADMIN, created while the users table is empty. Empty email: none.
     # Empty email: no account is created.
     initial-admin:
       email: ${ADMIN_EMAIL:}

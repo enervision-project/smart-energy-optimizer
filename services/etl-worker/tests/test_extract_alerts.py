@@ -1,5 +1,3 @@
-"""Tests de l'extract des alertes, sans réseau ni base de données."""
-
 import io
 import json
 import os

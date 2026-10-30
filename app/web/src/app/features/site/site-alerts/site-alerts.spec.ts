@@ -5,7 +5,6 @@ import { EnergyApi } from '../../../core/services/energy-api';
 import { MockEnergyApi } from '../../../core/services/mock-energy-api';
 import { SiteAlerts } from './site-alerts';
 
-/** Dans le mock, SITE001 a une alerte medium à 19 min et une low à 3 h ; SITE004 n'a qu'une alerte à 1 h 35. */
 describe('SiteAlerts', () => {
   let fixture: ComponentFixture<SiteAlerts>;
   let api: MockEnergyApi;

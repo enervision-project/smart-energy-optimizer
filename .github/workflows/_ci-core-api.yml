@@ -1,9 +1,6 @@
 name: Core API CI
 
-# Called by ci.yml when services/core-api/ or the Liquibase changelog (the schema Hibernate validates) changes.
-# ./mvnw verify runs the checks configured in services/core-api/pom.xml: unit (*Test) and
-# integration (*IT) tests, Spotless formatting and JaCoCo coverage reports, then SonarCloud
-# analyses the code with those reports (quality gate: 80% coverage on new code).
+# Runs ./mvnw verify (tests, Spotless, JaCoCo), then the SonarCloud analysis.
 
 on:
   workflow_call:

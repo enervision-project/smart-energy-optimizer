@@ -22,7 +22,7 @@ function point(
 }
 
 describe('forecast-summary', () => {
-  // 08:00 et 09:00 sont passées ; 10:00 est en cours ; 13:00 n'a pas de prévision.
+  // 08:00 and 09:00 are past; 10:00 is in progress; 13:00 has no forecast.
   const points = [
     point(8, 900),
     point(9, 500),

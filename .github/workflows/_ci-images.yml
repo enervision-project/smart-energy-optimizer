@@ -1,8 +1,6 @@
 name: Docker images CI
 
-# Called by ci.yml on pull requests: builds the Docker image of each changed service
-# (list computed by scripts/ci/changed-services.py from .github/services.json),
-# without publishing it. Publishing and deployment are done by services.yml on main.
+# Builds the images of changed services without publishing; services.yml publishes on main.
 
 on:
   workflow_call:

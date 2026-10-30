@@ -13,10 +13,10 @@ dependencies = [
     "pyarrow==25.0.1",
     "pydantic-settings>=2.6,<3",
     "PyYAML==6.0.3",
-    # version figée : celle de l'entraînement (requirements-training.txt), le pickle en dépend
+    # pinned to the training version (requirements-training.txt): the pickle depends on it
     "scikit-learn==1.9.1",
     "uvicorn>=0.32,<1",
-    # Même module `xgboost`, sans les bibliothèques GPU (nvidia-nccl, ~600 Mo) : l'EC2 n'a pas de GPU.
+    # Same `xgboost` module without the GPU libraries (~600 MB): the EC2 has no GPU.
     "xgboost-cpu>=2.1,<4",
 ]
 
@@ -47,7 +47,7 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-# E/F : pyflakes + pycodestyle ; I : imports ; B : bugbear ; UP : syntaxe moderne ; S : sécurité
+# E/F: pyflakes + pycodestyle; I: imports; B: bugbear; UP: modern syntax; S: security
 select = ["E", "F", "I", "B", "UP", "S", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]

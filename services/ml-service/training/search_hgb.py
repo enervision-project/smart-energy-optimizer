@@ -1,5 +1,3 @@
-"""Ablations, variantes de features et grille HGB sur train et validation."""
-
 import argparse
 from copy import deepcopy
 from hashlib import sha256

@@ -1,13 +1,5 @@
-# Construit et déploie uniquement les services modifiés (liste dans .github/services.json).
-# Les PR ne passent pas par ce workflow : ci.yml (_ci-images.yml) y construit les images sans les publier.
-# - push sur main : construit, publie dans ECR, puis redéploie ces services sur l'EC2 (SSM)
-#   après validation manuelle (environment GitHub « production », reviewers obligatoires).
-#   Les changements sont calculés depuis le dernier commit déployé avec succès
-#   (paramètre SSM /enervision/prod/deployed-sha) : un run annulé ou en échec
-#   est donc rattrapé par le suivant.
-# - lancement manuel : déploie les services choisis (« all » par défaut).
-# Variables du dépôt requises (outputs Terraform) : AWS_DEPLOY_ROLE_ARN, DEPLOY_BUCKET.
-# Secrets du dépôt requis : ENERGY_API_USERNAME, ENERGY_API_PASSWORD (recopiés dans SSM à chaque déploiement).
+# Builds and deploys changed services (.github/services.json) after manual approval; manual runs choose services.
+# Changes are computed from the last deployed SHA (SSM), so a failed run is caught up by the next one.
 name: Deploy
 
 on:
@@ -19,7 +11,7 @@ on:
         description: "Services à déployer : all, ou noms séparés par des virgules (ex. web,db)"
         default: all
 
-# aucun droit par défaut, chaque job déclare uniquement ce dont il a besoin
+# no default permissions
 permissions: {}
 
 env:
@@ -31,20 +23,20 @@ env:
 jobs:
   changes:
     name: Changed services
-    # tant que l'infra n'est pas créée (variable absente), rien n'est construit ni déployé
+    # nothing is built or deployed until the infrastructure exists
     if: vars.AWS_DEPLOY_ROLE_ARN != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      contents: read        # checkout du dépôt
-      id-token: write       # OIDC AWS (lecture du dernier commit déployé)
+      contents: read
+      id-token: write
     outputs:
       services: ${{ steps.select.outputs.services }}
       builds: ${{ steps.select.outputs.builds }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0    # tout l'historique, pour comparer avec la base
+          fetch-depth: 0    # full history, to compare with the base
           persist-credentials: false
 
       - if: github.event_name == 'push'
@@ -76,7 +68,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
-      contents: read        # checkout du dépôt
+      contents: read
       id-token: write       # OIDC AWS (push ECR)
     strategy:
       fail-fast: false
@@ -112,7 +104,7 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
-          provenance: false # sinon une attestation sans tag par image, comptée dans la rétention ECR
+          provenance: false # otherwise an untagged attestation per image counts towards ECR retention
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
@@ -120,7 +112,7 @@ jobs:
   deploy:
     name: Production
     needs: [changes, build]
-    # build « skipped » quand seuls des services sans image (db) ont changé
+    # build is skipped when only image-less services (db) changed
     if: >-
       always()
       && github.ref == 'refs/heads/main'
@@ -134,10 +126,9 @@ jobs:
       name: production
       url: https://ener-vision.click
     permissions:
-      contents: read        # checkout du dépôt (fichiers compose)
+      contents: read
       id-token: write       # OIDC AWS
-    # a newer run waiting for approval replaces an older pending one: approving it also
-    # deploys the skipped changes, the diff starting from the last deployed commit
+    # a newer pending run replaces an older one; its diff starts from the last deployed commit
     concurrency:
       group: deploy-prod
       cancel-in-progress: false
@@ -179,7 +170,7 @@ jobs:
             aws s3 cp .data/ml/dataset-release.json "$dest/dataset-release.json"
           fi
 
-      # source de vérité : secrets GitHub ; deploy.sh les relit dans SSM pour construire le .env
+      # source of truth: GitHub secrets; deploy.sh reads them back from SSM to build .env
       - name: Identifiants de l'API énergie
         env:
           ENERGY_API_USERNAME: ${{ secrets.ENERGY_API_USERNAME }}
@@ -241,7 +232,7 @@ jobs:
               ]}')
             run_on "$INSTANCE_NAME" "$names" "$params"
             if [[ -n $DATASET_URI ]]; then
-              # L'EC2 a validé et activé la release ; SSM mémorise maintenant son URI.
+              # The EC2 validated and activated the release; SSM now records its URI.
               parameter=/enervision/prod/env/TRAINING_BOOTSTRAP_URI
               aws ssm put-parameter --name "$parameter" --type SecureString \
                 --value "$DATASET_URI" --overwrite >/dev/null
