@@ -1,5 +1,3 @@
-"""Imputation de la consommation et agrégats horaires calculés depuis les seules données brutes."""
-
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -52,26 +50,7 @@ def aggregate_hour(
     hours: int = 1,
     connect_timeout: int = 10,
 ) -> int:
-    """Recalcule les dernières heures terminées et retourne le nombre de lignes écrites.
-
-    end_time, ou l'heure courante par défaut, est ramené au début de son heure
-    en UTC ; les hours heures qui précèdent sont recalculées (une ligne par site
-    et par heure). Chaque fenêtre inclut son début et exclut sa fin. Une référence
-    explicite doit comporter un fuseau horaire.
-
-    La puissance moyenne des valeurs non nulles est supposée représentative
-    de l'heure entière : énergie estimée = avg(consumption_kw) × 1 heure.
-    Une heure incomplète est donc estimée depuis les seules valeurs disponibles.
-    L'énergie reste NULL seulement si aucune puissance n'est disponible.
-    consumption_kwh brut n'est pas utilisé.
-    Les autres indicateurs sont moyennés indépendamment, en ignorant leurs NULL.
-    Les calculs décimaux gardent leur précision jusqu'à l'arrondi final à 2 décimales.
-    Un site sans mesure reçoit une ligne dont tous les indicateurs sont NULL.
-    Complétude : minutes_received (lignes reçues), minutes_consumption (dont
-    consommation non NULL) et minutes_backfilled (dont rattrapées) ; 0 signifie
-    qu'aucune mesure n'a été reçue.
-    Le lot est validé en une transaction et les lignes existantes sont recalculées.
-    """
+    """Energy = avg(consumption_kw) × 1 hour: an incomplete hour is estimated from available values."""
     if hours < 1:
         raise ValueError("hours doit valoir au moins 1.")
     reference = end_time if end_time is not None else datetime.now(UTC)
@@ -99,8 +78,7 @@ def aggregate_hour(
         return cursor.rowcount
 
 
-# Stratégies du sujet (PDF 04 p. 13) : valeur précédente pour les consommations
-# stables, interpolation linéaire pour une panne courte (< 3 mesures) ailleurs.
+# Strategies from the brief: previous value for stable consumption, linear for short failures elsewhere.
 STABLE_SITE_TYPES = ("datacenter", "hospital")
 PREVIOUS_VALUE_MAX_AGE = timedelta(minutes=15)
 LINEAR_MAX_SPAN = timedelta(minutes=3)
@@ -160,19 +138,7 @@ def impute_consumption(
     end_time: datetime | None = None,
     connect_timeout: int = 10,
 ) -> int:
-    """Impute les consommations NULL des dernières minutes et retourne le nombre de lignes imputées.
-
-    La fenêtre [end_time − minutes, end_time) porte sur les lignes à imputer ;
-    leurs voisines peuvent être plus anciennes. La valeur brute reste NULL :
-    le résultat va dans consumption_kw_imputed, avec sa méthode.
-    - datacenter, hôpital : dernière valeur brute d'au plus 15 min (previous_value) ;
-    - autres sites : interpolation entre les valeurs brutes qui encadrent la minute,
-      distantes d'au plus 3 min (linear), soit au plus 2 minutes manquantes,
-      lignes absentes comprises. Sans valeur suivante, la ligne est retentée
-      au passage suivant.
-    Seules des valeurs brutes servent de base, jamais une valeur déjà imputée.
-    Une ligne déjà imputée n'est pas recalculée : la fonction peut être relancée.
-    """
+    """The raw value stays NULL; only raw values are used as a base, so the function can be re-run."""
     if minutes < 1:
         raise ValueError("minutes doit valoir au moins 1.")
     reference = end_time if end_time is not None else datetime.now(UTC)

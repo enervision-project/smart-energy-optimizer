@@ -1,8 +1,4 @@
-"""Integration tests against disposable TimescaleDB, never the application's DB.
-
-Run: python3 -m unittest discover -s infra/db/tests -v
-Docker is required. Container names are unique and cleanup runs even after failures.
-"""
+"""Integration tests against disposable TimescaleDB: python3 -m unittest discover -s infra/db/tests -v"""
 
 import json
 import os

@@ -11,10 +11,7 @@ import org.hibernate.annotations.Immutable;
 
 import java.math.BigDecimal;
 
-/**
- * Reference profile of a site (expected normal behaviour), at most one per site.
- * Read-only: rows are loaded by a dedicated script.
- */
+/** Read-only: rows are loaded by a dedicated script. */
 @Entity
 @Immutable
 @Table(name = "site_profiles")
@@ -27,15 +24,12 @@ public class SiteProfile {
 	@Column(name = "site_id")
 	private String siteId;
 
-	/** Expected consumption at rest (kW). */
 	@Column(name = "base_consumption", nullable = false, precision = 14, scale = 2)
 	private BigDecimal baseConsumption;
 
-	/** Expected consumption peak during activity (kW). */
 	@Column(name = "peak_consumption", nullable = false, precision = 14, scale = 2)
 	private BigDecimal peakConsumption;
 
-	/** Start of the activity range, in hours (inclusive). */
 	@Column(name = "working_hour_start", nullable = false)
 	private short workingHourStart;
 

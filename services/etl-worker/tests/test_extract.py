@@ -1,5 +1,3 @@
-"""Tests de l'extraction /current, sans accès réseau."""
-
 import io
 import json
 import os
@@ -122,7 +120,7 @@ class ExtractReadingsTests(unittest.TestCase):
             "http://api.test",
         )
 
-        # Un site en panne n'est jamais remplacé par une mesure NULL inventée.
+        # A failed site is never replaced by an invented NULL reading.
         self.assertEqual([item["site_id"] for item in readings], ["SITE001", "SITE004"])
         self.assertEqual(list(errors), ["SITE002", "SITE003"])
         self.assertIn("503", errors["SITE002"])

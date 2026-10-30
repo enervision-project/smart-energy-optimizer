@@ -1,17 +1,5 @@
 #!/usr/bin/env python3
-"""Liste les services à construire / déployer à partir de .github/services.json.
-
-Un service est sélectionné si un fichier modifié entre --base et --head commence
-par l'un de ses `paths`. Un fichier sous `global` sélectionne tous les services,
-de même qu'une base absente ou introuvable (premier déploiement, historique réécrit).
---only force la sélection : `all` ou une liste de noms séparés par des virgules.
-
-Écrit dans $GITHUB_OUTPUT :
-  services : ["web", "db"]                    (à déployer)
-  builds   : [{"name": "web", "context": ..., "dockerfile": ...}]  (avec image)
-
-Usage : scripts/ci/changed-services.py --base <sha> --head <sha> [--only all|a,b]
-"""
+"""List the services to build and deploy from .github/services.json, and write them to $GITHUB_OUTPUT."""
 
 import argparse
 import json

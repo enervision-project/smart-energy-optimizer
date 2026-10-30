@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Publication immuable et relançable des Parquet ; aucun entraînement.
-# Usage : scripts/ml/upload-bootstrap.sh <bucket-datalake> [version]
-# Pipeline : scripts/ml/upload-bootstrap.sh --release <manifeste-json>
+# Immutable, re-runnable publication of the Parquet files; no training.
+# Usage: scripts/ml/upload-bootstrap.sh <datalake-bucket> [version]
+# Pipeline: scripts/ml/upload-bootstrap.sh --release <manifest-json>
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../.." && pwd)

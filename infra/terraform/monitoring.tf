@@ -1,6 +1,4 @@
-# Dedicated EC2 for monitoring stack
-# Alloy pushes metrics and logs over the VPC private network
-# Grafana is public on grafana.<domain> (HTTPS, Caddy), login through GitHub OAuth
+# Dedicated monitoring EC2: Alloy pushes over the VPC; Grafana is public through Caddy, with GitHub OAuth.
 
 # --- Network: only the app security group can push
 resource "aws_security_group" "monitoring" {
@@ -107,9 +105,7 @@ resource "aws_ssm_parameter" "monitoring_env" {
   value    = local.monitoring_env[each.key]
 }
 
-# GitHub OAuth app secret: never in git or tfvars, set by hand after the first apply:
-#   aws ssm put-parameter --overwrite --type SecureString \
-#     --name /enervision/prod/monitoring/GITHUB_OAUTH_CLIENT_SECRET --value '<secret>'
+# GitHub OAuth secret, never in git: set by hand after the first apply with aws ssm put-parameter --overwrite
 resource "aws_ssm_parameter" "github_oauth_client_secret" {
   name  = "/${local.name}/prod/monitoring/GITHUB_OAUTH_CLIENT_SECRET"
   type  = "SecureString"

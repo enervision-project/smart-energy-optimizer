@@ -1,8 +1,4 @@
-# Monitoring stack, on the monitoring EC2 (infra/terraform/monitoring.tf).
-# Deployed by infra/monitoring/deploy.sh; secrets come from SSM (/enervision/prod/monitoring).
-# Alloy on the app EC2 pushes metrics (9090) and logs (3100); the security group
-# only accepts the app EC2 on those ports. Grafana: https://grafana.<domain> through the
-# proxy service (GitHub login), SSM tunnel as a fallback (terraform output grafana_tunnel).
+# Monitoring stack on the monitoring EC2, deployed by infra/monitoring/deploy.sh; secrets come from SSM.
 name: enervision-monitoring
 
 services:

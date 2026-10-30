@@ -1,5 +1,3 @@
-"""Application FastAPI : /predict et /health."""
-
 import asyncio
 import logging
 from collections.abc import AsyncIterator
@@ -31,7 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.registered_model_name,
         )
     except ModelLoadError:
-        # le service démarre quand même : /health l'indique, /predict répond 503
+        # the service still starts: /health reports it, /predict returns 503
         logger.exception("aucun modèle chargé")
 
     async def refresh_loop() -> None:
@@ -89,7 +87,7 @@ def create_app() -> FastAPI:
             model_version=predictor.version if predictor else None,
         )
 
-    # fonction synchrone : FastAPI l'exécute dans un thread, l'inférence ne bloque pas la boucle
+    # sync function: FastAPI runs it in a thread, so inference does not block the loop
     @app.post("/predict", response_model=PredictResponse)
     def predict(
         payload: PredictRequest, predictor: Annotated[Predictor, Depends(get_predictor)]

@@ -24,10 +24,6 @@ const time = new Intl.DateTimeFormat('fr-FR', {
   second: '2-digit',
 });
 
-/**
- * Vue d'ensemble du parc (wf1) : consommation actuelle, courbe des 24 dernières heures, alertes de la
- * dernière heure et sites triés par charge. Rafraîchie chaque minute (alertes : 30 s).
- */
 @Component({
   imports: [RouterLink, KpiCard, ConsumptionChart, Sparkline],
   selector: 'app-parc',
@@ -44,7 +40,6 @@ export class Parc {
     stream: () => timer(0, READING_REFRESH_MS).pipe(switchMap(() => this.api.getParcSummary())),
   });
 
-  /** Une série horaire par site visible, additionnées pour la courbe du parc et reprises en mini-courbes. */
   protected readonly seriesResource = rxResource({
     stream: () =>
       timer(0, READING_REFRESH_MS).pipe(
@@ -70,7 +65,6 @@ export class Parc {
     reloadOnError(this.alertsResource, ALERT_REFRESH_MS);
   }
 
-  /** `value()` lève une erreur quand la ressource est en échec : on passe par `hasValue()`. */
   private readonly summary = computed(() =>
     this.summaryResource.hasValue() ? this.summaryResource.value() : undefined,
   );
@@ -121,7 +115,7 @@ export class Parc {
     ];
   });
 
-  /** Noms des sites exclus du total : la doc de l'API Mock impose de le signaler. */
+  /** The Mock API docs require flagging sites excluded from the total. */
   protected readonly missing = computed(() => {
     const s = this.summary();
     if (!s) {

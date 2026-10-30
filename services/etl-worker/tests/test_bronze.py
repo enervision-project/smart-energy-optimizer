@@ -1,5 +1,3 @@
-"""Vérifie l'archivage des réponses originales, sans accès à S3."""
-
 import json
 import unittest
 from copy import deepcopy

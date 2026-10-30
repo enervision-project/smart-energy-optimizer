@@ -78,7 +78,7 @@ describe('Recommendations', () => {
     const cards = items();
     expect(cards.length).toBe(3);
 
-    // 1. Facteur de puissance (sans unité)
+    // Power factor (no unit)
     expect(cards[0].querySelector('[data-testid="recommendation-label"]')?.textContent).toContain(
       'Facteur de puissance',
     );
@@ -93,7 +93,7 @@ describe('Recommendations', () => {
       'Votre facteur de puissance est excellent.',
     );
 
-    // 2. Voltage (avec unité V)
+    // Voltage (V)
     expect(cards[1].querySelector('[data-testid="recommendation-label"]')?.textContent).toContain(
       'Voltage',
     );
@@ -105,7 +105,7 @@ describe('Recommendations', () => {
     );
     expect(cards[1].classList.contains('medium')).toBe(true);
 
-    // 3. Valeur inconnue / null
+    // Unknown / null value
     expect(cards[2].querySelector('[data-testid="recommendation-value"]')?.textContent?.trim()).toBe(
       '—',
     );
@@ -153,7 +153,6 @@ describe('Recommendations', () => {
     expect(toggleButton?.textContent?.trim()).toBe('Voir plus');
     expect(firstCard.querySelector('[data-testid="recommendation-long"]')).toBeNull();
 
-    // Clic pour ouvrir
     toggleButton?.click();
     fixture.detectChanges();
 
@@ -162,7 +161,6 @@ describe('Recommendations', () => {
     expect(longRec).not.toBeNull();
     expect(longRec?.textContent).toContain('Explication détaillée du facteur de puissance.');
 
-    // Clic pour refermer
     toggleButton?.click();
     fixture.detectChanges();
 

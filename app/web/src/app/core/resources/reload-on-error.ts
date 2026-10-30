@@ -1,10 +1,6 @@
 import { effect, ResourceRef } from '@angular/core';
 
-/**
- * Relance `resource` `delayMs` après une erreur. Un flux en échec ne reprend pas seul : sans cela, le
- * rafraîchissement périodique d'un `rxResource` s'arrêterait au premier appel raté.
- * À appeler dans un contexte d'injection.
- */
+/** Retries after an error, otherwise a failed `rxResource` stops refreshing. Call in an injection context. */
 export function reloadOnError(resource: ResourceRef<unknown>, delayMs: number): void {
   effect((onCleanup) => {
     if (resource.status() !== 'error') {

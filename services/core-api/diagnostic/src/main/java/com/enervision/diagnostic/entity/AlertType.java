@@ -2,9 +2,6 @@ package com.enervision.diagnostic.entity;
 
 import java.util.Arrays;
 
-/**
- * Alert types sent by the energy API.
- */
 public enum AlertType {
 
 	/** Sudden consumption peak. */
@@ -24,7 +21,6 @@ public enum AlertType {
 		this.code = code;
 	}
 
-	/** Value stored in the database and exposed by the API. */
 	public String code() {
 		return code;
 	}

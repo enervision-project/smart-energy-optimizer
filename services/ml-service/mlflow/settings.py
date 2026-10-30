@@ -1,5 +1,3 @@
-"""Configuration de la base dediee a MLflow."""
-
 import os
 
 from sqlalchemy.engine import URL

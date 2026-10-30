@@ -1,5 +1,3 @@
-"""Vérifie que les tâches cron peuvent lire leur environnement et créer leurs verrous."""
-
 import unittest
 from pathlib import Path
 
@@ -44,7 +42,7 @@ class CronPermissionTests(unittest.TestCase):
             if "/usr/local/bin/etl-cron-job" in line
         ]
         self.assertTrue(cron_jobs)
-        # Seul root peut écrire dans /proc/1/fd/1 et 2 : la redirection cron échoue sous appuser.
+        # Only root can write to /proc/1/fd/1 and 2: the cron redirection fails as appuser.
         self.assertTrue(
             all(" root /usr/local/bin/etl-cron-job" in line for line in cron_jobs)
         )

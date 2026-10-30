@@ -24,12 +24,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
 
-/**
- * JWT (HS256) issuing and verification, and email / password authentication.
- * <p>
- * The user module is the API's identity provider: it exposes the {@link JwtDecoder} and
- * {@link JwtAuthenticationConverter} beans used by the global security filter chain (application module).
- */
+/** JWT beans used by the global security filter chain, and email / password authentication. */
 @Configuration
 @EnableConfigurationProperties({JwtProperties.class, InitialAdminProperties.class})
 class JwtConfig {

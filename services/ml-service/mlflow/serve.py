@@ -1,5 +1,3 @@
-"""Demarre MLflow avec des artefacts locaux ou S3, servis par le serveur."""
-
 import os
 
 from settings import backend_uri

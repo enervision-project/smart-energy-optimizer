@@ -1,5 +1,3 @@
-"""Bronze : archivage S3 des mesures telles que reçues de l'API énergie."""
-
 import json
 import os
 from collections.abc import Mapping, Sequence
@@ -18,14 +16,7 @@ def write_readings_bronze(
     kind: str = "minutes",
     label: str | None = None,
 ) -> str | None:
-    """Archive les JSON d'origine ; seul le classement utilise l'heure de collecte.
-
-    Chaque réponse garde son propre timestamp exact, ses NULL et tous ses champs.
-    Une clé précise à la microseconde évite d'écraser deux collectes d'une même
-    minute. kind sépare la collecte /current (minutes) du rattrapage (backfill) ;
-    label (site et plage d'un rattrapage) complète le nom du fichier.
-    Sans BRONZE_BUCKET, rien n'est écrit.
-    """
+    """Microsecond keys avoid overwriting two collections of the same minute. No BRONZE_BUCKET: nothing is written."""
     if kind not in {"minutes", "backfill"}:
         raise ValueError(f"Type d'archive bronze inconnu : {kind}.")
     bucket_name = (

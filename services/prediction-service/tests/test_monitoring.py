@@ -14,7 +14,7 @@ DASHBOARD = ROOT / "infra/monitoring/grafana/dashboards/overview.json"
 
 
 def test_errors_use_the_training_nmae_and_a_signed_bias():
-    # mesuré, champion seul, publié
+    # measured, champion only, published
     summary = summarize([(100.0, 130.0, 105.0), (50.0, 65.0, 45.0)])
 
     assert summary.hours == 2
@@ -65,7 +65,7 @@ def _dashboard_regexps(prefix: str) -> list[str]:
 
 @pytest.mark.skipif(not DASHBOARD.is_file(), reason="dashboard Grafana absent de cette copie")
 def test_grafana_regexps_parse_the_logged_lines():
-    """Le dashboard lit ces logs avec des regexp LogQL : elles doivent rester alignées."""
+    """The dashboard reads these logs with LogQL regexps: they must stay aligned."""
     lines = {
         "Suivi modèle": "Suivi modèle SITE001 : nMAE champion 30.6 %, publiée 0.9 %, "
         "biais publié -0.9 % (24 h)",
@@ -76,7 +76,7 @@ def test_grafana_regexps_parse_the_logged_lines():
         regexps = _dashboard_regexps(prefix)
         assert regexps, f"aucune requête du dashboard ne lit « {prefix} »"
         for pattern in regexps:
-            # JSON puis LogQL échappent les antislashs : \\d dans le fichier devient \d.
+            # JSON then LogQL escape backslashes: \\d in the file becomes \d.
             match = re.search(pattern.replace("\\\\", "\\"), line)
             assert match, pattern
             assert match.group("site") in {"SITE001", "SITE004"}

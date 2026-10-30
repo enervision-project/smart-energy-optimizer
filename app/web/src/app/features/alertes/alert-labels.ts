@@ -1,4 +1,4 @@
-/** Libellés français des sévérités et types d'alerte ; une valeur inconnue s'affiche telle quelle. */
+/** An unknown value is displayed as is. */
 const SEVERITY_LABELS: Record<string, string> = {
   low: 'Faible',
   medium: 'Moyenne',

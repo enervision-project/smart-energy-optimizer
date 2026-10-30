@@ -1,4 +1,4 @@
-# Étape 1 : build
+# Build
 FROM node:24-alpine AS build
 RUN apk upgrade --no-cache
 WORKDIR /app
@@ -7,7 +7,7 @@ RUN npm --ignore-scripts ci
 COPY . .
 RUN npm run build
 
-# Étape 2 : service des fichiers statiques
+# Static file serving
 FROM nginxinc/nginx-unprivileged:1.31-alpine
 USER root
 RUN apk upgrade --no-cache

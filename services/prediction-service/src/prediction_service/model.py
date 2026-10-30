@@ -1,15 +1,4 @@
-"""Chargement et inférence du modèle (XGBoost ou scikit-learn).
-
-Le répertoire du modèle contient model_meta.json et le fichier du modèle, selon `format` :
-- "xgboost" (défaut) : model.json, booster XGBoost (Booster.save_model), colonnes dans l'ordre
-  de FEATURES ; la position d'un site dans `site_ids` est la valeur numérique de site_id.
-- "sklearn" : model.joblib, pipeline scikit-learn complet (prétraitements inclus) qui reçoit
-  un DataFrame des colonnes listées dans `features` (site_id en texte).
-
-model_meta.json : {"version": "...", "format": "xgboost|sklearn", "site_ids": ["SITE001", ...],
-"features": [...]}. `features` n'est lu que pour sklearn.
-Pour changer de moteur, il suffit de déposer d'autres fichiers : le code de l'API ne change pas.
-"""
+"""Model loading and inference; see docs for the model directory format."""
 
 import json
 import logging
@@ -29,7 +18,7 @@ SKLEARN_MODEL_FILE = "model.joblib"
 META_FILE = "model_meta.json"
 DEFAULT_FORMAT = "xgboost"
 
-# ordre des colonnes attendu par le modèle XGBoost
+# column order expected by the XGBoost model
 FEATURES = [
     "site_id",
     "hour",
@@ -43,21 +32,19 @@ FEATURES = [
 
 
 class UnknownSiteError(ValueError):
-    """Le site n'existait pas dans les données d'entraînement."""
+    """The site was not in the training data."""
 
 
 class ModelLoadError(RuntimeError):
-    """Les fichiers du modèle sont absents ou invalides."""
+    """Model files are missing or invalid."""
 
 
 def _or_nan(value: float | None) -> float:
-    # XGBoost et scikit-learn (HistGradientBoosting) traitent NaN comme une valeur manquante
+    # XGBoost and scikit-learn treat NaN as a missing value
     return math.nan if value is None else value
 
 
 class Backend(Protocol):
-    """Moteur d'inférence : reçoit le site (texte et code) et les features numériques."""
-
     def predict(self, site_id: str, site_code: int, values: dict[str, float]) -> float: ...
 
 
@@ -113,7 +100,7 @@ def _load_xgboost(model_dir: Path) -> Backend:
 
     booster = xgb.Booster()
     booster.load_model(model_dir / MODEL_FILE)
-    # un seul thread : l'instance est partagée avec la base et le reste de la stack
+    # single thread: the instance is shared with the database and the rest of the stack
     booster.set_param({"nthread": 1})
     return XGBoostBackend(booster)
 
@@ -125,7 +112,7 @@ def _load_sklearn(model_dir: Path, meta: dict) -> Backend:
     unknown = set(features) - set(FEATURES)
     if unknown:
         raise ValueError(f"features inconnues : {sorted(unknown)}")
-    # fichier déposé par l'équipe dans le volume du modèle : source de confiance
+    # file placed by the team in the model volume: trusted source
     pipeline = joblib.load(model_dir / SKLEARN_MODEL_FILE)
     if hasattr(pipeline, "n_jobs"):
         pipeline.set_params(n_jobs=1)
@@ -153,7 +140,7 @@ def load_predictor(model_dir: Path) -> Predictor:
         )
     except ModelLoadError:
         raise
-    except Exception as exc:  # xgboost, joblib et sklearn lèvent des types variés
+    except Exception as exc:  # xgboost, joblib and sklearn raise varied types
         raise ModelLoadError(f"modèle illisible dans {model_dir} : {exc}") from exc
     logger.info("modèle %s (%s) chargé (%d sites)", version, model_format, len(site_ids))
     return Predictor(backend, version, {site: i for i, site in enumerate(site_ids)})

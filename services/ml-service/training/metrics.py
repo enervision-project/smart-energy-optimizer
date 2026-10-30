@@ -1,5 +1,3 @@
-"""Mêmes mesures et mêmes lignes pour les deux familles de modèles."""
-
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
@@ -32,7 +30,7 @@ def evaluate(frame: pd.DataFrame, prediction: np.ndarray) -> dict:
     }
     normalized = [report["nmae_pct"] for report in by_site.values()]
     aggregate = _scores(values[TARGET].to_numpy(), prediction)
-    # Un site à cible toujours nulle rend la macro non définie, sans l'exclure silencieusement.
+    # A site with an always-zero target leaves the macro undefined, rather than silently excluding it.
     aggregate["macro_nmae_pct"] = (
         float(np.mean(normalized)) if all(value is not None for value in normalized) else None
     )

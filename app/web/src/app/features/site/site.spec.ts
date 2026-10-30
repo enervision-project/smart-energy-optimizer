@@ -7,10 +7,6 @@ import { EnergyApi } from '../../core/services/energy-api';
 import { MockEnergyApi } from '../../core/services/mock-energy-api';
 import { Site } from './site';
 
-/**
- * Dans le mock : SITE002 a une panne du capteur de température sur les 20 dernières minutes et une coupure de
- * collecte d'une heure il y a 10 h ; SITE003 est en perte réseau sur les 3 dernières heures.
- */
 const SENSOR_FAILURE_SITE_ID = 'SITE002';
 const NETWORK_LOSS_SITE_ID = 'SITE003';
 
@@ -100,12 +96,12 @@ describe('Site', () => {
   it('montre la qualité de chaque pas, périodes sans mesure comprises', async () => {
     const el = await render(SENSOR_FAILURE_SITE_ID);
     const band = el.querySelector('[data-testid="quality-band"]') as HTMLElement;
-    // 48 h au pas de 15 min, la coupure d'une heure occupe au moins 3 pas entiers.
+    // 48 h at 15 min steps: the one-hour outage spans at least 3 full steps.
     expect(band.querySelectorAll('.cell').length).toBeGreaterThanOrEqual(192);
     expect(band.querySelectorAll('.cell.none').length).toBeGreaterThanOrEqual(3);
     expect(band.querySelectorAll('.cell.degraded').length).toBeGreaterThan(0);
 
-    // 3 h de perte réseau : 12 pas de 15 min, 13 quand la panne n'est pas alignée sur le quart d'heure.
+    // 3 h of network loss: 12 steps, 13 when not aligned on a quarter hour.
     const loss = await render(NETWORK_LOSS_SITE_ID);
     const critical = loss.querySelectorAll('[data-testid="quality-band"] .cell.critical').length;
     expect(critical).toBeGreaterThanOrEqual(12);

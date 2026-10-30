@@ -1,16 +1,15 @@
-// Règles des messages de commit (Conventional Commits), volontairement souples :
-// seuls le type et le sujet sont imposés, car semantic-release en a besoin.
+// Deliberately loose: only type and subject are enforced, as semantic-release needs them.
 export default {
   extends: ['@commitlint/config-conventional'],
   rules: {
-    // scope libre (conseillé : le nom du service, ex. web, etl)
+    // free scope (suggested: the service name, e.g. web, etl)
     'scope-enum': [0],
     'scope-case': [0],
-    // sujets en français, souvent avec des noms propres (Angular, Docker…)
+    // French subjects, often with proper nouns (Angular, Docker…)
     'subject-case': [0],
     'subject-full-stop': [0],
     'header-max-length': [2, 'always', 120],
-    // corps et pied libres (liens, tickets SEO-…)
+    // free body and footer (links, SEO-… tickets)
     'body-max-line-length': [0],
     'footer-max-line-length': [0],
     'body-leading-blank': [0],

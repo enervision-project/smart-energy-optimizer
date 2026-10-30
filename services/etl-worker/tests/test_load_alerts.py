@@ -1,5 +1,3 @@
-"""Tests du load des alertes dans PostgreSQL, via un schéma temporaire isolé."""
-
 import io
 import os
 import unittest

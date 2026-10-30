@@ -1,6 +1,4 @@
-# Public entry point of the monitoring EC2 (proxy service of infra/monitoring/compose.yaml).
-# Let's Encrypt certificate obtained and renewed by Caddy. Only Grafana is exposed:
-# Prometheus and Loki are not proxied.
+# Public entry point of the monitoring EC2: only Grafana is exposed.
 {$GRAFANA_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy grafana:3000

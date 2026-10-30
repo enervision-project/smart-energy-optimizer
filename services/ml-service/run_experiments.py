@@ -1,13 +1,4 @@
-"""Lancer les 96 essais HGB sans météo sous Linux/WSL avec Docker Compose.
-
-Depuis la racine :
-    python3 services/ml-service/run_experiments.py
-    python3 services/ml-service/run_experiments.py --dry-run
-    python3 services/ml-service/run_experiments.py --campaign-id mon-essai --resume
-
-Réutilise .data/ml/splits/train.parquet et validation.parquet, en lecture seule.
-Aucune préparation des données ; le jeu de test n'est ni requis ni utilisé.
-"""
+"""Run the 96 weather-free HGB trials with Docker Compose: run_experiments.py [--dry-run] [--campaign-id ID --resume]"""
 
 from __future__ import annotations
 
@@ -67,7 +58,7 @@ def ensure_local_env(root: Path) -> str:
             newline = "\r\n" if "\r\n" in text else "\n"
             text += ("" if text.endswith("\n") else newline) + "JWT_SECRET=" + jwt + newline
     if not existed:
-        # Création privée ; aucun secret n'est affiché.
+        # Created private; no secret is displayed.
         descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "wb") as output:
             output.write(text.encode("utf-8"))
@@ -136,7 +127,7 @@ def check_docker(root: Path) -> None:
 
 def execution_environment(root: Path) -> dict[str, str]:
     env = os.environ.copy()
-    # Une variable vide du shell ne doit pas masquer le secret du fichier .env.
+    # An empty shell variable must not hide the secret from the .env file.
     if not env.get("JWT_SECRET"):
         env.pop("JWT_SECRET", None)
     env["TRAINING_GIT_REVISION"] = "unknown"

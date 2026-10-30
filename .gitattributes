@@ -1,2 +1,2 @@
-# hooks Git : fins de ligne LF, sinon le shebang casse sous Windows
+# Git hooks: LF line endings, otherwise the shebang breaks on Windows
 .githooks/* text eol=lf

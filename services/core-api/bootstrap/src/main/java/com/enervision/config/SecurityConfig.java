@@ -14,13 +14,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * Security for the whole API, shared by all modules: stateless authentication with a JWT (Bearer) token.
- * <p>
- * Every endpoint requires a valid token, except the public routes listed here. Fine-grained authorization is
- * declared in each module with {@code @PreAuthorize} or a meta-annotation such as {@code @AdminOnly}.
- * Tokens are issued and verified by the user module ({@code JwtDecoder}, {@code JwtAuthenticationConverter}).
- */
+/** Stateless JWT security for the whole API; fine-grained rules live in each module ({@code @AdminOnly}). */
 @Configuration
 @EnableMethodSecurity
 @SecurityScheme(name = SecurityConfig.BEARER_AUTH, type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT")

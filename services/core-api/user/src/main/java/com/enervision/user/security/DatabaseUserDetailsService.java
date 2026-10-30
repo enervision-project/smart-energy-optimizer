@@ -9,9 +9,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Loads users from the database for email / password authentication (login).
- */
 @Service
 @RequiredArgsConstructor
 class DatabaseUserDetailsService implements UserDetailsService {

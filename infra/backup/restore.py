@@ -157,7 +157,7 @@ def restore_databases(directory):
                 )
             if database["timescaledb"]:
                 sql(db, "SELECT timescaledb_post_restore()")
-            # Read every ordinary table, including hypertable chunks and MLflow tables.
+            # Reads every ordinary table; amcheck additionally checks supported indexes.
             # This detects unreadable data; amcheck additionally checks supported indexes.
             sql(
                 db,

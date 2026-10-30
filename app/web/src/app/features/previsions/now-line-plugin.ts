@@ -1,9 +1,6 @@
 import { Chart, Plugin } from 'chart.js';
 
-/**
- * Trait vertical « maintenant » : sépare le mesuré de la prévision. `position` donne l'index (fractionnaire)
- * du pas courant sur l'axe des abscisses, relu à chaque dessin ; `null` = pas de trait.
- */
+/** Vertical "now" line separating measured from forecast; `null` position hides it. */
 export function nowLinePlugin(position: () => number | null): Plugin<'line'> {
   return {
     id: 'nowLine',

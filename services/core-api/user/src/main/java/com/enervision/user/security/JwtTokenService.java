@@ -13,9 +13,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 
-/**
- * HS256-signed JWTs. The subject is the user id; roles are in the {@value #ROLES_CLAIM} claim.
- */
+/** HS256-signed JWTs. The subject is the user id; roles are in the {@value #ROLES_CLAIM} claim. */
 @Service
 @RequiredArgsConstructor
 class JwtTokenService implements TokenService {

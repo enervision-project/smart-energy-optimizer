@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.10" # use_lockfile du backend S3
+  required_version = ">= 1.10" # use_lockfile of the S3 backend
 
   required_providers {
     aws = {
@@ -12,7 +12,7 @@ terraform {
     }
   }
 
-  # configuration partielle : terraform init -backend-config=backend.hcl
+  # partial configuration: terraform init -backend-config=backend.hcl
   backend "s3" {}
 }
 

@@ -1,5 +1,3 @@
-"""Tests du chargement avec une connexion PostgreSQL simulée."""
-
 import os
 import unittest
 from datetime import UTC, datetime

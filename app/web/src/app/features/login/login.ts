@@ -16,7 +16,6 @@ export class Login {
 
   protected readonly enabled = this.auth.enabled;
 
-  /** Page demandée avant la connexion (paramètre `?returnUrl=`, voir `withComponentInputBinding`). */
   readonly returnUrl = input<string>();
 
   protected readonly form = new FormGroup({
@@ -51,7 +50,7 @@ export class Login {
     });
   }
 
-  /** Seule une page de l'application est acceptée (pas d'URL externe). */
+  /** Application pages only, no external URL. */
   private target(): string {
     const url = this.returnUrl();
     return url?.startsWith('/') && !url.startsWith('//') && !url.startsWith('/login')

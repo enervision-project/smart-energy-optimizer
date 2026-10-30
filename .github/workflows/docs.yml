@@ -38,7 +38,6 @@ jobs:
         with:
           python-version: '3.15'
 
-      # Installer les dépendances du projet depuis uv.lock / pyproject.toml
       - run: uv sync --locked --no-build
 
       - run: uv run --locked --no-build mkdocs gh-deploy --strict --force

@@ -7,7 +7,7 @@ import { API_BASE_URL } from './api';
 
 export const LOGIN_URL = `${API_BASE_URL}/auth/login`;
 
-/** Faux quand le front tourne sur les données factices (`useMock`) : pas de back, donc pas de connexion. */
+/** False on mock data (`useMock`): no back end, so no login. */
 export const AUTH_ENABLED = new InjectionToken<boolean>('AUTH_ENABLED', {
   factory: () => !environment.useMock,
 });
@@ -16,14 +16,10 @@ const STORAGE_KEY = 'enervision.session';
 
 interface Session {
   token: string;
-  /** Fin de validité du jeton, en millisecondes depuis l'epoch. */
   expiresAt: number;
 }
 
-/**
- * Session de l'utilisateur : jeton JWT de core-api, conservé dans le `sessionStorage`
- * (survit au rechargement, perdu à la fermeture de l'onglet).
- */
+/** JWT kept in `sessionStorage`: survives a reload, lost when the tab closes. */
 @Service()
 export class Auth {
   private readonly http = inject(HttpClient);
@@ -32,7 +28,6 @@ export class Auth {
 
   private readonly session = signal<Session | undefined>(readSession());
 
-  /** Vrai quand les appels à l'API peuvent partir : session ouverte, ou connexion désactivée. */
   readonly loggedIn = computed(() => !this.enabled || this.session() !== undefined);
 
   login(email: string, password: string): Observable<void> {
@@ -50,7 +45,6 @@ export class Auth {
     this.store(undefined);
   }
 
-  /** Jeton à envoyer à l'API ; un jeton expiré ferme la session. */
   token(): string | undefined {
     const session = this.session();
     if (session && session.expiresAt <= Date.now()) {
@@ -60,7 +54,7 @@ export class Auth {
     return session?.token;
   }
 
-  /** Pour le guard : vérifie aussi l'expiration du jeton, contrairement à `loggedIn`. */
+  /** Unlike `loggedIn`, also checks the token expiry. */
   isLoggedIn(): boolean {
     return !this.enabled || this.token() !== undefined;
   }
@@ -78,7 +72,7 @@ export class Auth {
         sessionStorage.removeItem(STORAGE_KEY);
       }
     } catch {
-      // stockage indisponible (navigation privée stricte) : la session reste en mémoire
+      // storage unavailable (strict private browsing): the session stays in memory
     }
   }
 }

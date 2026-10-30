@@ -8,9 +8,6 @@ import com.enervision.diagnostic.entity.RecommendationType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/**
- * Strategy interface for computing a specific recommendation item.
- */
 public interface RecommendationRule {
 
 	RecommendationType type();

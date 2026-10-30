@@ -1,4 +1,4 @@
-# Single-binary Loki, local filesystem storage, 7 days of retention.
+# Single-binary Loki, 7 days of retention. No auth: only the app EC2 can reach port 3100.
 # No auth: only the app EC2 can reach port 3100 (security group).
 auth_enabled: false
 

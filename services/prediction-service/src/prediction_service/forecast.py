@@ -1,5 +1,3 @@
-"""Prévisions horaires des heures manquantes, recalage de niveau et publication atomique."""
-
 import logging
 import math
 from collections import defaultdict
@@ -27,8 +25,7 @@ def next_24_hours(now: datetime) -> list[datetime]:
 
 
 def calendar_request(profile: SiteProfile, instant: datetime) -> PredictRequest:
-    # Calendrier en UTC, comme le CSV d'entraînement et l'API Mock : leurs heures
-    # de travail ne suivent pas l'heure d'été (sinon décalage d'1 h l'hiver, 2 h l'été).
+    # UTC calendar, like the training CSV and the Mock API: their working hours ignore DST.
     utc = instant.astimezone(UTC)
     return PredictRequest(
         site_id=profile.site_id,
@@ -45,7 +42,6 @@ def calendar_request(profile: SiteProfile, instant: datetime) -> PredictRequest:
 def site_ratios(
     settings: Settings, predictor, profiles: list[SiteProfile], now: datetime
 ) -> dict[str, LevelRatios]:
-    """Ratio mesuré / prévu par le champion de chaque site, sur les heures closes de la fenêtre."""
     if not settings.level_recalibration:
         return {profile.site_id: NEUTRAL for profile in profiles}
     end = now.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
@@ -67,11 +63,6 @@ def site_ratios(
 def missing_hours(
     settings: Settings, predictor, profiles: list[SiteProfile], window: list[datetime]
 ) -> list[datetime]:
-    """Heures de la fenêtre qu'un site au moins n'a pas encore, prévues par ce champion.
-
-    En régime normal, seule la dernière heure (H+24) manque. Après un échec, toutes les
-    heures restées sans prévision ; au démarrage ou après un changement de champion, les 24.
-    """
     covered = read_covered_hours(
         settings.database_url,
         window[0],
@@ -87,7 +78,6 @@ def missing_hours(
 
 
 def generate_forecast(settings: Settings, job_id: UUID, now: datetime | None = None) -> UUID | None:
-    """Publie les heures manquantes des 24 prochaines ; None si toutes sont déjà prévues."""
     now = now or datetime.now(UTC)
     predictor = available_predictor(
         settings.model_dir, settings.mlflow_tracking_uri or None, settings.registered_model_name

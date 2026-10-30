@@ -1,5 +1,3 @@
-"""Prepare uniquement la base MLflow puis applique ses migrations."""
-
 import os
 import subprocess
 import sys
@@ -20,7 +18,7 @@ def main() -> int:
     if settings["user"] == admin_user:
         raise ValueError("MLflow doit utiliser son propre utilisateur PostgreSQL.")
 
-    # CREATE DATABASE se fait hors transaction ; une relance reutilise l'existant.
+    # CREATE DATABASE runs outside a transaction; a re-run reuses the existing one.
     with closing(
         psycopg2.connect(
             host=settings["host"],
@@ -68,7 +66,7 @@ def main() -> int:
                 )
             )
 
-    # Les migrations sont executees avec le compte MLflow, jamais le compte admin.
+    # Migrations run with the MLflow account, never the admin one.
     print(f"Base MLflow disponible : {settings['dbname']}.")
     return subprocess.run(
         ["mlflow", "db", "upgrade", backend_uri()], check=False

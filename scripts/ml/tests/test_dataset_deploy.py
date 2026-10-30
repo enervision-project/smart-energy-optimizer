@@ -1,5 +1,3 @@
-"""Exécute deploy.sh uniquement avec AWS et Docker factices, dans un dossier temporaire."""
-
 import importlib.util
 import json
 import os
@@ -127,7 +125,7 @@ class DeployDatasetTests(unittest.TestCase):
                 content += f"TRAINING_BOOTSTRAP_URI={OLD_URI}\n"
             (root / "deploy.env").write_text(content)
         env = os.environ.copy()
-        # Les seuls programmes aws/docker accessibles sont les exécutables factices ci-dessus.
+        # The only aws/docker programs reachable are the fake executables above.
         env.update(
             PATH=str(binary) + ":" + env["PATH"],
             ENERVISION_DIR=str(root),

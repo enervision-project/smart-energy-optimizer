@@ -7,10 +7,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/**
- * Maps the user module's exceptions to ProblemDetail responses.
- * Scoped to this module's controllers so it does not interfere with other modules.
- */
+/** Scoped to this module's controllers so it does not interfere with other modules. */
 @RestControllerAdvice(basePackages = "com.enervision.user")
 class UserExceptionHandler {
 

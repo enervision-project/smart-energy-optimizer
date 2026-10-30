@@ -1,5 +1,3 @@
-"""Tests de l'imputation de la consommation ; PostgreSQL isolé via TEST_DATABASE_URL."""
-
 import os
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -134,7 +132,7 @@ class ImputeConsumptionPostgresTests(unittest.TestCase):
         )
 
     def load(self, site_id, values):
-        """values : minute depuis T0 → consommation (None = capteur en panne)."""
+        """values: minute since T0 → consumption (None = failed sensor)."""
         load_readings(
             [
                 {
@@ -186,7 +184,7 @@ class ImputeConsumptionPostgresTests(unittest.TestCase):
         self.assertEqual(self.impute(), 0)
 
     def test_absent_minute_counts_as_missing(self):
-        # Minute 1 jamais reçue : 0 et 3 encadrent toujours la minute 2.
+        # Minute 1 never received: 0 and 3 still surround minute 2.
         self.load("SITE001", {0: 100.0, 2: None, 3: 130.0})
         self.assertEqual(self.impute(), 1)
         self.assertEqual(self.stored("SITE001")[2]["consumption_kw_imputed"], 120.0)
@@ -215,7 +213,7 @@ class ImputeConsumptionPostgresTests(unittest.TestCase):
         self.assertEqual(
             {rows[m]["imputation_method"] for m in range(1, 16)}, {"previous_value"}
         )
-        # Jamais à partir d'une valeur imputée : au-delà de 15 min, NULL conservé.
+        # Never from an imputed value: beyond 15 min, NULL is kept.
         self.assertIsNone(rows[16]["consumption_kw_imputed"])
         self.assertIsNone(rows[17]["imputation_method"])
 

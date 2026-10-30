@@ -21,7 +21,6 @@ SITE_IDS = ["SITE001", "SITE002"]
 
 @pytest.fixture(scope="session")
 def model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Petit modèle réel, entraîné sur des données aléatoires."""
     rng = np.random.default_rng(0)
     features = rng.random((200, len(FEATURES)))
     target = features[:, 4] + features[:, 5]
@@ -38,7 +37,6 @@ def model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="session")
 def sklearn_model_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Pipeline scikit-learn réel (sans lags), même forme que celui de l'entraînement."""
     rng = np.random.default_rng(0)
     features = [
         "site_id",

@@ -1,5 +1,3 @@
-"""Rattrapage des minutes manquantes, sans réseau ni base."""
-
 import unittest
 from datetime import UTC, datetime, timedelta
 from unittest.mock import ANY, call, patch
@@ -14,7 +12,7 @@ START = datetime(2026, 10, 26, 8, 0, tzinfo=UTC)
 
 class BackfillWindowTests(unittest.TestCase):
     def test_window_stops_before_the_previous_minute(self):
-        # À 10:01:30, la dernière minute examinée est 09:59 : 10:00 reste à sync-readings.
+        # At 10:01:30 the last minute checked is 09:59: 10:00 is left to sync-readings.
         self.assertEqual(
             backfill_window(6, NOW),
             (
@@ -54,7 +52,7 @@ class SplitRangeTests(unittest.TestCase):
         self.assertEqual(split_range(START, end), [(START, end)])
 
     def test_chunks_keep_1000_real_minutes_across_a_time_change(self):
-        # Bornes en heure de Paris, comme les renvoie la base ; le 25/10/2026 à 3 h, il est 2 h.
+        # Paris-time bounds, as returned by the database; on 25/10/2026 at 3:00 it is 2:00.
         paris = ZoneInfo("Europe/Paris")
         start = datetime(2026, 10, 25, 1, 0, tzinfo=paris)
         end = datetime(2026, 10, 25, 23, 0, tzinfo=paris)
@@ -64,7 +62,7 @@ class SplitRangeTests(unittest.TestCase):
         )
         self.assertEqual(chunks[0][0], start)
         self.assertEqual(chunks[-1][1], end)
-        # 23 heures réelles ce jour-là : end - start, dans le même fuseau, en donnerait 22.
+        # 23 real hours that day: end - start in the same timezone would give 22.
         total = sum((last - first for first, last in chunks), timedelta())
         self.assertEqual(total, timedelta(hours=23))
 

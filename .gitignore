@@ -22,8 +22,6 @@ dist/
 
 # Node
 node_modules/
-services/frontend/dist/
-services/frontend/coverage/
 
 # Angular
 .angular/
@@ -41,7 +39,6 @@ services/frontend/coverage/
 .vscode/
 *.swp
 .DS_Store
-services/frontend/tsconfig.tsbuildinfo
 backend.hcl
 .deploy.lock
 

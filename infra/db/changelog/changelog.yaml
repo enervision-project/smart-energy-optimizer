@@ -1,6 +1,4 @@
-# Changelog Liquibase : appliqué par le service « migrate » (compose.yaml) avant l'ETL et l'API.
-# Liquibase note chaque changeset dans databasechangelog et n'applique que les nouveaux.
-# Ne jamais modifier un fichier déjà déployé : ajouter un nouveau fichier en fin de liste.
+# Applied by the migrate service before the ETL and API. Never edit a deployed file: append a new one.
 databaseChangeLog:
   - include: { file: changes/001_rename_legacy_readings.sql, relativeToChangelogFile: true }
   - include: { file: changes/002_initial_schema.sql, relativeToChangelogFile: true }
@@ -8,7 +6,6 @@ databaseChangeLog:
   - include: { file: changes/004_create_site_profiles_and_users_sites.sql, relativeToChangelogFile: true }
   - include: { file: changes/005_readings_source.sql, relativeToChangelogFile: true }
   - include: { file: changes/006_prediction_jobs_and_forecasts.sql, relativeToChangelogFile: true }
-  # 007 conservé sans modification pour l'historique. La gestion des comptes est
-  # désormais assurée par db-bootstrap, jamais par le compte de migration.
+  # 007 kept unchanged for history; accounts are now managed by db-bootstrap.
   - include: { file: changes/008_predictions_level_ratio.sql, relativeToChangelogFile: true }
   - include: { file: changes/009_service_privileges.sql, relativeToChangelogFile: true }

@@ -1,5 +1,0 @@
-# .trivyignore
-# Liste des CVEs ignorées (faux positifs ou risques acceptés).
-# Format supporté :
-# <CVE-ID>
-# <CVE-ID> exp:YYYY-MM-DD

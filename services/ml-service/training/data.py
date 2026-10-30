@@ -1,5 +1,3 @@
-"""Lecture exclusive de train et validation, sans transformation des features."""
-
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
@@ -51,7 +49,6 @@ def validate_frame(frame: pd.DataFrame, name: str) -> None:
 
 def load_data(directory: Path) -> TrainingData:
     frames, manifest = {}, {}
-    # Noms explicites : aucun glob ni ouverture d'un autre jeu.
     for name in ("train", "validation"):
         path = directory / f"{name}.parquet"
         frame = pd.read_parquet(path)

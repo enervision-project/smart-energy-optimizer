@@ -1,9 +1,7 @@
 name: Stack CI
 
-# Called by ci.yml: staging éphémère. Démarre la stack docker compose (db, migrate, core-api, web,
-# scheduler) sur le runner et la vérifie avec scripts/ci/stack-smoke.sh : migrations sur une base
-# vierge, collecte réelle de l'ETL sur l'API Mock, API authentifiée, front.
-# Le profil ml (MLflow, prediction-jobs) n'est pas démarré : il faut les Parquet historiques.
+# Ephemeral staging: starts the compose stack on the runner and checks it with scripts/ci/stack-smoke.sh.
+# The ml profile is not started: it needs the historical Parquet files.
 
 on:
   workflow_call:
@@ -29,8 +27,7 @@ jobs:
 
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
-      # Mêmes contextes, Dockerfile et cache que _ci-images.yml et services.yml ;
-      # tags attendus par compose.yaml (--no-build au démarrage).
+      # Same contexts and cache as _ci-images.yml and services.yml; tags expected by compose.yaml.
       - name: Image core-api
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
@@ -64,8 +61,7 @@ jobs:
           ENERGY_API_USERNAME: ${{ secrets.ENERGY_API_USERNAME }}
           ENERGY_API_PASSWORD: ${{ secrets.ENERGY_API_PASSWORD }}
         run: |
-          # Secrets jetables, propres à ce run ; .env n'est jamais publié.
-          # Hexadécimal : utilisables tels quels dans les URL de connexion.
+          # Disposable secrets; hexadecimal so they are safe in connection URLs.
           secret() { openssl rand -hex 16; }
           etl_password=$(secret)
           prediction_password=$(secret)
@@ -73,7 +69,7 @@ jobs:
             echo "POSTGRES_USER=enervision"
             echo "POSTGRES_PASSWORD=$(secret)"
             echo "POSTGRES_DB=enervision"
-            # Un compte par service, créé par db-bootstrap (infra/db/README.md).
+            # One account per service, created by db-bootstrap.
             echo "MIGRATOR_DB_PASSWORD=$(secret)"
             echo "CORE_API_DB_PASSWORD=$(secret)"
             echo "ETL_DB_PASSWORD=$etl_password"

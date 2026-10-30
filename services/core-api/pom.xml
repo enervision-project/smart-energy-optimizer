@@ -46,8 +46,7 @@
         <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
         <jackson-bom.version>3.1.7</jackson-bom.version>
 
-		<!-- SonarCloud analysis (./mvnw verify sonar:sonar, token in SONAR_TOKEN).
-		     Coverage: each module's target/site/jacoco/jacoco.xml, Sonar's default path -->
+		<!-- SonarCloud analysis: ./mvnw verify sonar:sonar (token in SONAR_TOKEN) -->
 		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
 		<sonar.organization>enervision-project</sonar.organization>
 		<sonar.projectKey>enervision-project_smart-energy-optimizer_core_api</sonar.projectKey>
@@ -55,9 +54,7 @@
 		<sonar.coverage.exclusions>**/Application.java,**/config/**,**/*Config.java,**/*Properties.java,**/dto/**,**/entity/**,**/exception/**</sonar.coverage.exclusions>
 	</properties>
 
-	<!-- Centralized dependency management.
-	     Do NOT redeclare Spring Boot starters here without a version:
-	     it overrides the parent's management and causes "version is missing". -->
+	<!-- Do NOT redeclare Spring Boot starters here without a version: it causes "version is missing". -->
 	<dependencyManagement>
 		<dependencies>
 
@@ -131,8 +128,7 @@
 		<!-- Quality checks run by verify in every module (and in CI) -->
 		<plugins>
 
-			<!-- Integration tests : executions configured by the Spring Boot parent.
-			     Unit tests (*Test) stay with surefire. -->
+			<!-- Integration tests: executions configured by the Spring Boot parent. -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-failsafe-plugin</artifactId>

@@ -1,5 +1,3 @@
-"""Contrôles de préparation sur des données synthétiques, sans données du projet."""
-
 from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -48,7 +46,7 @@ def make_source_frame():
                 "temperature_celsius": np.nan if index == 0 else 20.0,
                 TARGET: value, "unused_column": "à exclure",
             })
-    # L'entrée n'est pas ordonnée et contient une heure sans antécédent exact.
+    # The input is unordered and has an hour without an exact predecessor.
     return pd.DataFrame(rows).iloc[::-1].reset_index(drop=True)
 
 
@@ -174,8 +172,7 @@ class PrepareDataTests(unittest.TestCase):
                 pd.testing.assert_frame_equal(pd.read_parquet(output / f"{name}.parquet"), part)
                 self.assertEqual(summary["splits"][name]["rows"], len(part))
             self.assertEqual(original, {path: sha256(path.read_bytes()).hexdigest() for path in inputs})
-            # Vérifier l'import de préparation dans un interpréteur neuf :
-            # les autres suites peuvent légitimement importer MLflow.
+            # Check the preparation import in a fresh interpreter: other suites may import MLflow.
             subprocess.run([
                 sys.executable, "-B", "-c",
                 "import sys; import training.prepare_data; assert 'mlflow' not in sys.modules",

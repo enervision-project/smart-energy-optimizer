@@ -1,5 +1,3 @@
-"""Verifie le suivi et le stockage des fichiers, sans entrainer de modele."""
-
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory

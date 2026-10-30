@@ -1,5 +1,3 @@
-"""Vérifie l'initialisation et la collecte planifiées sans réseau."""
-
 import io
 import json
 import unittest

@@ -5,9 +5,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
 
-/**
- * Shared clock: services read the current time from it so that tests can fix it.
- */
+/** Shared clock: services read the current time from it so that tests can fix it. */
 @Configuration
 class ClockConfig {
 

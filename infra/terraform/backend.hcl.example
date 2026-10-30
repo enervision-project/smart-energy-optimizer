@@ -1,4 +1,4 @@
-# Copier en backend.hcl (non versionné) : terraform init -backend-config=backend.hcl
+# Copy to backend.hcl (not committed): terraform init -backend-config=backend.hcl
 bucket       = "enervision-tfstate-s3"
 key          = "prod/terraform.tfstate"
 region       = "eu-west-3"

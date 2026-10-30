@@ -11,7 +11,6 @@ import { coveredUntil, forecastEnergy, forecastPeak, latestRun } from './forecas
 import { nowLinePlugin } from './now-line-plugin';
 
 const HOUR_MS = 3_600_000;
-/** Mesuré sur les 12 dernières heures, prévision sur les 24 suivantes (maquette wf3, horizon H+24). */
 export const PAST_HOURS = 12;
 export const HORIZON_HOURS = 24;
 
@@ -23,10 +22,6 @@ const dayHour = new Intl.DateTimeFormat('fr-FR', {
   minute: '2-digit',
 });
 
-/**
- * Prévisions d'un site (wf3) : consommation mesurée des 12 dernières heures, prévision horaire des 24 suivantes
- * (avec la prévision qui avait été faite pour les heures passées, pour comparer), pic prévu et modèle utilisé.
- */
 @Component({
   imports: [BaseChartDirective],
   selector: 'app-previsions',
@@ -37,7 +32,7 @@ export class Previsions {
   private readonly api = inject(EnergyApi);
   private readonly router = inject(Router);
 
-  /** Paramètre `?site=` (via `withComponentInputBinding`) ; le premier site visible par défaut. */
+  /** Defaults to the first visible site. */
   readonly site = input<string>();
 
   protected readonly pastHours = PAST_HOURS;
@@ -55,7 +50,6 @@ export class Previsions {
     this.siteOptions().find((s) => s.siteId === this.siteId()),
   );
 
-  /** Mesuré et prévu sont relus chaque minute ; la fenêtre glisse avec l'heure. */
   protected readonly readings = rxResource({
     params: () => this.siteId(),
     stream: ({ params: siteId }) =>
@@ -92,7 +86,6 @@ export class Previsions {
     reloadOnError(this.predictions, READING_REFRESH_MS);
   }
 
-  /** `value()` lève une erreur quand la ressource est en échec : on passe par `hasValue()`. */
   private readonly points = computed(() =>
     this.predictions.hasValue() ? this.predictions.value().points : [],
   );
@@ -131,7 +124,6 @@ export class Previsions {
     };
   });
 
-  /** Index fractionnaire de maintenant sur l'axe horaire, pour le trait « maintenant ». */
   private readonly nowIndex = computed(() => {
     const first = this.points()[0];
     if (!first) {
@@ -141,10 +133,6 @@ export class Previsions {
   });
   protected readonly chartPlugins = [nowLinePlugin(() => this.nowIndex())];
 
-  /**
-   * Mesuré (trait plein), prévision (pointillés, heures passées comprises pour comparer) et capacité du site.
-   * Le pic prévu est marqué d'un point.
-   */
   protected readonly chartData = computed<ChartData<'line', (number | null)[], string>>(() => {
     const points = this.points();
     const measured = this.measured();

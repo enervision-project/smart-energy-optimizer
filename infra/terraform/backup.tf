@@ -9,9 +9,7 @@ resource "aws_s3_bucket" "backup" {
   }
 }
 
-# S3 access-log targets cannot have Object Lock/default retention. Use the existing
-# private SSE-S3 deployment bucket, under a prefix isolated from release permissions.
-# Do not log the destination back into itself (AWS warns against recursive logging).
+# S3 access-log targets cannot have Object Lock; use a private prefix of the deployment bucket.
 resource "aws_s3_bucket_logging" "backup" {
   bucket        = aws_s3_bucket.backup.id
   target_bucket = aws_s3_bucket.deploy.id

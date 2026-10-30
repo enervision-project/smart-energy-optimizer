@@ -1,9 +1,6 @@
 import { Chart, Plugin } from 'chart.js';
 
-/**
- * Hachure les pas sans aucune mesure reçue (`minutesReceived = 0`), sous les courbes : une période sans
- * mesure se distingue ainsi d'une consommation nulle. `indices` est relu à chaque dessin.
- */
+/** Hatches steps without readings, so that a gap differs from zero consumption. */
 export function noDataPlugin(indices: () => number[]): Plugin<'line'> {
   return {
     id: 'noData',

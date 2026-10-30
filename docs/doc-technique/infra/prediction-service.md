@@ -150,7 +150,7 @@ L'API privée expose `GET /health` et `POST /predict`. Au démarrage, elle cherc
 
 ## Configuration et démarrage local
 
-Les paramètres principaux sont `DATABASE_URL`, `MLFLOW_TRACKING_URI`, `REGISTERED_MODEL_NAME`, `TRAINING_BOOTSTRAP_URI`, `TRAINING_TIMEZONE`, `VALIDATION_DAYS`, `MIN_CURRENT_VALIDATION_HOURS`, `MODEL_DIR`, `MODEL_REFRESH_SECONDS` et `LEVEL_RECALIBRATION`. Leurs valeurs et usages détaillés figurent dans la section **Prediction Service** de cette documentation.
+Les paramètres principaux sont `DATABASE_URL`, `MLFLOW_TRACKING_URI`, `REGISTERED_MODEL_NAME`, `TRAINING_BOOTSTRAP_URI`, `TRAINING_TIMEZONE`, `MODEL_DIR`, `MODEL_REFRESH_SECONDS` et `LEVEL_RECALIBRATION`. Leurs valeurs et usages détaillés figurent dans la section **Prediction Service** de cette documentation.
 
 ```bash
 docker compose --profile ml up -d db migrate mlflow prediction-service prediction-jobs

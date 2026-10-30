@@ -6,9 +6,7 @@ import com.enervision.configuration.api.dto.SiteSummaryResponse;
 
 import java.util.List;
 
-/**
- * Sites visible to a user: an admin sees every site, any other user only the sites granted in {@code users_sites}.
- */
+/** An admin sees every site, any other user only those granted in {@code users_sites}. */
 public interface SiteService {
 
 	List<SiteSummaryResponse> getSites(CurrentUser user);

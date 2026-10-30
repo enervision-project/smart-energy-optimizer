@@ -57,7 +57,7 @@ def test_forecast_batch_is_complete_and_committed_once(monkeypatch):
     )
     assert len(connection.rows) == 24
     assert all(row[0] == run_id for row in connection.rows)
-    # valeur publiée, prévision brute du champion et ratio appliqué
+    # published value, raw champion forecast and applied ratio
     assert connection.rows[0][3:] == (12.0, 15.0, 0.8)
     assert connection.commits == 1
 
@@ -148,6 +148,6 @@ def test_covered_hours_keep_only_the_displayed_prediction_of_this_champion(monke
     assert covered == {("SITE001", hour), ("SITE002", hour)}
     ((sql, parameters),) = executed
     assert parameters == (start, end, "hourly", "8")
-    # Même départage que core-api : dernier lot complet, puis run_id.
+    # Same tie-break as core-api: latest complete batch, then run_id.
     assert "r.generated_at DESC, r.run_id DESC" in sql
     assert "r.status = 'complete'" in sql

@@ -1,25 +1,21 @@
 #!/usr/bin/env bash
-# Vérifie une stack docker compose démarrée (db, migrate, core-api, web, scheduler) :
-# migrations, collecte réelle de l'ETL sur l'API Mock, API authentifiée et front.
-# Utilisé par le job CI « Stack » (_ci-stack.yml) ; lançable en local depuis la racine du dépôt,
-# avec le .env de la stack. Usage : scripts/ci/stack-smoke.sh
+# Checks a started compose stack: migrations, real ETL collection, authenticated API and front end.
 set -euo pipefail
 
 API=${API_URL:-http://127.0.0.1:8080}
 WEB=${WEB_URL:-http://127.0.0.1:4200}
-# Le cron tourne à chaque minute : une collecte doit aboutir en moins de 2 min 30.
+# Cron runs every minute: a collection must succeed within 2 min 30.
 COLLECT_TIMEOUT=${COLLECT_TIMEOUT:-150}
 compose=(docker compose --env-file .env)
 
 step() { printf '\n== %s\n' "$*"; }
-# Lecture du JSON sur l'entrée standard avec python3 (présent en CI comme sur les postes) :
-# `json 'expression'` affiche l'expression, `json_check 'condition'` échoue si elle est fausse.
+# `json 'expr'` prints the expression; `json_check 'cond'` fails if false.
 json() { python3 -c "import json, sys; d = json.load(sys.stdin); print($1)"; }
 json_check() { python3 -c "import json, sys; d = json.load(sys.stdin); sys.exit(0 if ($1) else 1)"; }
 fail() { printf 'ÉCHEC : %s\n' "$*" >&2; exit 1; }
 env_value() { sed -n "s/^$1=//p" .env | tail -n 1; }
 sql() {
-  # POSTGRES_* sont lues dans le conteneur db, d'où les apostrophes.
+  # POSTGRES_* are read inside the db container, hence the single quotes.
   # shellcheck disable=SC2016
   "${compose[@]}" exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$1"
 }

@@ -1,4 +1,4 @@
-# App EC2 metrics are pushed by Alloy (remote write): no scrape target for them here.
+# App EC2 metrics are pushed by Alloy; only the monitoring stack itself is scraped.
 # Only the monitoring stack itself is scraped.
 global:
   scrape_interval: 30s

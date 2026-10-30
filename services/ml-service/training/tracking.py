@@ -1,5 +1,3 @@
-"""Suivi explicite des essais, des données et des pipelines dans MLflow."""
-
 from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path

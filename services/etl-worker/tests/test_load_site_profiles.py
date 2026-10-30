@@ -1,9 +1,3 @@
-"""Tests du chargement des profils de référence des sites.
-
-Les tests PostgreSQL utilisent TEST_DATABASE_URL et un schéma temporaire isolé.
-Ils sont ignorés si cette variable n'est pas définie.
-"""
-
 import os
 import unittest
 from decimal import Decimal
@@ -18,7 +12,7 @@ from psycopg.rows import dict_row
 from etl_worker.extract import read_site_profiles
 from etl_worker.load import _site_profile_row, load_site_profiles
 
-# Format source : jours 0 = lundi, working_hours [début, fin].
+# Source format: days 0 = Monday, working_hours [start, end].
 PROFILE = {
     "site_id": "SITE001",
     "base_consumption": 50,
@@ -29,7 +23,7 @@ PROFILE = {
     "noise_level": 0.05,
 }
 
-# Copie des tables utiles du changeset Liquibase 004 (contraintes comprises).
+# Copy of the tables from Liquibase changeset 004, constraints included.
 _SCHEMA = """
     CREATE TABLE sites (site_id TEXT PRIMARY KEY);
     CREATE TABLE site_profiles (

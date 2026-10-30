@@ -1,8 +1,4 @@
-"""Préparer et publier un snapshot immuable des Parquet choisis par DVC.
-
-prepare s'exécute dans l'image DVC après pull. publish et verify utilisent
-uniquement Python standard et AWS CLI ; aucun entraînement n'est lancé.
-"""
+"""Prepare and publish an immutable snapshot of the Parquet files selected by DVC."""
 from __future__ import annotations
 
 import argparse
@@ -24,7 +20,7 @@ DEPLOY_RELEASE = "dataset-release.json"
 
 
 def project_path(root: Path, relative: str) -> Path:
-    """Construire un chemin interne sans traversée ni lien symbolique."""
+    """Build an internal path, without traversal or symlinks."""
     relative_path = Path(relative)
     if relative_path.is_absolute() or ".." in relative_path.parts:
         raise ValueError("Chemin hors du projet interdit.")
@@ -37,7 +33,7 @@ def project_path(root: Path, relative: str) -> Path:
 
 
 def selected_path(root: Path, value: Path, allowed: tuple[str, ...]) -> Path:
-    """Retourner un chemin construit par le programme, pas le chemin fourni par le CLI."""
+    """Return a path built by the program, not the one given on the CLI."""
     requested = Path(value)
     if ".." in requested.parts:
         raise ValueError("Traversée de répertoire interdite.")
@@ -103,7 +99,7 @@ def validate_release(value: dict, revision: str | None = None) -> dict:
         if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
             raise ValueError(f"{name}: taille invalide.")
         files[name] = {"sha256": digest, "size": size}
-    # Reconstruire les seules données admises : aucune clé supplémentaire ne se propage.
+    # Rebuild only the allowed data: no extra key propagates.
     return {
         "schema_version": 1, "dataset_id": version, "bucket": bucket,
         "dataset_uri": expected, "git_revision": git_revision, "files": files,
@@ -111,12 +107,12 @@ def validate_release(value: dict, revision: str | None = None) -> dict:
 
 
 def dataset_manifest(release: dict) -> dict:
-    # Le commit appartient à la release, pas au snapshot partagé par plusieurs releases.
+    # The commit belongs to the release, not to the snapshot shared by several releases.
     return {key: release[key] for key in ("schema_version", "dataset_id", "files")}
 
 
 def prepare(root: Path, revision: str) -> dict:
-    # Dépendances déjà présentes dans l'image Docker DVC.
+    # Dependencies already in the DVC Docker image.
     import yaml
     from dvc.repo import Repo
 
@@ -177,7 +173,7 @@ def checked_key(key: str) -> str:
 
 @contextmanager
 def aws_parameter_files(bucket: str, key: str):
-    """AWS CLI charge les valeurs comme données depuis deux fichiers privés."""
+    """AWS CLI loads the values as data from two private files."""
     with TemporaryDirectory(prefix="dataset-parameters-") as directory:
         bucket_path = Path(directory) / "bucket"
         key_path = Path(directory) / "key"
@@ -252,7 +248,7 @@ def ensure_object(store, key: str, source: Path, temporary: Path) -> None:
 
 def publish(root: Path, release: dict, store=None) -> None:
     release = validate_release(release)
-    # Vérifier les trois sources avant la première écriture distante.
+    # Check all three sources before the first remote write.
     for name in NAMES:
         actual = fingerprints(project_path(root, f".data/ml/splits/{name}"))
         if {k: actual[k] for k in ("sha256", "size")} != release["files"][name]:
@@ -264,7 +260,7 @@ def publish(root: Path, release: dict, store=None) -> None:
         for name in NAMES:
             ensure_object(store, f"{prefix}/{name}", project_path(root, f".data/ml/splits/{name}"), temporary)
         checksums = temporary / "sha256.txt"
-        # Dériver le texte des fichiers locaux déjà vérifiés, pas du contenu JSON.
+        # Derive the text from the verified local files, not from the JSON content.
         text = "".join(
             f"{fingerprints(project_path(root, f'.data/ml/splits/{name}'))['sha256']}  {name}\n"
             for name in NAMES
@@ -272,7 +268,7 @@ def publish(root: Path, release: dict, store=None) -> None:
         with checksums.open("w", encoding="utf-8") as output:
             output.write(text)
         ensure_object(store, f"{prefix}/sha256.txt", checksums, temporary)
-        # Marqueur de complétude publié seulement après vérification des trois objets.
+        # Completeness marker, published only after verifying the three objects.
         manifest = temporary / "manifest.json"
         manifest.write_bytes(json_bytes(dataset_manifest(release)))
         ensure_object(store, f"{prefix}/manifest.json", manifest, temporary)
@@ -326,7 +322,7 @@ def main(argv=None) -> int:
                 with source.open("rb") as incoming:
                     release = validate_release(json.load(incoming), args.git_revision)
             elif args.command == "publish" and args.bucket:
-                # Compatibilité avec la commande manuelle upload-bootstrap.sh <bucket> [version].
+                # Compatibility with the manual command upload-bootstrap.sh <bucket> [version].
                 files = {}
                 for name in NAMES:
                     info = fingerprints(project_path(root, f".data/ml/splits/{name}"))

@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-# Run on the monitoring EC2 (root, via SSM Run Command) by the Deploy workflow (services.yml).
-# The release files (infra/monitoring/) are already copied to /opt/enervision/infra/monitoring.
-# Usage: deploy.sh
+# Run on the monitoring EC2 (root, via SSM) by the Deploy workflow.
 set -euo pipefail
 
 cd "$(dirname "$0")"

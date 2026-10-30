@@ -1,4 +1,4 @@
-# Contexte de build : racine du dépôt.
+# Build context: repository root.
 FROM docker.io/library/python:3.12-slim-bookworm
 
 RUN apt-get update \

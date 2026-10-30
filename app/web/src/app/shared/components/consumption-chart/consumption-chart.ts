@@ -6,10 +6,7 @@ const CONSUMPTION_COLOR = '#1f7a63';
 const FLAGGED_COLOR = '#d08c2b';
 const CAPACITY_COLOR = '#b23a48';
 
-/**
- * Courbe de consommation (kW) avec une ligne de capacité.
- * Les `null` restent des trous (`spanGaps: false`) ; les points `flagged` sont mis en évidence.
- */
+/** `null` values stay gaps (`spanGaps: false`). */
 @Component({
   imports: [BaseChartDirective],
   selector: 'app-consumption-chart',
@@ -20,7 +17,6 @@ export class ConsumptionChart {
   readonly labels = input.required<string[]>();
   readonly values = input.required<(number | null)[]>();
   readonly capacity = input<number | null>(null);
-  /** Points à signaler (par exemple une heure où un site n'a pas remonté de mesure). */
   readonly flagged = input<boolean[]>([]);
   readonly description = input.required<string>();
 

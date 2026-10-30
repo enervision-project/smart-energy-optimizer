@@ -1,9 +1,3 @@
-"""Tests du chargement des sites.
-
-Les tests PostgreSQL utilisent TEST_DATABASE_URL et un schéma temporaire isolé.
-Ils sont ignorés si cette variable n'est pas définie.
-"""
-
 import os
 import unittest
 from datetime import UTC, datetime

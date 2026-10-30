@@ -15,7 +15,7 @@
   align-items: center;
   gap: 16px;
   padding: 0 24px;
-  // fond clair : le bleu du logo est peu lisible sur fond sombre
+  // light background: the logo's blue is hard to read on dark
   background: #fff;
   border-bottom: 1px solid #dde2da;
   color: #3f4a5a;
@@ -94,7 +94,7 @@
   }
 }
 
-// page de connexion : pas de menu latéral
+// login page: no side menu
 .layout.bare {
   grid-template-columns: 1fr;
   grid-template-areas:

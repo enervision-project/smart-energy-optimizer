@@ -19,10 +19,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Native SQL on a real PostgreSQL ({@code date_bin}, arrays, {@code DISTINCT ON}). Each test runs in a transaction
- * rolled back at the end, schema included ({@code @Sql}).
- */
+/** Native SQL on a real PostgreSQL; each test rolls back, schema included. */
 @JdbcTest
 @Testcontainers
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

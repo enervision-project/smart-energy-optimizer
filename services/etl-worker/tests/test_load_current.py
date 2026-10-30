@@ -1,5 +1,3 @@
-"""Complétion des consommations /current ; PostgreSQL isolé via TEST_DATABASE_URL."""
-
 import io
 import json
 import os
@@ -21,7 +19,7 @@ from etl_worker.load import load_readings, load_sites, read_missing_ranges
 from etl_worker.timestamps import parse_reading_timestamp
 
 START = datetime(2026, 10, 26, 8, 3, 16, tzinfo=UTC)
-MINUTE = START.replace(second=0)  # ts stocké : début de la minute
+MINUTE = START.replace(second=0)  # stored ts: start of the minute
 
 
 def reading(minute=0, site="SITE001", kw=None, kwh=None, **extra):
@@ -74,7 +72,7 @@ class CurrentReadingUnitTests(unittest.TestCase):
         select_parameters = cursor.execute.call_args_list[0].args[1]
         self.assertEqual(select_parameters, {"site_id": "SITE001", "ts": MINUTE})
         row = cursor.execute.call_args_list[-1].args[1]
-        self.assertEqual(row[1], MINUTE)  # Secondes et fractions supprimées.
+        self.assertEqual(row[1], MINUTE)
         self.assertEqual(row[3:5], (0, 0.25))
         self.assertTrue(all(value is None for value in row[5:10]))
         self.assertEqual(row[10:], (source["null_reasons"], "partial", "current"))
@@ -233,7 +231,7 @@ class CurrentReadingPostgresTests(unittest.TestCase):
             ),
             0,
         )
-        # Autre seconde de la même minute : toujours ignorée, la première collecte reste.
+        # Another second of the same minute: ignored, the first collection stays.
         self.assertEqual(
             self.load_current(
                 [reading(kw=77, kwh=7, timestamp="2026-10-26T08:03:48.5")]
@@ -274,7 +272,7 @@ class CurrentReadingPostgresTests(unittest.TestCase):
         def at(minute):
             return MINUTE + timedelta(minutes=minute)
 
-        # Minute 5 reçue avec une consommation NULL : ce n'est pas un trou.
+        # Minute 5 received with a NULL consumption: not a gap.
         self.assertEqual(
             ranges,
             [
@@ -329,7 +327,7 @@ class CurrentReadingPostgresTests(unittest.TestCase):
         self.assertEqual(source, before)
         stored = self.stored()[-1]
         self.assertEqual(stored["ts"], MINUTE + timedelta(minutes=1))
-        # sync-readings n'active pas la complétion : le NULL reçu est stocké tel quel.
+        # sync-readings does not enable completion: the received NULL is stored as is.
         self.assertEqual(
             (stored["consumption_kw"], stored["consumption_kwh"]), (None, None)
         )

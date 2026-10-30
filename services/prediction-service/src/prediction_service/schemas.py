@@ -1,5 +1,3 @@
-"""Contrat de l'API : une ligne de features par prédiction."""
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
